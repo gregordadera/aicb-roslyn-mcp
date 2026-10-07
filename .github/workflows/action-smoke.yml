@@ -1,0 +1,122 @@
+# Exercises the composite action at the repository root (`action.yml`) the way a user's workflow
+# calls it, on a throwaway solution this job generates.
+#
+# WHY IT EXISTS. The action is a few lines of bash around the published package, and every one of
+# them can break on one operating system only: path forms on Windows, an older bash on macOS, a
+# tool directory that does not reach PATH. Nothing else in this repository would notice.
+#
+# WHY TWO RUNS OF THE ACTION. The first proves that the action installs the tool, restores and
+# writes a non-empty document. The second proves that a failing gate fails the step with exit
+# code 6 AND still leaves the document - the two promises the quality gate makes. It uses
+# `types>=0`, which matches every solution, so the gate fails deterministically without depending
+# on what the analysis finds.
+#
+# A RED RUN IS NOT NECESSARILY YOUR COMMIT. The action installs the latest published package from
+# nuget.org, so this job also goes red when nuget.org is unreachable or a freshly published
+# package is broken. Read the log before looking for a mistake in the action.
+
+name: Action smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - ".github/workflows/action-smoke.yml"
+  pull_request:
+    paths:
+      - "action.yml"
+      - ".github/workflows/action-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows because the action's path handling differs there; free on a public repository.
+        os: [ubuntu-latest, windows-latest]
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Only to generate the probe solution. The action sets up its own SDK as well, which is
+      # the path under test.
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build a throwaway solution
+        run: |
+          mkdir -p probe
+          dotnet new console -o probe/app -n ProbeApp --no-restore
+          cat > probe/app/Greeter.cs <<'CSHARP'
+          namespace ProbeApp;
+
+          public sealed class Greeter
+          {
+              public string Greet(string who) => $"hello {who}";
+          }
+          CSHARP
+          # .NET 10 defaults to .slnx; `aicb analyze --solution` is documented for .sln.
+          dotnet new sln -o probe -n Probe --format sln
+          dotnet sln probe/Probe.sln add probe/app/ProbeApp.csproj
+
+      - name: Run the action without a gate
+        id: plain
+        uses: ./
+        with:
+          solution: probe/Probe.sln
+          output: out/context.md
+
+      - name: The document exists and is not empty
+        env:
+          OUTPUT_PATH: ${{ steps.plain.outputs.output }}
+          EXIT_CODE: ${{ steps.plain.outputs.exit-code }}
+        run: |
+          echo "output=$OUTPUT_PATH exit-code=$EXIT_CODE"
+          [ "$OUTPUT_PATH" = "out/context.md" ] \
+            || { echo "::error::the action's output path is '$OUTPUT_PATH', expected out/context.md"; exit 1; }
+          [ "$EXIT_CODE" = "0" ] \
+            || { echo "::error::the exit-code output is '$EXIT_CODE', expected 0"; exit 1; }
+          [ -s "$OUTPUT_PATH" ] \
+            || { echo "::error::$OUTPUT_PATH is missing or empty"; exit 1; }
+          echo "OK: $(wc -c < "$OUTPUT_PATH") bytes written."
+
+      # continue-on-error so the job can assert on the failure instead of ending with it. The
+      # SDK and the restore are already in place, so this run skips both.
+      - name: Run the action with a gate that always matches
+        id: gate
+        continue-on-error: true
+        uses: ./
+        with:
+          solution: probe/Probe.sln
+          output: out/gated.md
+          fail-on: types>=0
+          dotnet-version: ''
+          restore: 'false'
+
+      - name: The gate failed with exit code 6 and still wrote the document
+        env:
+          OUTCOME: ${{ steps.gate.outcome }}
+          EXIT_CODE: ${{ steps.gate.outputs.exit-code }}
+        run: |
+          echo "outcome=$OUTCOME exit-code=$EXIT_CODE"
+          [ "$OUTCOME" = "failure" ] \
+            || { echo "::error::the gated run ended with outcome '$OUTCOME', expected failure"; exit 1; }
+          [ "$EXIT_CODE" = "6" ] \
+            || { echo "::error::the gated run reported exit code '$EXIT_CODE', expected 6"; exit 1; }
+          [ -s out/gated.md ] \
+            || { echo "::error::out/gated.md is missing or empty - a failed gate must still write it"; exit 1; }
+          echo "OK: the gate failed with exit code 6 and the document was written."

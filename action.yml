@@ -1,0 +1,156 @@
+# Runs `aicb analyze` on a C# solution: writes the context document and, with `fail-on`,
+# enforces the quality gate (exit code 6 when the expression matches).
+#
+# WHY A COMPOSITE ACTION AND NOT A DOCKER ONE. A container action runs on Linux runners only,
+# and analysis needs the .NET SDK that matches the analyzed solution - which the caller's own
+# workflow usually installs already. A composite action runs on Linux, Windows and macOS and
+# shares that SDK installation.
+#
+# WHY IT INSTALLS THE PUBLISHED PACKAGE. This repository carries no source; the action installs
+# the same .NET tool from nuget.org that `dotnet tool install -g aicb-roslyn-mcp` gives a user.
+#
+# Inputs reach the scripts only through `env:`, never as `${{ inputs.* }}` inside a script body:
+# an expression is pasted into the script text before bash parses it, so a crafted input would
+# run as code. Through the environment it stays a value.
+
+name: AICB C# analysis and quality gate
+description: Analyze a C#/.NET solution with Roslyn, write AI-ready context Markdown and optionally fail the job on a quality gate.
+author: Gregor Dadera
+
+branding:
+  icon: check-circle
+  color: purple
+
+inputs:
+  solution:
+    description: Path of the .sln file to analyze, relative to the workspace or absolute.
+    required: true
+  output:
+    description: Path of the context Markdown to write. Missing parent directories are created.
+    required: false
+    default: aicb-context.md
+  fail-on:
+    description: >-
+      Quality gate expression, for example `critical>0 OR debt>120min`. Empty means no gate.
+      When it matches, the document is still written and the step fails with exit code 6.
+    required: false
+    default: ""
+  version:
+    description: Version of the aicb-roslyn-mcp package to install. Empty installs the latest published version.
+    required: false
+    default: ""
+  dotnet-version:
+    description: >-
+      .NET SDK to set up with actions/setup-dotnet. The tool needs the .NET 10 SDK. Empty skips
+      the setup and uses the SDKs already on the runner.
+    required: false
+    default: 10.0.x
+  restore:
+    description: Run `dotnet restore` on the solution first. AICB does not restore, and an unrestored solution analyzes incompletely.
+    required: false
+    default: "true"
+  args:
+    description: >-
+      Further `aicb analyze` options, for example `--format tag --emit-session-db out/app.acb`.
+      Split on whitespace; a value that itself contains a space cannot be passed here.
+    required: false
+    default: ""
+
+outputs:
+  output:
+    description: Path of the written context document, as passed in `output`.
+    value: ${{ steps.analyze.outputs.output }}
+  exit-code:
+    description: Exit code of `aicb analyze` - 0 success, 6 quality gate failed, others are listed in the command-line reference.
+    value: ${{ steps.analyze.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up the .NET SDK
+      if: inputs.dotnet-version != ''
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    # --tool-path into a fresh directory under the runner's temp folder rather than -g: a global
+    # install would collide with an aicb the workflow installed itself, and a second use of this
+    # action in the same job would fail with "already installed". The step runs in the temp
+    # folder so that a global.json in the caller's repository, which may pin an SDK too old to
+    # install a .NET 10 tool, does not apply to the install (the temp folder is not below the
+    # workspace, so no global.json of the repository is found from there).
+    - name: Install aicb
+      shell: bash
+      env:
+        AICB_VERSION: ${{ inputs.version }}
+      run: |
+        temp="$RUNNER_TEMP"
+        # On a Windows runner RUNNER_TEMP is a Windows path; Git Bash tools want the POSIX form.
+        if command -v cygpath > /dev/null 2>&1; then
+          temp="$(cygpath -u "$temp")"
+        fi
+        cd "$temp"
+        tool_dir="$(mktemp -d "$temp/aicb-tool-XXXXXX")"
+        if [ -n "$AICB_VERSION" ]; then
+          dotnet tool install aicb-roslyn-mcp --tool-path "$tool_dir" --version "$AICB_VERSION"
+        else
+          dotnet tool install aicb-roslyn-mcp --tool-path "$tool_dir"
+        fi
+        # GITHUB_PATH entries end up in the Windows PATH on a Windows runner, so they must be
+        # Windows paths there; cygpath exists only in Git Bash.
+        if command -v cygpath > /dev/null 2>&1; then
+          cygpath -w "$tool_dir" >> "$GITHUB_PATH"
+        else
+          printf '%s\n' "$tool_dir" >> "$GITHUB_PATH"
+        fi
+        "$tool_dir/aicb" --version
+
+    - name: Restore the solution
+      if: inputs.restore == 'true'
+      shell: bash
+      env:
+        AICB_SOLUTION: ${{ inputs.solution }}
+      run: dotnet restore "$AICB_SOLUTION"
+
+    # The exit code is passed through unchanged, so `6` (gate failed) stays distinguishable from
+    # `1` (bad invocation) or `5` (no MSBuild) for a caller that uses continue-on-error and reads
+    # the `exit-code` output.
+    - name: Analyze
+      id: analyze
+      shell: bash
+      env:
+        AICB_SOLUTION: ${{ inputs.solution }}
+        AICB_OUTPUT: ${{ inputs.output }}
+        AICB_FAIL_ON: ${{ inputs.fail-on }}
+        AICB_ARGS: ${{ inputs.args }}
+      run: |
+        # A line break in a value written to GITHUB_OUTPUT would start a second output line.
+        case "$AICB_OUTPUT" in
+          *$'\n'*) echo "::error::the output input must not contain a line break"; exit 1 ;;
+        esac
+
+        cmd=(aicb analyze --solution "$AICB_SOLUTION" --output "$AICB_OUTPUT")
+        if [ -n "$AICB_FAIL_ON" ]; then
+          cmd+=(--fail-on "$AICB_FAIL_ON")
+        fi
+        if [ -n "$AICB_ARGS" ]; then
+          # Word splitting without eval: no quote removal, no globbing, no command substitution.
+          # read returns 1 at end of input with -d '', which is expected here.
+          read -r -d '' -a extra <<< "$AICB_ARGS" || true
+          cmd+=("${extra[@]}")
+        fi
+
+        echo "output=$AICB_OUTPUT" >> "$GITHUB_OUTPUT"
+
+        set +e
+        "${cmd[@]}"
+        status=$?
+        set -e
+
+        echo "exit-code=$status" >> "$GITHUB_OUTPUT"
+        case "$status" in
+          0) ;;
+          6) echo "::error::aicb quality gate failed (exit code 6); the context document was still written" ;;
+          *) echo "::error::aicb analyze failed with exit code $status" ;;
+        esac
+        exit "$status"
