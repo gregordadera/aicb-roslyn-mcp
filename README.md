@@ -445,7 +445,18 @@ dotnet tool uninstall -g AIContextBuilder
 
 Update it later with `dotnet tool update -g aicb-roslyn-mcp`. For a container, the
 repository's [`Dockerfile`](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/Dockerfile)
-installs the same .NET tool and serves MCP over stdio.
+installs the same .NET tool and serves MCP over stdio. The container runs as a non-root
+user, and analysis writes `obj/` into the mounted solution, so run it as the owner of the
+mount and restore the solution inside the container first:
+
+```sh
+docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" \
+  -v aicb-nuget:/home/aicb/.nuget/packages --entrypoint dotnet aicb restore /src/App.sln
+docker run --rm -i --user "$(id -u):$(id -g)" -v "$PWD:/src" \
+  -v aicb-nuget:/home/aicb/.nuget/packages aicb
+```
+
+The Dockerfile header explains why the restore has to run in the container.
 
 If the tool reports that MSBuild could not be registered, the .NET it runs on found no SDK it
 can use: an SDK newer than that .NET does not count (for example a .NET 10 runtime next to only
