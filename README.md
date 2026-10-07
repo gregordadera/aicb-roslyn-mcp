@@ -297,6 +297,25 @@ one bounded response. Use `measure` first when the likely response size matters.
 | Reuse an analyzed model across processes | `remember_codebase` persists it, `recall_codebase` loads it without Roslyn, and `refresh_remembered` restores a full live analysis when required. These three are opt-in tools (`AICB_MCP_TOOLS`). |
 | Curate context visually | The Windows app adds a solution tree, manual context selection, detail and token controls, AI-Builder-MD preview/export, snapshots, Insights, LLM runs and a source editor. |
 
+In GitHub Actions the gate is one step. The action at the root of this repository sets up
+the .NET 10 SDK, installs the published tool, restores the solution and runs
+`aicb analyze`; a failed gate fails the step with exit code `6`, and the document is still
+written:
+
+```yaml
+- uses: gregordadera/aicb-roslyn-mcp@main
+  with:
+    solution: App.sln
+    output: artifacts/context.md
+    fail-on: "critical>0 OR debt>120min"
+```
+
+`@main` follows every change to the action. Pinning it to a commit SHA, or to a release tag
+that already contains `action.yml`, is the safer choice for a build you depend on. Further inputs are `version` (the package
+version, latest by default), `dotnet-version`, `restore` and `args` for other
+`aicb analyze` options; the outputs are `output` and `exit-code`. See
+[`action.yml`](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/action.yml).
+
 Configuration precedence is axis- and surface-specific. For example, headless layer
 mapping can fall back to the sidecar, while headless test detection currently resolves
 from the database or built-in rules rather than the sidecar's test axis. The exact

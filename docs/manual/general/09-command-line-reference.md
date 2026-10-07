@@ -500,6 +500,30 @@ The same gate as a GitHub Actions step:
 
 `if: always()` is what makes the second step run even when the gate failed - the document exists in both cases.
 
+The step above assumes that the job has already set up the .NET 10 SDK, installed `aicb` and restored the solution. The composite action at the root of the public repository does those three things and then runs the same command:
+
+```yaml
+- name: Analyze and enforce the quality gate
+  uses: gregordadera/aicb-roslyn-mcp@main
+  with:
+    solution: MyApp.sln
+    output: artifacts/context.md
+    fail-on: "critical>0 OR debt>120min"
+    args: --emit-session-db artifacts/context.acb
+```
+
+| Input | Default | Meaning |
+|---|---|---|
+| `solution` | required | The `.sln` file, passed as `--solution`. |
+| `output` | `aicb-context.md` | Passed as `--output`. |
+| `fail-on` | empty, no gate | Passed as `--fail-on` when not empty. |
+| `version` | empty, latest | The version of the `aicb-roslyn-mcp` package to install. |
+| `dotnet-version` | `10.0.x` | The SDK set up with `actions/setup-dotnet`; empty uses the SDKs already on the runner. |
+| `restore` | `true` | Runs `dotnet restore` on the solution first. |
+| `args` | empty | Further `analyze` options, split on whitespace; a value containing a space cannot be passed this way. |
+
+The exit code of `analyze` is passed through unchanged, so a failed gate fails the step with `6`, and the document is written as before - the upload step with `if: always()` works the same way behind the action. The action's outputs are `output` (the path passed in) and `exit-code`, which a workflow that runs the step with `continue-on-error: true` can read to tell a failed gate (`6`) from a broken invocation. The tool is installed into a directory of its own under the runner's temporary folder, not as a global tool, so it does not collide with an `aicb` the workflow installs itself. Pin the action to a commit SHA, or to a release tag that already contains `action.yml`, rather than `@main` when the build depends on it.
+
 ### Analyze several solutions in a loop
 
 ```sh
