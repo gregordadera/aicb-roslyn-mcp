@@ -42,6 +42,22 @@ jobs:
       - name: Build the image
         run: docker build -t aicb:ci .
 
+      # The container executes the MSBuild logic and source generators of whatever solution is
+      # mounted into it, so it must not do that as root. Asserted on what `id` reports inside the
+      # container rather than on the USER line: a base image change or a reordered Dockerfile can
+      # leave the line in place and still end up as root.
+      - name: The image does not run as root
+        run: |
+          uid="$(docker run --rm --entrypoint id aicb:ci -u)"
+          docker run --rm --entrypoint id aicb:ci
+          if [ -z "$uid" ] || [ "$uid" = "0" ]; then
+            echo "FAIL: the container runs as uid '$uid', expected a non-root uid"
+            exit 1
+          fi
+          echo "OK: the container runs as uid $uid."
+
+      # Runs as the image's default non-root user, so a green handshake also shows that the tool
+      # under /opt/aicb is readable and executable for that user and that HOME is usable.
       - name: The server starts and answers an MCP handshake
         run: |
           # The three lines a client sends before it can call anything. stdin is held
@@ -74,3 +90,72 @@ jobs:
             || { echo "FAIL: tools/list advertised $tools tools, expected at least 20"; exit 1; }
 
           echo "OK: the container serves MCP and advertises $tools tools."
+
+      # The invocation the Dockerfile header documents, end to end: a solution owned by the host
+      # user, restored in the container into the named package volume, then analyzed by a second
+      # container that sees the packages only through that volume. Each half can fail on its own
+      # - an unwritable HOME, a volume the non-root user cannot write, an obj/ the container uid
+      # may not touch - and every one of them would leave the handshake above green.
+      - name: The documented invocation analyzes a solution owned by the host user
+        run: |
+          host="$(id -u):$(id -g)"
+          mkdir probe
+
+          # Created with the image's own SDK and as the host user, so the runner's preinstalled
+          # SDKs play no part and every file is owned by the host uid, as in a real checkout.
+          # --no-restore: the restore below is the one under test.
+          docker run --rm --user "$host" -v "$PWD/probe:/src" --entrypoint sh aicb:ci -c '
+            set -e
+            echo "uid=$(id -u) HOME=$HOME"
+            dotnet new console -o /src/app -n ProbeApp --no-restore
+            dotnet new sln -o /src -n Probe --format sln
+            dotnet sln /src/Probe.sln add /src/app/ProbeApp.csproj
+          '
+          cat > probe/app/Greeter.cs <<'CSHARP'
+          namespace ProbeApp;
+
+          public sealed class Greeter
+          {
+              public string Greet(string who) => $"hello {who}";
+          }
+          CSHARP
+          cat > probe/app/Program.cs <<'CSHARP'
+          using ProbeApp;
+
+          var greeter = new Greeter();
+          System.Console.WriteLine(greeter.Greet("world"));
+          CSHARP
+
+          # A fresh named volume must be writable for an arbitrary uid. That depends on Docker
+          # initializing it from the image directory's mode, which is asserted here rather than
+          # assumed: a failed `touch` names the cause, a failed restore would only hint at it.
+          docker run --rm --user "$host" -v aicb-nuget-ci:/home/aicb/.nuget/packages \
+            --entrypoint sh aicb:ci -c 'touch "$HOME/.nuget/packages/.write-probe"' \
+            || { echo "FAIL: the package volume is not writable for uid $host"; exit 1; }
+
+          # Step 1 of the header, verbatim apart from the names.
+          docker run --rm --user "$host" \
+            -v "$PWD/probe:/src" -v aicb-nuget-ci:/home/aicb/.nuget/packages \
+            --entrypoint dotnet aicb:ci restore /src/Probe.sln
+
+          owner="$(stat -c %u probe/app/obj/project.assets.json)" \
+            || { echo "FAIL: the restore wrote no obj/project.assets.json"; exit 1; }
+          [ "$owner" = "$(id -u)" ] \
+            || { echo "FAIL: project.assets.json belongs to uid $owner, not to the host user $(id -u)"; exit 1; }
+
+          # Step 2 of the header with `aicb call` in place of `aicb mcp`: the same analysis path,
+          # minus a JSON-RPC session. Same assertions as the package smoke: an answer at all, and
+          # a resolved symbol - `not_found` is a successful run over an empty graph.
+          out="$(docker run --rm --user "$host" \
+            -v "$PWD/probe:/src" -v aicb-nuget-ci:/home/aicb/.nuget/packages \
+            --entrypoint aicb aicb:ci call find_usages --sln /src/Probe.sln --arg symbol=Greeter)"
+          echo "$out"
+
+          printf '%s' "$out" | grep -q '"resolvedKind"' \
+            || { echo "FAIL: no resolvedKind in the answer - the tool did not answer at all"; exit 1; }
+          if printf '%s' "$out" | grep -q '"resolvedKind" *: *"not_found"'; then
+            echo "FAIL: Greeter did not resolve - the workspace opened but the symbol graph is empty"
+            exit 1
+          fi
+
+          echo "OK: as uid $host the container restored and analyzed a solution owned by the host user."
