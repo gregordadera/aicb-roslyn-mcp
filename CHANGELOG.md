@@ -4,6 +4,310 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
+## 0.5.501.1 (unreleased) - `aicb init` sets up Codex and OpenCode, namespace exclusions keep what you name, and every answer about a session uses one layer profile
+
+**Who is affected.** Everyone on the MCP server: reconnect your client once - 12 tools of the
+default profile have a new description or a new parameter description; no tool or parameter was
+added, removed or made required. Codex and OpenCode users: run `aicb init` again - it now
+registers the server for these clients and writes the agent skill where they read it. Anyone
+with a `.aicb.json`: it can now hold keep rules (`keepNamespaces`) and an explicit opt-out
+(`exclusionsDisabled`); an earlier version ignores both. Anyone who analyzes without a
+configuration database (`aicb analyze` without a session database, `aicb call` without
+`--db-path`): the built-in namespace exclusion list now applies there too, so dependency lists
+get shorter. Exported documents change in many places (below); the built-in MCP profiles'
+template no longer embeds the source code of the whole solution. A snapshot, saved session or
+remembered codebase from an earlier version is analyzed afresh the first time it is used. The
+configuration database is updated the first time this version opens it (built-in tag schemas,
+below). Desktop app users: automatic backup no longer delays the start, and the right-click
+node-override editor is gone.
+
+### Setting up Codex and OpenCode
+
+- **`aicb init` registers the server for Codex and OpenCode**, which do not read `.mcp.json`:
+  for each of them that the project uses, or that `--hooks` names, it writes the `aicb` entry
+  into `.codex/config.toml` or `opencode.json` and writes the agent skill to `.agents/skills/`,
+  where both read skills. Before, the server entry and the skill reached Claude Code only, and the
+  run said so.
+- `--hooks none` skips only the symbol guard; the server is still registered. To wire a client
+  whose folder does not exist yet, name it: `aicb init --hooks codex` or `--hooks opencode`.
+- Codex reads a project's `.codex/config.toml` only in a project you have trusted in Codex. The
+  run ends with that sentence when it wrote the file.
+- Your own `.codex/config.toml` is never rewritten: the entry is appended as a table of its own,
+  and an `aicb` entry already there, in any TOML spelling, is kept.
+
+### Namespace exclusions: keep rules, your own types, and the same list on every path
+
+- **Keep rules.** A keep rule names a namespace the exclusion never drops - in `.aicb.json` under
+  `"keepNamespaces"`, in the desktop app's exclusion list editor as the `Keep` column, and through
+  `apply_solution_config` as `"keep": true` on an exclusion. Keep rules alone leave the built-in
+  list in force beneath them, so a library whose subject is a framework area (for example Dapper
+  and `System.Data`) needs one rule. Your own exclusion rules still replace the built-in list. A
+  keep-only list for a solution applies over the app-wide list when one is set. An earlier
+  version ignores `keepNamespaces` and drops it when it rewrites the file.
+- **A type your solution declares is never dropped** because its namespace matches an exclusion
+  rule: extension classes you declare in `Microsoft.Extensions.DependencyInjection` and your own
+  nullable value types (`CallOptions?`) reappear in dependency lists. This also holds when only a
+  type argument of a base type or interface names your type (`Basket : OwnBase<OrderLine>`).
+- **Without a configuration database the built-in list applies**: `aicb analyze` without a
+  session database, `aicb call` without `--db-path` and a server without a configuration
+  database now exclude `System`, `Microsoft`, `Windows`, `Syncfusion` and `CommunityToolkit`
+  like every path with a database. Before, they excluded nothing, so one solution's dependency
+  lists depended on whether a database existed.
+- **The document names its list:** the header carries `Exclusions:` with the list, its source
+  and its rule count (keep rules counted apart), and `export_markdown` with `outputPath` names it
+  in its confirmation. With keep rules over the built-in list, the line names the built-in list
+  that does the excluding.
+- A type whose dependencies were all excluded no longer reads "without external dependencies";
+  it reads "no dependency outside the excluded namespaces".
+- **A nullable value type is judged by the type it wraps:** a kept or third-party `Kind?` is
+  listed as `Kind?` in every dependency list, `int?` and other nullable built-in types no longer
+  appear under a rule for `System`, and nullable framework types are excluded by their own
+  namespace. The same holds for pointers.
+- **`"exclusions": []` keeps its old meaning** - no list of your own, the built-in list applies -
+  as in every `.aicb.json` an earlier version wrote. To exclude nothing, write
+  `"exclusionsDisabled": true`; a file exported for a solution set to exclude nothing now carries
+  it, and so does a list whose rules are all empty. A rule list with entries but no usable rule is
+  reported as a broken file instead of being read as no list.
+- **`check_solution_config_drift`** calls a custom test profile stale when it misses more than a
+  quarter of the projects named like tests (before: 3 or more, whatever the solution's size),
+  counts a multi-targeted project once, and an `ok` answer no longer says "may be stale". It
+  judges a keep-only list by the list beneath it that does the excluding: over a list that
+  excludes nothing it answers `not-configured`, over a keep-only app-wide list it judges the
+  built-in list.
+
+### `.aicb.json` is never rewritten from a file aicb could not read
+
+- **`apply_solution_config` and the desktop app's `Export Config` leave a `.aicb.json` they cannot
+  read exactly as it is** - malformed, locked, or holding a keep rule inside `exclusions` - and
+  refuse before anything is written. Before, every setting the call did not name was deleted,
+  `analyzePreferredTfmOnly` included. A file that becomes unreadable while the database is
+  written is left alone too; the configuration is saved to the database and a warning says the
+  file was not written.
+- `apply_solution_config` keeps the layer, exclusion and test settings of the existing file for
+  every setting the call does not change; before, a layer-only or test-only call dropped them.
+- Keys a version does not know are written back unchanged, a keep rule written inside
+  `exclusions` is moved to `keepNamespaces`, the test attribute names keep the file's spelling,
+  and a `keep` flag that is not a JSON boolean is rejected.
+- A written file contains no rule with an empty pattern or layer. Writing no longer fails when
+  another writer writes the same file at that moment, leaves no `.tmp` file beside the solution,
+  and removes such files an interrupted earlier write left.
+- `aicb analyze` warns when the `.aicb.json` exists but could not be read.
+
+### One layer profile for every answer about a session
+
+- **Every render and every judgement about a session uses the same layer profile** - from
+  `analyze_solution`'s `layerProfile`, the `.aicb.json`, or the configuration database the session
+  was analyzed against: `architecture_overview` and the `living_architecture` resource (its layer
+  map), `export_markdown` and the `session_markdown` resource, `get_context`, `explain_symbol`,
+  `pack_for_task`, `prepare_task`, and without a `dbPath` also `list_insights`, `get_insight`,
+  `solution_metrics`, `diff_review` and `evaluate_change_set`. Before, the renders used the
+  built-in heuristic while `list_insights` judged layer violations under the configured profile,
+  and the judging tools read the server's default database. The quality profile still comes from
+  the server's default database.
+- In `export_markdown`'s full document, the layer-violation entries of QUALITY_FINDINGS are
+  judged under the document's own layer profile instead of the built-in Clean Architecture
+  convention.
+- A layer profile the session took from the configuration database is read again on every call,
+  so editing or deleting it applies without a new analysis; a profile passed explicitly or taken
+  from the `.aicb.json` stays as analyzed. The `layerProfile` a session answer names
+  (`analyze_solution`, `refresh_session`, `list_sessions` and the other session answers) is the
+  one the other answers apply.
+- **The configuration database is read, never written, for this:** a locked, damaged or missing
+  database no longer fails a render, and none is created. An app-wide default of "No mapping"
+  counts as nothing configured, as it does for the analysis.
+- **An answer says when that database could not be used** - locked, damaged, not an aicb
+  database, or renamed or deleted since the analysis: a `configDbNote` member on a JSON answer, a
+  `<!-- config-db: ... -->` comment on a Markdown answer (after a tag answer's frontmatter), and an
+  extra content block on `list_insights` and the session resources. `list_sessions` names every
+  session whose database cannot be read. When the layers fall back to the built-in convention
+  because the `.aicb.json` cannot be used, the answer says why. A resource read no longer fails
+  its size limit only because such a note was added.
+
+### Exported documents
+
+These apply to every Markdown output - `export_markdown`, `get_context`, `explain_symbol`,
+`pack_for_task`, `prepare_task`, `aicb analyze` and the desktop app's export - unless a line names
+fewer.
+
+- **The built-in `AI Optimized` template, used by the built-in MCP profiles, no longer embeds the
+  source code of the whole solution.** The new built-in template `AI Optimized + Source` keeps it.
+  An existing configuration database picks this up unless you edited or hid the template.
+- **Each line of code is printed once.** A `TYPE_CODE` or `METHOD_CODE` block is left out when its
+  file's `FILE_CODE` block, or a type code block printed earlier in that file, already holds the
+  code. Under the default profile a whole-solution export no longer prints code three times. A
+  class picked with source while its file is not still gets its `TYPE_CODE`.
+- **A template that embeds source** follows its MD profile's Source rule per kind, as the desktop
+  app's tree already did: classes, records and plain structs keep their structure and lose only
+  their own code block where the profile does not allow Source for classes.
+- **Types carry `<SUMMARY>` and `<USED_BY>` blocks.** A class, interface, record, struct or enum
+  with an XML `<summary>` now prints it, as methods always did, and a type lists the types that
+  reference it by namespace-qualified name (in a slice, those the slice contains). Both were in
+  the legend and never printed. Doc text whose elements stand on separate lines keeps a space
+  between them.
+- **Entry points:** `ENTRY_POINTS` and `ENTRY_POINT_FLOW` list a `private` or `internal`
+  `static Main` of a valid entry-point shape, and a program written as top-level statements under
+  its file label (`ConsoleApp/Program.cs (top-level) -> DR.RunAll()`).
+- **Roles:** a class that derives from an ASP.NET controller through its own base classes gets
+  the role `Controller` (and the layer `Presentation`), every class deriving from
+  `System.Attribute` the role `Attribute`, and an attribute that implements an ASP.NET request
+  filter interface the role `Middleware`; a filter-factory attribute stays `Attribute`. Methods of
+  `Middleware` types appear as sources in `METHOD_GRAPH` and `METHOD_USED_BY_GRAPH`, and those that
+  call into the project with a dependency, side effect or infrastructure use are listed as entry
+  points. `find_by_semantics` follows the same roles.
+- **Explicit interface implementations and accessors:** `USED_BY` names such a caller by its type
+  and interface (`Order.IComparable.CompareTo(object)`, `Order.Total.get`) and lists every caller
+  once; `METHOD_GRAPH` and `METHOD_USED_BY_GRAPH` include explicit implementations as callers. Two
+  callers whose short labels would coincide print their qualified names. An expanded selection
+  that follows callers keeps a property, indexer, event or constructor caller's type.
+- **Parameter lists read the same on both sides of an edge:** in METHOD_GRAPH, METHOD_USED_BY,
+  ENTRY_POINT_FLOW and the dependency lists a called method's parameter types are simple names
+  (`Helper.Work(Payload)`), as on the calling side. Documents get shorter.
+- **Dependency lists** name the types carried as type arguments of a type's member and base types
+  at any depth (`List<OrderItem>` names `OrderItem`), keep a same-named type from another
+  namespace and a non-generic type of the same name, and no longer list a tuple as a type or a
+  generic type as its own dependency. A method's `Types:` list shows a tuple's element types
+  instead of the tuple; a body using an array of tuples counts their element types.
+- **Afferent coupling:** Ca counts references written inside a generic argument, an array or a
+  nullable, and generic types are counted at all (they showed `n/a` or 0). Where several types
+  share a simple name and a reference cannot be attributed, it is shown beside Ca, never in it: a
+  type tag may carry `ca-ambiguous="N"`, QUALITY_HOTSPOTS prints `(+N ambiguous)`, and
+  `solution_metrics` adds `caMaxNote` when the maximum could be higher.
+- **Context sentences:** a method's `Context:` no longer claims purity: "Delegates work to other
+  project methods." and "Self-contained: calls no other method." replace the two sentences that
+  said "without side effects".
+- **YAML:** exports that embed source keep their structure when a source file itself contains
+  Markdown code fences (for example in a C# raw string) - before, the rest of the document could
+  end up inside one text value. Embedded text reads back exactly, characters YAML cannot carry
+  literally are escaped, and values and keys a YAML 1.1 reader would take for another type
+  (`TRUE`, `ON`, `.inf`, a date, `<<`) are quoted. The `llm-natural-md` field format fences a value
+  holding backticks with a longer fence.
+- **The 8000-token floor is named:** a budget below it is raised as before, and the document's
+  budget header, or the answer of `get_context`, `explain_symbol`, `pack_for_task` and
+  `prepare_task`, now says `(requested 300, raised to the 8000 floor)`; on a YAML render as a
+  `# budget: ...` comment.
+- `export_markdown` treats a `format` that is neither `tag` nor `yaml` as omitted - the profile's
+  format applies - and starts its answer with a note naming the ignored value. Before, any value
+  rendered tag.
+
+### MCP tool answers
+
+- **`resolve_injection` names the registration a resolve receives:** a new field
+  `effectiveRegistration` appears when two or more registrations match: the one a
+  single-service resolve receives, read only where the order is certain within one
+  straight-line registration method, else `winner: null` with the reason. Keyed registrations carry their `key`; two keys are two
+  services, not `ambiguous`, and the three-argument `AddKeyed*(Type, key, Type)` and
+  `AddSingleton(typeof(X))` forms are read.
+- **References and callers:** a method with a `ref`, `in`, `out` or `ref readonly` parameter is
+  listed with the modifier (`App.Parser.Read(ref int)`) by `find_usages`, `impact_of_change`,
+  `call_graph` and `explain_symbol`, and an overload pair that differs only there is now two
+  methods with their own callers, side effects and dead-code verdicts. A `calls_external` pattern
+  with a parameter list spells an external by-ref parameter with its modifier
+  (`TryParse(string, out int)`); a bare member name matches as before.
+- `find_usages`, `impact_of_change`, `find_tests_for` and `coverage_gaps` credit the callers of an
+  explicit interface implementation whose interface has a tuple type argument or is nested in a
+  generic type. `find_usages` counts a caller in an explicit implementation or an accessor for
+  the type that declares it (`selfReferences`, `textuallyInvisibleUsers`), and `explain_symbol`
+  with `include: callers` lists such callers instead of answering `(none)`.
+- **`impact_of_change`** says when a high-risk closure runs through a dependency cycle every
+  symbol reaching it shares: a new `saturation` block names the cycle, and `risk` is then graded
+  by the direct production users. `review_context` and `diff_review` carry the same risk.
+- `get_type_hierarchy` and `find_implementations` count a tuple type argument as one argument
+  (`Base<(int, int)>` is a reference to `Base<T>`).
+- A type's accessibility comes from the compiler's view of the whole type: a `partial` type whose
+  modifier is written on one part only, and a type without a modifier, are no longer reported as
+  `private`, and `find_symbol` lists such a partial type once. A markup extension used in element
+  form (`<local:Foo .../>`) counts as a reference to `FooExtension`, so `find_dead_code` no longer
+  reports it dead.
+- `solution_metrics` adds `debtApprox` beside `debtMinutes` (`"~29.7 d"`, 1 d = 8 h); both
+  descriptions now say the minutes are a coarse estimate from fixed rules, not measured effort.
+- `pack_for_task` and `prepare_task` no longer add same-named methods of other types (a second
+  `Program.Main`) when the goal matched only one of them.
+- `aicb import` and `import_constellation` refuse a file whose preview found a problem - a tag
+  schema source outside the allowed list, an item without an id, an application-settings key that
+  is not allowed or does not convert - with nothing written; before, the other items were written.
+  An item that still fails at save time is named, and the warning says the rest stays written.
+
+### Command line
+
+- `aicb analyze` writes its document - directly, with `--emit-session-db` / `--session-db`, and
+  with `--run-template` - under the layer profile its analysis and quality gate use, so the layer
+  map matches the gate.
+- `aicb call` records each call in the usage telemetry when it is given `--db-path`, under the
+  client name `aicb-call`; `usage_report` counts it. It also prints the note about an unreadable
+  configuration database, as the server's answers carry it.
+- On Windows, when `APPDATA` is unset, empty or blank (some MCP clients start servers with a
+  reduced environment), settings, the database, `aicb.mcp.json` and the logs resolve to your
+  application-data folder instead of a relative `%APPDATA%` folder under the working directory.
+
+### Desktop app
+
+- **Automatic backup no longer delays the start.** It runs in the background once the main window
+  is open and takes a consistent copy of the database while the app, and any `aicb mcp` server on
+  the same database, keep working - a database another program had open was left out before
+  (`-partial`). Other database files under the data folder are no longer packed into every
+  backup, an interrupted backup no longer leaves a file that looks finished, and `Backup now` can
+  run during an analysis. Automatic backup is on for new installations; existing ones keep their
+  setting (Settings > Storage). A backup no longer shows as an active run in the Run Templates
+  tab, and a database switch made during a backup waits for it instead of being undone.
+- **The right-click node-override editor is removed** - the `Set Node Override...` menu entry, its
+  dialog and the tree's red override dot. A right-click on a tree row opens nothing. The detail
+  pill is unchanged.
+- **Tag schemas you create reach the export:** picked in an MD profile's Class, Interface, Enum or
+  Method row, or in the Sections panel, a schema becomes the first lines of every such block, and
+  a copy of a built-in block replaces just that block. The SOLUTION, PROJECT and FILE header
+  lines can be changed through their schemas. Settings > Tag Schemata says under each schema
+  where it shows up, offers only source paths that produce output, flags a field whose path is
+  no longer offered, and prints the declarations of class, interface and method fields readably.
+  Twenty built-in schemas that never showed up in an export are gone; a profile or saved run that
+  picked one shows the header schema that renders in its place.
+- **The solution tree tells same-named members apart:** rows show type parameters, `ref` / `in` /
+  `out`, the interface of an explicit implementation and a nested type's containing type, and a
+  saved session reopens its selection and detail levels on the row they were made on. An entry of
+  an earlier session that could belong to two such rows is listed as not found. Selecting one of
+  two methods that differ only there exports that method alone.
+- The selection strategies "Deep" and "Test-Coverage-Reachable" follow the types that reference
+  a selected type.
+- Changing a node's detail level changes the generated context at once; before, a level stored in
+  the opened session could win until the app restarted.
+- An exclusion list restored from the `.aicb.json`, its opt-out and a generated list take effect
+  at once, and the Solutions tab's picker shows it. A GUI analysis filters with the list in force
+  when it starts.
+- `Export Config` writes back the suppressions only the file holds, but not one you lifted in the
+  Insights panel, and keeps the file's settings for every axis the solution has no choice of its
+  own for; the confirmation names what it kept and counts what it wrote. `Import Config` takes keep
+  rules, the test axis and `exclusionsDisabled` from the file and keeps a `Strict` layering policy.
+  A GUI export with a layer profile judges its QUALITY_FINDINGS under it and writes no insight run
+  into the history.
+- A settings panel that refuses a save keeps your input in the editor and shows the stored entry
+  in the list, and a built-in entry is no longer left marked "Overridden"; an entry an earlier
+  version marked that way is put right with Restore.
+- Imports: Settings > Constellations lists the problems a preview found and disables Apply; a
+  panel import refuses the whole file and names the first problem.
+- The pipeline-profile editor names the 8000-token floor of Max Token Budget, refuses a new value
+  below it, marks a stored one, and raises an imported value with a notice.
+- A dialog that appears during startup (database newer than the build, migration failed,
+  unfinished runs, MSBuild not found, a startup error) is shown in front with the keyboard focus
+  instead of behind the splash.
+- The debt label rounds before it picks its unit (477 to 479 minutes read `~1 d`). The built-in
+  LLM prompts that ask for severity words show the marker where the findings parser reads it. The
+  MCP usage panel's Batch column counts sub-queries that answered.
+
+### In the repository
+
+- **A GitHub Action** at the repository root runs the quality gate in one step: it sets up the
+  .NET 10 SDK, installs the tool, restores the solution and runs `aicb analyze`
+  (`uses: gregordadera/aicb-roslyn-mcp@main`); see the README.
+- **The container runs as a non-root user.** Run it as the owner of the mounted folder and
+  restore the solution inside it first; the README shows the commands.
+
+### Data
+
+- A snapshot, saved session or remembered codebase from an earlier version is analyzed afresh the
+  first time it is used.
+- The configuration database is updated the first time this version opens it: the built-in tag
+  schemas that never reached an export are removed, and an MD profile rung or a saved session
+  that named one now names the schema that renders in its place.
+
 ## 0.5.500.1 (2026-10-04) - Runs on .NET 10, loads classic .NET Framework projects, and every tool description fits in 2048 characters
 
 **Who is affected.** Users of the .NET tool: it now needs **.NET 10**. A machine that has only
