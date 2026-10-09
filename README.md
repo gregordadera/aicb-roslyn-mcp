@@ -20,7 +20,7 @@ analysis and editing.
 > organizations below the [license thresholds](#license-at-a-glance).
 
 This page is a short tour, not the reference. It names 35 of the 54 tools an agent
-sees by default; the three [manuals](#documentation) run to 35 chapters, about 40
+sees by default; the three [manuals](#documentation) run to 35 chapters, about 35
 times the length of this page.
 
 ## See it answer a code question
@@ -707,7 +707,7 @@ issues privately as described in [`SECURITY.md`](https://github.com/gregordadera
 ## Documentation
 
 Everything above is the short version. The three manuals below hold the full reference -
-35 chapters, each manual roughly 70,000 words, together about 40 times the length of this
+35 chapters, each manual roughly 70,000 words, together about 35 times the length of this
 README.
 
 - [Getting started](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/GETTING-STARTED.md) - install, connect and ask the first question
