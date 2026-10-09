@@ -496,24 +496,30 @@ Run this from the project you want the agent to work on:
 aicb init
 ```
 
-It writes `.mcp.json`, the MCP configuration Claude Code reads (other clients need
-the manual step named below), and the `aicb-csharp-context` agent skill under
-`.claude/skills/`, without overwriting existing files. If it detects Claude Code, Codex or OpenCode project
-configuration, it also installs a **symbol guard** that blocks C# symbol searches
-by grep and redirects the agent to the semantic tool. This intentionally changes
-agent behavior. Opt out with:
+It writes `.mcp.json`, the MCP configuration Claude Code reads, and the
+`aicb-csharp-context` agent skill under `.claude/skills/`, without overwriting
+existing files. If the project uses Codex or OpenCode (a `.codex/` or `.opencode/`
+folder), it also registers the server in that client's own configuration and
+writes the skill to `.agents/skills/`, where both read skills. If it detects
+Claude Code, Codex or OpenCode project configuration, it also installs a
+**symbol guard** that blocks C# symbol searches by grep and redirects the agent
+to the semantic tool. This intentionally changes agent behavior. Opt out with:
 
 ```sh
 aicb init --hooks none
 ```
+
+`--hooks none` skips only the guard; the server is still registered. To wire a
+client whose folder does not exist yet, name it: `aicb init --hooks codex` or
+`aicb init --hooks opencode`.
 
 Client-specific status:
 
 | Client | MCP setup | Skill and guard |
 |---|---|---|
 | Claude Code | `.mcp.json` written by `aicb init` | Skill and optional guard installed |
-| Codex | Add `aicb mcp` through the client's MCP configuration | Optional guard supported; skill location is not guessed |
-| OpenCode | Add `aicb mcp` to `opencode.json` | Optional guard supported; skill location is not guessed |
+| Codex | `.codex/config.toml` written by `aicb init`; Codex reads it only in a project you have trusted | Skill in `.agents/skills/` and optional guard installed |
+| OpenCode | `opencode.json` written by `aicb init` | Skill in `.agents/skills/` and optional guard installed |
 | Cursor / Cline / other stdio clients | Add command `aicb` with argument `mcp` | Use the published skill if the client supports Agent Skills |
 
 Manual `.mcp.json` configuration for clients that read it:

@@ -40,7 +40,8 @@ client may be holding a cached copy of this tool's description.
 - A sub-query inside `batch` or `measure` writes **no row of its own**. Recent-enough parent rows
   carry a per-tool tally in `subQueries` - read it, or an agent that works through `batch` looks
   idle.
-- A one-shot `aicb call` invocation records **nothing at all**.
+- A one-shot `aicb call` is recorded under the client name `aicb-call` only when it is given a
+  `--db-path`; without one it records **nothing at all**.
 - Therefore **every count is a lower bound**, and a tool at zero was *not called through this
   door* - which is not the same as unused, and nothing like dead surface.
 
