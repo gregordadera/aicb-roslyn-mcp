@@ -4,7 +4,7 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
-## 0.5.501.1 (unreleased) - `aicb init` sets up Codex and OpenCode, namespace exclusions keep what you name, and every answer about a session uses one layer profile
+## 0.5.501.1 (2026-10-09) - `aicb init` sets up Codex and OpenCode, namespace exclusions keep what you name, and every answer about a session uses one layer profile
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once - 12 tools of the
 default profile have a new description or a new parameter description; no tool or parameter was
