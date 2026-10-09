@@ -189,7 +189,7 @@ Notes:
 
 - The `Active Run` tab shows the run name and model, a `Running` pill, a step counter with progress bar, the `OK` and `Failed` counters, the accumulated input/output tokens, and the step list. Selecting a step shows the text the model has streamed so far.
 - The `Send to API` command is disabled; `Cancel` and `Pause` are visible.
-- The app registers the run as an active activity. While it is active, the database cannot be switched and `Backup now` is refused with `Cannot {action} while {N} background task(s) are active.`
+- The app registers the run as an active activity. While it is active, the database cannot be switched: the action is refused with `Cannot {action} while {N} background task(s) are active.`
 - On completion, the status line reports the outcome, for example `Done. <model> · 1/1 nodes · in 1234 / out 567 tokens`.
 
 ### If something goes wrong

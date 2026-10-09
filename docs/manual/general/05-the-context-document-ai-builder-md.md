@@ -41,7 +41,7 @@ The YAML rendering follows a fixed set of rules:
 - Repeated blocks become sequences under a plural key: `PROJECT` becomes `projects:`, `FILE` becomes `files:`, `CLASS` becomes `classes:`, `INTERFACE` becomes `interfaces:`, `ENUM` becomes `enums:`, `METHOD` becomes `methods:`.
 - A list item that carries a confidence marker in the tag notation (`- IWidgetStore [high]`) becomes a nested mapping with `name` and `confidence` keys.
 - Multi-line content (source code, the format contract, a verbatim file body) becomes a block scalar introduced by `|`. When the first content line of such a block already starts with a space, the explicit indicator `|2` is used so the indentation stays unambiguous.
-- Block attributes such as `compact="near_flow"`, `lines="10-20"` or `path="App/Widget.cs"` are carried over as regular fields.
+- Block attributes such as `compact="isolated"`, `lines="10-20"` or `path="App/Widget.cs"` are carried over as regular fields.
 - The format contract of the tag notation is not split into YAML keys. It is a description of a different notation, so it is preserved as one string field.
 
 Values that could be misread as numbers or booleans are quoted so they stay strings - for example `version: "1.0"`. The transformation is lossless: no section, no field and no code line is dropped.
@@ -464,13 +464,12 @@ Two opt-in annotations can be added to the tags:
 
 ## 5.11 Method compression modes
 
-The document writes methods in one of three compression modes. Which modes actually occur is stated in the `COMPRESSION_LEGEND` of the document itself.
+The document writes methods in one of two compression modes. Which modes actually occur is stated in the `COMPRESSION_LEGEND` of the document itself.
 
 | Mode | Rendered as | Content |
 |---|---|---|
 | Full | `<METHOD>` | All sub-blocks: `METHOD_INFO`, `DEPENDENCIES`, `USED_BY`, `SEMANTICS`, `SUMMARY`, `AI_TAGS`, `METHOD_CODE`. |
 | Compact | `<METHOD compact="isolated">` | A single line. |
-| Semi-compact | `<METHOD compact="near_flow">` | Signature, the top three dependencies and the AI tags, without the body. |
 
 A missing `compact=` attribute means full mode. The compact line has this shape:
 
@@ -483,8 +482,6 @@ ProcessOrder(int orderId) → Task<bool> | public static | Role: service
 It contains the signature, the return type (or `void`), the accessibility (or `private` when none is recorded), the declared modifiers and the resolved role. Because this line is the only information the reader gets about a compacted method, it carries the full modifier list - a dropped `override` or `async` would not be recoverable from anywhere else in the document.
 
 The mode of a method is the result of several rules. A method is written compact only when its detail level is not `Full`, it does not belong to the primary or near flow, it is private, and it has no documentation summary, no AI annotations, no callers and no dependencies. Per-node overrides and the auto-compression heuristic can move any method into compact or detailed rendering.
-
-Note: the semi-compact mode is implemented but not yet released - the two settings that switch it on are off by default and are not set by any standard render path. Until then, the compression legend names it only when it is actually reachable.
 
 `METHOD_INFO` inside a full method block contains the objective method facts: `Name`, `Signature`, `Return`, `Access`, `Modifiers`, `ReturnKind`, `Parameters`, and the flags `IsStatic`, `IsAsync`, `IsExtension`, `ThrowsDetected`, `UsesLinq` and `UsesReflection` (each written only when true). A method block additionally carries `DEPENDENCIES` with a `Types:` list and a `Calls:` list of the methods it invokes in the solution, and a `USED_BY` list of its callers.
 
@@ -521,8 +518,8 @@ If layout rendering is switched off, no aliases are built, `PATH_LEGEND` and the
 
 `COMPRESSION_LEGEND` is always rendered. It tells the reader
 
-- which compression modes the document actually uses (two or three, depending on the render path),
-- how a method is selected for full, semi-compact or compact rendering,
+- which compression modes the document actually uses (one or both),
+- how a method is selected for full or compact rendering,
 - what a missing `compact=` attribute means,
 - the provenance vocabulary of the `SEMANTICS` blocks (`Resolved`, the breakdown form and the four tokens),
 - and the caveat that applies to every caller list: the lists name only the callers this document renders, and they are statically resolved. Reflection, dependency-injection containers, serializers and external assemblies stay invisible; the absence of callers is not proof of dead code.

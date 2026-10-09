@@ -27,14 +27,16 @@ AICB works through the following steps before you see the main window. Each of t
 | 3 | The application settings file is read. If it cannot be read, AICB continues on defaults and reports this in the startup notice line. |
 | 4 | The database schema is checked and, if necessary, migrated. A database written by a newer AICB version or a failed migration stops the start (see the table below). |
 | 5 | Runs that were still marked as running when the previous session ended are offered for recovery. |
-| 6 | An automatic backup is written if one is due. |
-| 7 | The shell is initialized. On a large database this is the step that takes most of the startup time. |
-| 8 | Your theme, font size and UI zoom are applied. |
-| 9 | The main window appears, and the splash closes. |
+| 6 | The shell is initialized. On a large database this is the step that takes most of the startup time. |
+| 7 | Your theme, font size and UI zoom are applied. |
+| 8 | The main window appears, and the splash closes. |
+| 9 | An automatic backup starts in the background if one is due. |
 
 The startup time depends mainly on the size of your database. The splash makes the wait visible, but it does not shorten it.
 
-Note: If automatic backup is enabled and the backup interval has elapsed, AICB writes the backup during startup, before any window is visible. Startup stalls for the duration of that archive. A backup that fails does not advance the last-run time, so the stall repeats on every start until the cause is fixed; the startup notice line reports it.
+Note: If automatic backup is enabled and the backup interval has elapsed, AICB writes the backup in the background once the main window is open, so it does not delay the start. A backup that fails does not advance the last-run time, so it runs again on the next start until the cause is fixed; the startup notice line reports it.
+
+A dialog that appears during startup - a database newer than the build, a failed migration, unfinished runs, MSBuild not found, an unexpected startup error - is shown in front of the splash with the keyboard focus and its own taskbar button. The splash disappears while the dialog is open.
 
 ### Messages during startup
 

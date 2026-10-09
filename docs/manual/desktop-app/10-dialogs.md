@@ -38,7 +38,6 @@ The dialogs at a glance:
 | `Import master entities` | An imported file contains entries that already exist with different data |
 | `Clear Usage Data` | You clear recorded MCP usage data |
 | `Queue as work` | You queue an insight detail line as work to do |
-| `Set node override` | You set, change or remove the overrides of one tree node |
 | `Pick namespaces` | You ask an editor to suggest rules from a solution |
 | `Export as Built-In Code` | You export an edited entry as built-in source code |
 | `Keyboard shortcuts` | You press `F1` |
@@ -289,38 +288,6 @@ Result:
 Note: if the database contains no run templates at all, the dialog does not open and a status message says `No run templates are available to queue against.`
 
 ## 10.6 Editors
-
-### Set node override
-
-This editor sets, changes or removes the overrides of exactly one tree node. Open it from the context menu of a tree row: `Set Node Override…`. Two preconditions apply:
-
-![The Set node override dialog](img/gui-dialog-node-override.png)
-
-- The solution root cannot carry a per-node override. Selecting it shows an information dialog titled `Per-node override - not available here`: `The solution root cannot carry a per-node override. Settings that apply to everything belong in the active template; per-node overrides start at project level.`
-- A saved session is required, because node overrides are stored per session and node. Without one, an information dialog titled `Per-node override - session required` explains this and points out that the tree's detail-level pill is available as a per-node setting that needs no session.
-
-Content:
-
-- Heading `Set node override`, subtitle `Node: <node name>` in monospace. The subtitle tooltip receives the node's display name, not its node key; the override editor itself is not given the key.
-- Four slots:
-
-| Slot | Label | Help text | What it overrides |
-|---|---|---|---|
-| 1 | `Detail Preset` | `Inherit = the resolution chain applies (Session > Tab > RunTemplate > Template > BuiltIn).` | The detail preset used for this node. |
-| 2 | `Priority` | `Override for Preselection Pipeline / Detail Preset resolver. Inherit = no per-node Override.` | The node's priority for preselection scoring. The list offers `(Inherit)`, `High`, `Medium` and `Low`. |
-| 3 | `Expansion Strategy` | `Inherit = the strategy active in the run template, or the global default.` | When this node is expanded while the tree is walked. |
-| 4 | `Tag Schema Overrides (per SchemaType)` | `Per-SchemaType Tag Schema Override (power-user feature). Inherit = active Tag Schema resolution from the MdProfile slot applies.` | The tag schema used for one section type on this node. The pane shows one row per relevant schema type - in the shipped configuration `Class`, `Method`, `Interface`, `Enum`, `MethodGraph` and `FileIndex` - each with its own list. |
-
-- The first entry of every list is `(Inherit)`, meaning "no override here - the normal resolution applies".
-- When the editor opens, the current values are preselected. If a referenced preset no longer exists (for example because it was deleted), that slot falls back to `(Inherit)` instead of showing a broken selection.
-- Buttons: `Cancel` (tooltip `Close the editor without saving changes to the NodeOverrides.`) and `Save` (default; tooltip `Save the NodeOverrides for this node. All three slots set to Inherit at once = the Override set is deleted entirely from the DB.`). The focus starts on the detail preset list.
-
-What `Save` does:
-
-- If at least one slot has a value, the override is stored, and the node gets its override badge in the tree.
-- If every slot is set to `(Inherit)`, the override is removed. Note: the button's tooltip speaks of "all three slots"; the editor has four, and the rule covers all of them including the tag schema rows. A tag schema override left in place therefore keeps the override alive.
-- If the node also carries a detail level set with the tree's detail pill, that value is untouched: the row survives with its editor slots cleared instead of being deleted, and the node's override badge goes off.
-- `Cancel`, Escape and the X leave everything unchanged.
 
 ### Pick namespaces
 

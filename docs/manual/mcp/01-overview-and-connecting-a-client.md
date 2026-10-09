@@ -114,14 +114,14 @@ Note: `Connection closed` is a channel problem, not a tool crash. Ordinary tool 
 
 ### The quick path: `aicb init`
 
-Run `aicb init` in your project directory. It writes the entry your client needs into `.mcp.json`, writes the agent skill into `.claude/skills/`, and installs the symbol guard for the agent harnesses in use. It never overwrites an existing file unless you pass `--force`, so re-running is safe.
+Run `aicb init` in your project directory. It writes the entry your client needs into `.mcp.json`, writes the agent skill into `.claude/skills/`, and installs the symbol guard for the agent harnesses in use. Codex and OpenCode do not read `.mcp.json`: for each of them that the project uses (or that `--hooks` names), the same run also registers the server in that client's own configuration - `.codex/config.toml` or `opencode.json` - and writes the skill to `.agents/skills/`, where both read skills. It never overwrites an existing file unless you pass `--force`, so re-running is safe.
 
 | Option | Effect | Default |
 |---|---|---|
 | `--path <dir>` | Project directory to wire up. | the current directory |
 | `--force` | Overwrite artifacts that are already there. Without it, an existing `aicb` entry or skill file is left untouched. | off |
 | `--skills context\|all` | `context` writes the `aicb-csharp-context` skill; `all` adds the `aicb-code-review` / `aicb-code-simplifier` review pair and `aicb-usage-check`. | `context` |
-| `--hooks auto\|none\|all\|claude-code\|codex\|opencode` | Which agent harnesses to install the symbol guard for: the ones already used in this project, none, all, or one by name. | `auto` |
+| `--hooks auto\|none\|all\|claude-code\|codex\|opencode` | Which agent harnesses to install the symbol guard for: the ones already used in this project, none, all, or one by name. Naming Codex or OpenCode also registers the server for it. | `auto` |
 
 The run reports each artifact with one of four labels - `created`, `updated`, `kept`, `refused` - and ends with:
 
@@ -129,9 +129,9 @@ The run reports each artifact with one of four labels - `created`, `updated`, `k
 Restart or reconnect your MCP client, then call server_info to confirm it took.
 ```
 
-That last line is the step `init` cannot do for you: a client reads its server list at startup. If you only want the server wiring and no guard, pass `--hooks none`. That writes no enforcement; it does not remove an installation that is already there.
+That last line is the step `init` cannot do for you: a client reads its server list at startup. If you only want the server wiring and no guard, pass `--hooks none`. That writes no enforcement; it does not remove an installation that is already there, and it still registers the server for a Codex or OpenCode project.
 
-Two client-specific limits are named in the output rather than reported as a clean success: the agent skill is written to `.claude/skills/` only (where other harnesses look for skills has not been measured, and `init` does not guess, because a guessed path writes a file nothing loads), and **OpenCode** discovers MCP servers only through its own `opencode.json`, not through the shared `.mcp.json` - add the `aicb` entry there by hand.
+One client-specific step stays with you, and the output names it: **Codex** reads a project's `.codex/config.toml` only in a project it trusts. Open Codex in the folder once and trust it, or the `aicb` entry stays invisible to it.
 
 ### Writing the client entry by hand
 

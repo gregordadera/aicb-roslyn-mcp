@@ -77,16 +77,16 @@ Behavior:
 - `--hooks` is validated before anything is written. An unknown value is exit `1` with the accepted values listed.
 - `--path` must exist; otherwise exit `1`.
 - Each artifact is reported as one line: `created`, `updated`, `kept` or `refused`, followed by the path and a short detail. If at least one artifact is refused, `init` reports an error and returns `1`. A refusal always means an existing file that `init` will not risk rewriting - an unusable `.mcp.json`, a harness wiring it cannot read, or a path it may not write - so the fix is yours: repair the file, or point `--path` elsewhere.
-- When `--hooks auto` finds no harness marker in the project, no guard is installed and the command says so explicitly, together with the way to install one anyway (`--hooks claude-code|codex|opencode`, or `--hooks all`).
+- When `--hooks auto` finds no harness marker in the project, no guard is installed, the server is registered in `.mcp.json` only, and the command says so explicitly, together with the way to wire a harness anyway (`--hooks claude-code|codex|opencode`, or `--hooks all`).
 - Once a guard is installed it *blocks*: a C# symbol search is refused and redirected to the aicb tools. The output names, per harness, the wiring file whose `aicb` entry removes the guard again. `--hooks none` writes no enforcement on the next run; it does **not** remove an installation that is already there.
-- Skills are written to `.claude/skills/` only. A harness that gets the guard but no skill is named in the output - where such a harness looks for skills has not been measured, and `init` does not guess.
-- A harness that does not read the shared `.mcp.json` is named as well, because the server entry written above stays invisible to it until you add the entry to that harness's own configuration.
+- Skills are written to `.claude/skills/`. For Codex and OpenCode - detected, or named with `--hooks` - they are also written to `.agents/skills/`, and the server is registered in `.codex/config.toml` or `opencode.json`, because neither reads the shared `.mcp.json`. `--hooks none` skips only the guard; this registration still happens.
+- After writing `.codex/config.toml` the output says that Codex reads it only in a project you have trusted in Codex.
 - If more than one `aicb` installation is found, a warning lists them: every MCP client starts the *first* one on the search path, so updating another one changes nothing a client runs. The warning names how to remove the extra installation.
 - The last line is always the same reminder: `Restart or reconnect your MCP client, then call server_info to confirm it took.`
 
 Note: `init` has no preview mode. `--force` is broader than "overwrite what is already there": it also replaces an `aicb` entry that you deliberately pointed at a wrapper script or a debug build, and it rewrites the harness wiring back to its canonical form.
 
-Note: the harness detection on `auto` is deliberately conservative. A Claude Code user whose `.claude/` folder contains only their own `skills/` directory is not detected, because the detection must not read a marker that `init` itself created. The message `No agent harness detected here, so no symbol guard was installed.` is not a failure - pass `--hooks claude-code` explicitly.
+Note: the harness detection on `auto` is deliberately conservative. A Claude Code user whose `.claude/` folder contains only their own `skills/` directory is not detected, because the detection must not read a marker that `init` itself created. The message `No agent harness detected here, so no symbol guard was installed and this run registered the server only in .mcp.json (read by Claude Code).` is not a failure - pass `--hooks claude-code` explicitly.
 
 The concepts behind these artifacts - what the symbol guard does, how the MCP client is wired, and how to remove it - are described in the MCP manual.
 
@@ -261,7 +261,8 @@ Behavior:
   ```
 - `--preview` stops after the preview and writes nothing.
 - If the file carries app-settings keys, a note on standard error points out that their JSON-backed values can also touch the global app-settings file.
-- The import is **not transactional**. Per-item errors are collected and reported as warnings, and the exit code becomes `2` so that a script can detect a partial import. A fully successful import prints `Imported into <path>: applied=<n>, skipped=<n>, app-settings-keys=<n>.`
+- A file whose preview finds a problem - a tag schema field whose source path is not allowed, an item without an id, an app-settings key that is not allowed or does not convert - is refused before anything is written: the error ends with `The preview found N problem(s) in the file, so nothing was imported. Fix them and import the file again.`
+- Past the preview the import is **not transactional**. An item that still fails when it is saved is named in a warning, the warnings end by saying how many items were written and stay written, and the exit code becomes `2` so that a script can detect a partial import. A fully successful import prints `Imported into <path>: applied=<n>, skipped=<n>, app-settings-keys=<n>.`
 
 ## 9.7 `aicb list`
 

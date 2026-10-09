@@ -232,7 +232,7 @@ Note: this renders the whole solution. On a large codebase the default render is
 | `outputPath` | string | no | `null` | Absolute path to write the Markdown to (UTF-8, no BOM). When given, the tool writes the file and returns a short confirmation - `Wrote N chars of AI-Builder Markdown to '<path>'. ...` - instead of the full Markdown, so a large render does not flood the response. A missing target directory is created. |
 | `format` | string | no | `null` | The inner notation of the rendered Markdown: `tag` (the established AI-Builder tag format) or `yaml` (idiomatic YAML - a lossless re-notation, not a different selection of content). An explicit value wins; when omitted, the active MCP profile's `OutputFormat` applies on a profile-aware server, otherwise `yaml`. The `.md` file extension is unchanged. |
 
-Note: an unrecognized explicit `format` value falls back to `tag`. Since a present value counts as explicit, a typo overrides a correctly configured profile format - pass only `tag` or `yaml`.
+Note: a `format` value that is neither `tag` nor `yaml` counts as omitted - the profile's format applies - and the answer starts with a note naming the ignored value (`Note: format '<value>' is not a known value ('tag' or 'yaml') and was ignored ...`).
 
 Note: on a profile-aware server (`aicb mcp --db-path`), the active MCP profile drives the render - the chosen facet's template (detail presets, graphs, line numbers, quality metrics) is used. Without a profile, the full default render is used.
 

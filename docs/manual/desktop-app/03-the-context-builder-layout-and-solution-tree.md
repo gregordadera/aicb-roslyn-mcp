@@ -172,11 +172,10 @@ Each row has five cells, left to right:
    - unchecked, plain - the node is effectively excluded.
 2. **Kind icon** of the node.
 3. **Name** - the only elastic cell. Long names are shortened with an ellipsis; the full name is in the tooltip. A node that is explicitly excluded is grayed out.
-4. **Marker cluster.** All four markers can appear together:
+4. **Marker cluster.** All three markers can appear together:
    - a small accent dot - "Detail differs from the parent";
    - an `A` badge - "Comes into the export via Auto-Expansion (read-only)";
-   - an `M` badge - "Manual Override (Include/Exclude explicitly set by the user)";
-   - a red dot - "Per-Node Override set - right-click the node to open the editor." Hovering shows the resolved override values.
+   - an `M` badge - "Manual Override (Include/Exclude explicitly set by the user)".
 5. **Detail-level chip**, right-aligned and always visible. It shows the *effective* level of the row and its color dot carries the level: Compact (blue), Normal (green), Detailed (orange), Source (red). Clicking it opens a popup with `Inherit` plus the four levels. The closed chip shows the resolved level; the open list shows whether the node currently inherits. `Source` can be disabled for a node type when the active MD profile does not allow it; the entry then explains "Source level is locked for this node type in the active MD profile."
 
 ### Selection and multi-selection
@@ -220,10 +219,6 @@ Inside the drawer are three groups:
 | Detail level | `Set tree default to:` + `Apply` + `Reset overrides` | `Apply` sets the chosen level across the entire tree (not just the selection). Nodes can still override it afterwards with their own chip. `Reset overrides` clears all detail-level overrides; it is disabled while there are none, and its tooltip shows the current count. From 10 overrides on, a confirmation dialog asks first. |
 | Expansion | `Apply expansion` + `Remove expansion` + status | `Apply expansion` marks, read-only, which additional nodes the active expansion strategy would pull into the export, starting from your checkbox selection. Your selection stays unchanged; the added nodes get the `A` marker. `Remove expansion` clears only those markers - neither your selection nor the export changes. The status line reports how many nodes were marked, or that the selection already matches the expansion. |
 | Solution | `Refresh tree` + `Reload solution` | `Refresh tree` re-reads the `AllowSourceLevel` setting from the active MD profile - useful after a template change when the `Source` level does not update. `Reload solution` re-analyzes the solution from disk and shows the structural difference to the previously loaded tree as a diff window (`F5`). |
-
-### The node context menu
-
-Right-clicking a tree row opens a menu with a single entry: `Set Node Override…`. Its tooltip: "Set the per-node overrides (detail preset, expansion strategy, tag schema) for this node. Needs a saved session, because node overrides are stored per session." If no session is saved yet, an information dialog explains that you need to save a session first; the detail level can still be set with the row's chip.
 
 ### Read-only snapshot mode
 

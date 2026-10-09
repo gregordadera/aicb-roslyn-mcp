@@ -27,8 +27,8 @@ The startup order is fixed, and each step assumes the previous one:
 2. MSBuild is located (via the .NET SDK or Visual Studio). Without it: dialog `MSBuild not found`, then the app exits.
 3. The service container is built and validated, then the database schema is migrated. On a fresh installation the database file is created here.
 4. Unfinished runs from the previous session are looked for. Only if any exist do you get the `Unfinished runs from previous session` dialog.
-5. The automatic backup runs if it is enabled and due. It is **off by default**, and it archives synchronously before any window exists - on a large data folder this visibly delays the start.
-6. The shell is initialized, the theme is applied, the main window appears, and the splash closes.
+5. The shell is initialized, the theme is applied, the main window appears, and the splash closes.
+6. The automatic backup starts in the background if it is enabled and due (on by default for a new installation); it does not delay the start.
 
 A start can take several seconds, and longer when the database is large. That is normal, not a hang; the splash exists to make the wait visible.
 
@@ -300,13 +300,13 @@ If the recovery check itself fails, a warning dialog titled `Crash recovery` app
 
 **What to do.** End the process (`aicb-ui.exe`) in Task Manager and start the app again. If it happens repeatedly, include the `Details:` line and `aicb.log` in a report.
 
-#### Auto-backup delays the start - or repeats at every start
+#### Auto-backup repeats at every start
 
-**Symptom.** The window appears only after a long pause, and the startup notice bar reports a failed backup. The same pause returns at every start.
+**Symptom.** The startup notice bar reports a failed backup, and it does so again at every start.
 
-**Cause.** Auto-backup is enabled and due. It archives synchronously on the UI thread before any window exists, so the whole archive run is startup time; on a large base path that is a noticeable delay. A **failed** run never advances the last-backup timestamp, so it is due again at the next start until the cause is fixed.
+**Cause.** Auto-backup is enabled and due, and its run failed. A **failed** run never advances the last-backup timestamp, so it is due again at the next start until the cause is fixed. The run itself happens in the background after the main window appears and does not delay the start.
 
-**What to do.** Read the reason in the notice (`BasePath does not exist: '...'`, `Could not create backup folder: ...`, `Backup failed: ...`), fix it, or switch auto-backup off in `Settings > Storage`. `Backup Now` runs a backup immediately and shows its result in the panel's status line. Note that an archive that is missing something (for example the database, because another process holds it open) is written with a `-partial` suffix and **does** advance the timestamp - so it does not repeat every start.
+**What to do.** Read the reason in the notice (`BasePath does not exist: '...'`, `Could not create backup folder: ...`, `Backup failed: ...`), fix it, or switch auto-backup off in `Settings > Storage`. `Backup Now` runs a backup immediately and shows its result in the panel's status line. Note that an archive that is missing a file that could not be read is written with a `-partial` suffix and **does** advance the timestamp - so it does not repeat every start.
 
 #### The settings file could not be read
 
@@ -510,19 +510,19 @@ If the recovery check itself fails, a warning dialog titled `Crash recovery` app
 
 #### `Cannot ... while N background task(s) are active`
 
-**Symptom.** `Switch Database...`, `Create New DB...`, `Backup Now` or saving the base path is refused with `Cannot switch DB while 1 background task(s) are active.` (the action name varies).
+**Symptom.** `Switch Database...`, `Create New DB...` or saving the base path is refused with `Cannot switch DB while 1 background task(s) are active.` (the action name varies).
 
-**Cause.** A background task is still running - typically a run or an analysis in the Context Builder. The message names the count, not the location.
+**Cause.** A background task is still running - a run or an analysis in the Context Builder, or a backup. The message names the count, not the location.
 
-**What to do.** Finish or cancel the run in the Context Builder, then repeat the action.
+**What to do.** Finish or cancel the run in the Context Builder, or let the backup finish, then repeat the action.
 
 #### A backup archive is named `-partial`
 
-**Symptom.** A file such as `backup-20260921-101500-partial.zip` appears in the backup folder, and the notice or status line says `database NOT archived` or lists skipped locked files.
+**Symptom.** A file such as `backup-20260921-101500-partial.zip` appears in the backup folder, and the notice or status line lists skipped files.
 
-**Cause.** Something could not be packed into the archive. The most common case is the database: an open SQLite connection (the GUI itself, or a co-running MCP host) prevents the archiver from reading it. Files that are locked are skipped and named in the message (up to five, then `and N more`).
+**Cause.** A file under the base path could not be read and was skipped; skipped files are named in the message (up to five, then `and N more`). The database is not the cause: it is copied as a snapshot while other programs keep it open.
 
-**What to do.** Close the other process that holds the file, or accept the partial archive - it still contains everything else. A partial run does advance the backup timestamp, so it does not repeat at every start.
+**What to do.** Close the program that holds the file, or accept the partial archive - it still contains everything else. A partial run does advance the backup timestamp, so it does not repeat at every start.
 
 #### Changing `Base path` does not move the settings file
 
@@ -534,9 +534,9 @@ If the recovery check itself fails, a warning dialog titled `Crash recovery` app
 
 #### The GUI and the MCP server share one database
 
-**Symptom.** The `MCP Usage` page changes on every visit, a backup is `-partial` while an MCP host is running, or a schema migration takes effect immediately in a running process.
+**Symptom.** The `MCP Usage` page changes on every visit, or a schema migration takes effect immediately in a running process.
 
-**Cause.** The desktop app and the MCP server can point at the same database file, and both write to it while they run. This is the normal case and explains all three behaviors: the usage panel reloads on every activation, the archiver skips a file that is currently held open, and a migration applies to every running process at once.
+**Cause.** The desktop app and the MCP server can point at the same database file, and both write to it while they run. This is the normal case and explains both behaviors: the usage panel reloads on every activation, and a migration applies to every running process at once.
 
 **What to do.** Nothing to fix - but if you want the two fully independent, point them at different database files. Note that the MCP server tolerates a database written by a newer version and reports the drift, while the desktop app refuses to start on one.
 

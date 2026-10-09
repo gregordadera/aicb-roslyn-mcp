@@ -93,7 +93,7 @@ The stored payload of every LLM interaction contains the model's **complete resp
 
 Two facts worth knowing about the file itself:
 
-- It is a SQLite database in WAL journal mode, so while it is open two companion files exist next to it: `aicb.acb-wal` and `aicb.acb-shm`. They belong to the database and are archived together with it (see "Backups").
+- It is a SQLite database in WAL journal mode, so while it is open two companion files exist next to it: `aicb.acb-wal` and `aicb.acb-shm`. They belong to the database; a backup takes a consistent snapshot of the database instead of archiving them (see "Backups").
 - Runs, sessions, snapshots and evaluations hang off a solution. Removing a solution in the application therefore removes its dependent data too, and the confirmation names what that is: the sessions, the snapshots, and "all related runs, run snapshots, LLM interactions, reasoning entries". This cannot be undone.
 
 Note: the database stores runs of the types `Manual`, `Iteration`, `Preselection` and `Pipeline`. Only **Manual** runs can currently be selected in the interface; `Iteration` and `Preselection` are not released yet, and `Pipeline` is a placeholder - it is accepted by the stored data and the repositories, but nothing executes it.
@@ -110,25 +110,26 @@ The database carries a schema version. On start-up the application compares it w
 
 ## 10.3 Backups
 
-Automatic backup is **off by default**. Its four settings live in Settings → Storage, section `Auto-Backup`:
+Automatic backup is **on by default for a new installation**; an existing installation keeps the value its settings file stores. Its four settings live in Settings → Storage, section `Auto-Backup`:
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Enable auto-backup on app start` | off | Master switch. |
+| `Enable auto-backup on app start` | on (new installations) | Master switch. |
 | `Minimum interval (days)` | `7` | Auto-backup only runs if at least this many days have passed since the last backup. |
 | `Keep at most (count)` | `5` | Maximum number of backup archives retained; the oldest are pruned beyond it. |
 | `Last backup` | - | Timestamp of the last successful backup; written by the service, read-only in the interface. |
 
-`Backup Now` runs a backup immediately, regardless of the configured interval - useful before risky operations. The interval is clamped to a minimum of one day, so the shortest effective interval is one day.
+The automatic backup runs in the background once the main window is open, so it does not delay the start; its result appears in the notice bar only when something went wrong. `Backup Now` runs a backup immediately, regardless of the configured interval - useful before risky operations. It also runs in the background, its button is disabled while it runs, and it can be used while an analysis is running. One backup runs at a time. The interval is clamped to a minimum of one day, so the shortest effective interval is one day.
 
-A backup is a ZIP archive of the **entire base-path hierarchy**, written to `{BasePath}\backups\` with a name of the form `backup-<yyyyMMdd-HHmmss>.zip`. The `backups\` folder itself is skipped while collecting, so an archive never contains older archives. The configured database is added explicitly, even when it lives outside the base path (the usual case for an absolute database path), together with its `-wal` and `-shm` companions.
+A backup is a ZIP archive of the **base-path hierarchy**, written to `{BasePath}\backups\` with a name of the form `backup-<yyyyMMdd-HHmmss>.zip`. The `backups\` folder itself is skipped while collecting, so an archive never contains older archives. The configured database is added as a **consistent snapshot**, taken with SQLite's own backup function, even when it lives outside the base path (the usual case for an absolute database path). The snapshot is taken while the application and any MCP server on the same database keep working, and it contains every committed change, so the `-wal` and `-shm` companions are not archived. Other database files under the base path - for example old copies you kept there - are left out and counted in the result message.
 
-Two properties of the archive matter in practice:
+Three properties of the archive matter in practice:
 
-- **A backup can be incomplete.** A file that cannot be read - and the database is locked while a GUI or an MCP host has it open - is skipped, and the run reports the status **PARTIAL** instead of success. The archive is still written; its file name carries the suffix `-partial` so the verdict stays visible even after the result message is gone. The retention rule never prunes the newest complete archive, so a series of partial runs cannot evict the last backup that still contained the database.
+- **A finished archive is named `.zip` only when it is complete.** While it is written it is called `backup-<...>.zip.inprogress`; an interrupted run leaves only such a file, which the next run removes, and never a file that looks like a finished backup.
+- **A backup can still be incomplete.** A file under the base path that cannot be read is skipped, and the run reports the status **PARTIAL** instead of success. The archive is still written; its file name carries the suffix `-partial` so the verdict stays visible even after the result message is gone. The retention rule never prunes the newest complete archive. The result message names up to five skipped files and summarizes any further ones as `and N more`.
 - **An incomplete run still advances the last-backup timestamp**, so it is not retried at every start.
 
-To obtain a complete backup, make sure no other process has the database open - stop any running MCP server or host and any second instance of the application - and then run `Backup Now`. The result message names up to five skipped files, summarizes any further skipped files as `and N more`, and, if applicable, states that the database was not archived. If you want certainty, copy the database file together with its `-wal` and `-shm` companions by hand while nothing is running.
+A backup that runs while you switch the database, create a new one or change the data directory is waited for: those actions are refused with `Cannot switch DB while 1 background task(s) are active.` (the action name varies) until it has finished.
 
 ## 10.4 Switching and creating databases
 
@@ -203,7 +204,7 @@ There is no separate constellation conflict dialog or Cancel choice. The dialog 
 
 The rule is "the id exists, the mode decides" - not "is the content equal".
 
-**No rollback.** An import has neither a rollback per entry nor across the run. Each entity group is written through its own connection, and errors are collected and reported at the end. What is guaranteed is the write order: entities first, then the settings that refer to them. A cancelled or failed import can therefore leave a partial state. **Take a backup before importing.**
+**No rollback.** A file whose preview finds a problem is refused as a whole, with nothing written. Past the preview, an import has neither a rollback per entry nor across the run. Each entity group is written through its own connection, and errors are collected and reported at the end, naming each item that failed. What is guaranteed is the write order: entities first, then the settings that refer to them. A cancelled or failed import can therefore leave a partial state. **Take a backup before importing.**
 
 Older bundle files that still carry the retired keys `FindingActionMode` or `CodeQuality` are read without error: those keys are skipped silently and noted in the log, so old backups remain usable.
 
@@ -247,7 +248,7 @@ A session can be exported as a JSON file from the Sessions tab (`Export` → `As
 | `{BasePath}\app-settings.json` | Only the storage section (base path, database path, backup settings) plus the most recently used solutions and databases. | yes | yes - it is recreated with defaults on the next start; recent paths and a custom database path are lost |
 | `{BasePath}\app-settings.json.<random>.tmp` | Staging file of a settings write. Removed automatically; leftovers from a killed process are swept at the next start. | - | yes |
 | `{BasePath}\app-settings.json.corrupt-<timestamp>` | A preserved copy of a settings file that could not be read. | yes | only once you no longer need it |
-| `{BasePath}\backups\backup-*.zip` | Automatic backups of the base-path hierarchy plus the database; only with auto-backup enabled. A `...-partial.zip` may not contain the database. | yes | yes, if you do not need the backups |
+| `{BasePath}\backups\backup-*.zip` | Automatic backups of the base-path hierarchy plus a snapshot of the database; only with auto-backup enabled. A `...-partial.zip` is missing a file that could not be read. | yes | yes, if you do not need the backups |
 | `%APPDATA%\AIContextBuilder\aicb.mcp.json` | Optional MCP server configuration. It is **only read**, never written by the application. | yes | yes - the built-in defaults then apply |
 | `%APPDATA%\AIContextBuilder\aicb.log` | Support log: warnings and errors from the desktop application. Rotating: 1 MiB per file, 3 older files retained (`aicb.log.1` ... `aicb.log.3`). | yes | yes |
 | `%APPDATA%\AIContextBuilder\load-perf.log` | Solution-load phase timings; one line per load, written by the desktop application only. | yes | yes |
@@ -297,7 +298,7 @@ A complete manual removal therefore means:
 2. Remove all entries whose target starts with `AIContextBuilder.` from the Windows Credential Manager. The API keys live **outside** the directory and are not removed with it.
 3. If you changed `BasePath` or `DatabasePath`, delete the second location as well.
 4. For every analyzed solution, delete `<solution folder>\<Name>.aicb.json` - and a possibly orphaned `<Name>.aicb.json.tmp`.
-5. In every project where `aicb init` ran, edit the harness files by hand: remove the aicb entry from `.mcp.json`, delete `.claude/skills/...` and the guard file `.claude/hooks/aicb-symbol-guard.mjs` (or the Codex/OpenCode equivalents) and remove the aicb hook entry from `.claude/settings.json`, `.codex/hooks.json` or `opencode.json`.
+5. In every project where `aicb init` ran, edit the harness files by hand: remove the aicb entry from `.mcp.json` (and from `.codex/config.toml` or the `mcp` section of `opencode.json`), delete `.claude/skills/...` and `.agents/skills/...` and the guard file `.claude/hooks/aicb-symbol-guard.mjs` (or the Codex/OpenCode equivalents) and remove the aicb hook entry from `.claude/settings.json`, `.codex/hooks.json` or `opencode.json`.
 6. Delete any exports you created yourself: context documents (`--output`), copied source files, usage reports, run templates, session exports, master-data exports and constellations.
 
 If you work only with the CLI or the MCP server, you have **no** built-in way to delete the usage recording. Your only option would be to delete the `.acb` file - which also carries every session, every snapshot and every profile.

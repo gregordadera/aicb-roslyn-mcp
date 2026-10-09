@@ -153,14 +153,14 @@ Five rendered sections have no slot at all and cannot be switched off through a 
 
 ## 6.5 Tag schemas
 
-A tag schema decides which fields a block contains, in which order, and how each field is written. It belongs to exactly one schema type. There are 72 built-in schemas; per schema type exactly one carries the default marker (the `...-Default` entry). That default is used when no profile or slot resolves. An empty single-schema slot suppresses its section; an empty rung in a staged slot falls back to the built-in sub-block schema.
+A tag schema decides which fields a block contains, in which order, and how each field is written. It belongs to exactly one schema type. There are 52 built-in schemas; per schema type exactly one carries the default marker. That default is used when no profile or slot resolves. An empty single-schema slot suppresses its section; an empty rung in a staged slot falls back to the built-in sub-block schema.
 
 A schema is a list of fields. Each field row has:
 
 | Column (label in the editor) | Meaning |
 |---|---|
 | Field name | The label written into the document, for example `TypeName` or `Layer`. |
-| Source | The mapping onto analysis data. `facts.*` are deterministic Roslyn facts, `resolved.*` are values from the resolution chain; only paths from the built-in list are accepted. |
+| Source | The mapping onto analysis data. `facts.*` are deterministic Roslyn facts, `resolved.*` are values from the resolution chain; only paths from the built-in list are accepted, and the list offers only paths that produce output for the schema type. A field whose stored source is no longer offered shows a warning, and the schema cannot be saved until the field is changed or removed. |
 | `Active` | When unchecked, the field is kept in the schema but skipped during rendering. |
 
 The field's render strategy decides the shape of the emitted line. The renderer provides twelve strategies; the built-in schemas use ten of them. `json` and `yaml` are available to custom fields but are not used by built-in schema fields:
@@ -180,12 +180,11 @@ The field's render strategy decides the shape of the emitted line. The renderer 
 | `json` | A JSON object member, for machine-readable pipelines. |
 | `yaml` | A YAML mapping entry; multi-line strings use the `|-` block literal. |
 
-The 27 schema types and how they are slotted:
+The 24 schema types an MD profile slots, and how:
 
 | Group | Schema types | Slot mode |
 |---|---|---|
 | Code structure | `Class`, `Method`, `Interface`, `Enum` | staged |
-| Detail | `EntryPoint`, `Property`, `SideEffects` | single |
 | Section | `Spec`, `Meta`, `AiPrompt`, `Domain`, `ArchitectureFlow`, `InterfaceRelations`, `EntryPoints`, `EntryPointFlow`, `EnumSummary`, `FileIndex`, `PathLegend`, `Solution`, `Project`, `File` | single |
 | Graph | `MethodGraph`, `MethodUsedByGraph`, `ServiceDependencyGraph`, `LayerMap`, `ClassDependencyGraph`, `RoleGraph` | single |
 
@@ -195,7 +194,7 @@ The schema editor has three tabs: `Fields` (name, source, active, add and remove
 
 Note: the `Layout` tab is reserved for future renderer wiring. Its four values - `Node label` (default `MethodSignature + DeclaringType`), `Edge style` (default `Arrow with caller→callee label`), `Clustering` (default `By layer`) and `Depth limit (1-10)` (default 3) - are persisted with the schema but are not consumed by any renderer yet; the fields are shown read-only. App-global compression on/off lives under Settings → General.
 
-Note: a few MD-profile slots are stored but do not currently change the output: `SOLUTION`, `PROJECT` and `FILE` render a fixed header structure, and the `ENTRY_POINT`, `PROPERTY` and `SIDE_EFFECTS` slots have no consumer.
+A schema you create yourself reaches the export when an MD profile's `Class`, `Interface`, `Enum` or `Method` row, or the `Sections` panel of a tab, picks it: it becomes the first lines of every such block (for a method, its `METHOD_INFO`) and fills every field it offers where the code has the value. A copy of a built-in block replaces just that block. The `SOLUTION`, `PROJECT` and `FILE` header lines render from their schemas; the built-in ones give the usual header. Under each schema the editor says where it shows up in an export, or why it does not.
 
 ## 6.6 Expansion strategies
 

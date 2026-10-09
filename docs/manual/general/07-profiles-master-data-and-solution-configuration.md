@@ -84,6 +84,8 @@ The precedence for each axis is:
 | Exclusions | per-solution choice > global default (`Default namespace-exclusion list`) > built-in `BCL default` |
 | Test profile | per-solution choice > globally active test profile (`Settings > Test Profiles`, `Apply as Active`) > built-in `Default` |
 
+An exclusion list can hold **keep rules** besides its exclusion rules (the `Keep` column of the list editor): a namespace a keep rule matches is never excluded. A list made only of keep rules does not replace the list beneath it - a solution's keep-only list applies over the global default, and a global keep-only list over the built-in `BCL default` - so a library whose subject is a framework area (Dapper and `System.Data`) needs one rule. A list with exclusion rules of its own replaces the list beneath it, as before. Whatever list applies, a type the solution declares itself is never excluded because its namespace matches, and the document header names the list it was analyzed with (`Exclusions:`).
+
 ### First-time setup on load
 
 Each picker carries a checkbox: `Auto-initialize via LLM on next load` for the layer profile and the exclusion list, `Auto-initialize on next load` for the test profile. A freshly registered solution starts with all three flags enabled. They are evaluated the next time you open that solution in the Context Builder - the loading happens there, not in the `Workspace` tab.
@@ -131,6 +133,9 @@ The file carries the **content** of a configuration - patterns, names, rules - a
   "exclusions": [
     { "pattern": "System.", "matchType": "StartsWith" }
   ],
+  "keepNamespaces": [
+    { "pattern": "System.Data", "matchType": "StartsWith" }
+  ],
   "testProjectRules": [
     { "pattern": ".Tests", "matchType": "EndsWith" }
   ],
@@ -147,7 +152,9 @@ The file carries the **content** of a configuration - patterns, names, rules - a
 |---|---|---|---|
 | `layerRules` | array of `{ pattern, matchType, layer }` | Namespace pattern → architecture layer. The first matching rule wins. | The layer axis is unset. `matchType` defaults to `Contains`. |
 | `layeringPolicy` | `"Advisory"` or `"Strict"` | How a layer violation is reported. `Advisory` = warning, `Strict` = critical (acts as a gate). | `Advisory`. The key is only written when the value is not `Advisory`, so an advisory file stays byte-identical to older files. |
-| `exclusions` | array of `{ pattern, matchType }` | Namespace patterns the analysis skips. | The exclusion axis is unset. `matchType` defaults to `StartsWith`. |
+| `exclusions` | array of `{ pattern, matchType }` | Namespace patterns the analysis skips. | The exclusion axis is unset, and so it is for an empty array `[]`: the list beneath applies. `matchType` defaults to `StartsWith`. |
+| `keepNamespaces` | array of `{ pattern, matchType }` | Keep rules: a namespace they match is never excluded. Alone, they keep the built-in list in force beneath them. | No keep rules. Versions before 0.5.501.1 ignore this key and drop it when they rewrite the file. |
+| `exclusionsDisabled` | `true` | The opt-out: exclude nothing. Written for a solution set to exclude nothing, and for a list whose rules are all empty. | The exclusion axis follows `exclusions`. |
 | `testProjectRules` | array of `{ pattern, matchType }` | Rules that classify a **project name** as a test project; any match counts. | The test axis is unset. `matchType` defaults to `Contains`. |
 | `testAttributeNames` | array of strings | Attribute names that mark a method as a test case, matched as substrings. | The test axis is unset. |
 | `autoInit` | `{ layer, exclusions, test }` booleans | The "auto-initialize on next load" opt-ins per axis, so the intent travels with the repository. The database record remains the primary source; this is the fallback for a fresh clone. | Written only when at least one flag is `true`. |
@@ -156,7 +163,7 @@ The file carries the **content** of a configuration - patterns, names, rules - a
 
 The allowed `matchType` values are `Contains`, `StartsWith`, `EndsWith` and `Exact`; on reading they are matched case-insensitively. `apply_solution_config` rejects an invalid value; in a hand-edited file an unparsable value falls back to the axis default.
 
-Note: `layeringPolicy` belongs to the layer axis, and `testProjectRules` plus `testAttributeNames` together are the test axis. That makes eight keys but six axes: layer, exclusions, test, auto-init, suppressions and analysis scope.
+Note: `layeringPolicy` belongs to the layer axis, `keepNamespaces` and `exclusionsDisabled` to the exclusion axis, and `testProjectRules` plus `testAttributeNames` together are the test axis. That makes ten keys but six axes: layer, exclusions, test, auto-init, suppressions and analysis scope. A keep rule written inside `exclusions` (`"keep": true`) is refused as a broken file; `apply_solution_config` moves such a rule to `keepNamespaces` when it rewrites the file.
 
 ### The analysis scope, written by hand
 
@@ -172,9 +179,9 @@ The symbol inventory is unchanged - every symbol a query can name is still there
 
 ### Creating and updating the file
 
-- In the graphical interface, select the solution in `Workspace` and use `Export Config`. It writes the active layer profile, exclusion list, test profile, your triage decisions and the auto-init flags to the sidecar. If the file already exists you are asked before it is overwritten. The confirmation reminds you to commit it. Headless analysis auto-discovers the sidecar without `--db-path`, but applies each field according to the per-axis matrix below rather than treating the whole file as one profile.
-- `Import Config` reads the layer rules and exclusions from a selected JSON/sidecar file and applies those two axes to the selected solution: it creates and activates a custom layer profile and exclusion list. It does not import the sidecar's test profile, suppressions, auto-init flags or analysis-scope key.
-- `apply_solution_config` writes the configuration database and the sidecar together and returns the path.
+- In the graphical interface, select the solution in `Workspace` and use `Export Config`. It writes the active layer profile, exclusion list, test profile, your triage decisions and the auto-init flags to the sidecar. If the file already exists you are asked before it is overwritten; then it keeps the suppressions only the file holds (but not one you lifted in the Insights panel) and the file's settings for every axis the solution has no choice of its own for, and the confirmation names what it kept and counts what it wrote. A file it cannot read is left untouched and the export is refused. The confirmation reminds you to commit it. Headless analysis auto-discovers the sidecar without `--db-path`, but applies each field according to the per-axis matrix below rather than treating the whole file as one profile.
+- `Import Config` reads the layer rules, the exclusions with their keep rules and `exclusionsDisabled`, and the test axis from a selected JSON/sidecar file and applies them to the selected solution: it creates and activates a custom layer profile, exclusion list and test profile, and keeps a `Strict` layering policy. It does not import the suppressions, auto-init flags or analysis-scope key.
+- `apply_solution_config` writes the configuration database and the sidecar together and returns the path. It keeps the existing file's settings for every axis the call does not set. When the existing file cannot be read, the call is refused before anything is written; a file that becomes unreadable while the database is written is left alone, and a warning says the file was not written.
 - You can edit the file by hand; it is designed for that.
 
 Note: `aicb init` does not write the sidecar, and neither does `init_solution_config` - the latter only gathers proposal material. The file is written by `Export Config`, by `apply_solution_config`, or by you.
@@ -186,7 +193,7 @@ Note: `aicb init` does not write the sidecar, and neither does `init_solution_co
 - Comments and trailing commas are accepted, as are differently-cased key names and enum names. Numeric enum values are rejected, so `"layeringPolicy": "7"` does not silently become something.
 - There are no key aliases. `layer_rules` is not `layerRules`: an unknown key configures no axis, and a file with no axis at all is not treated as a sidecar.
 - A file with content on none of the five content axes (layer, exclusions, test, suppressions, analysis scope) loads as "no sidecar". The `autoInit` flags ride along with a content-bearing file; a file containing only flags is neither written nor read.
-- Writing **replaces** the whole file. Axes that are not present are omitted, so a file that uses only the original two axes stays byte-identical to the older format. `analyzePreferredTfmOnly` is written back exactly as it came in, including an explicit `false`. The write is atomic (a temporary file, then a replace), UTF-8, indented and camelCase.
+- Writing **replaces** the whole file, from one read of the file as it stands: axes the writer does not set and keys it does not know are carried over unchanged, and a file it cannot read - malformed, locked, or holding a keep rule inside `exclusions` - is not rewritten at all. Axes that are not present are omitted, so a file that uses only the original two axes stays byte-identical to the older format. `analyzePreferredTfmOnly` is written back exactly as it came in, including an explicit `false`, and the test attribute names keep the spelling the file has. No rule with an empty pattern or layer is written. The write is atomic (a temporary file of its own, then a replace), UTF-8, indented and camelCase; temporary files an interrupted write left are removed.
 
 ### Which axis wins
 
@@ -195,7 +202,7 @@ The sidecar does not outrank everything - the precedence differs per axis:
 | Axis | What wins in the graphical interface | What wins in `aicb analyze` |
 |---|---|---|
 | Layer profile | explicit/per-solution database choice > global default > role-based heuristic. Sidecar rules participate only after they are restored into the database | `--layer-profile` > database (per solution > global default) > sidecar > role-based heuristic |
-| Namespace exclusions | per-solution database choice > global default > built-in `BCL default`. Sidecar rules participate only after they are restored into the database | database (as soon as any database is available) > sidecar > none |
+| Namespace exclusions | per-solution database choice > global default > built-in `BCL default`. Sidecar rules participate only after they are restored into the database | database (as soon as any database is available) > sidecar > built-in `BCL default` |
 | Test profile | database (per solution > global) > built-in default | database (per solution > global) > built-in default - the sidecar's test axis is not part of this chain |
 | Auto-init flags | database record, mirrored into the sidecar for a fresh clone | not evaluated |
 | Suppressions | database, shared through the sidecar export | not evaluated |

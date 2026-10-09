@@ -39,7 +39,7 @@ Check the setup step by step:
 3. Restart or reconnect your MCP client. A client reads its server list at startup; a running client will not see a new entry. Consoles, editors and agents that were already open also see a changed `PATH` only after a restart.
 4. Ask the agent to call `server_info`. If that answers, the connection works.
 
-**Note.** OpenCode does not read the shared `.mcp.json`; it discovers MCP servers only through its own `opencode.json`. Add the `aicb` entry there by hand, or the server stays invisible to it. `aicb init` prints this gap in its output when it detects that harness.
+**Note.** OpenCode does not read the shared `.mcp.json`; it discovers MCP servers only through its own `opencode.json`. `aicb init` writes the `aicb` entry there when the project uses OpenCode or `--hooks opencode` names it; by hand, the entry is `"mcp": { "aicb": { "type": "local", "command": ["aicb", "mcp"], "enabled": true } }`.
 
 **Two installations on one machine.** If `aicb` exists twice (for example the desktop installer and a .NET global tool), only the **first** one on `PATH` is ever started, and updating the other one changes nothing a client runs. `aicb init` warns when it finds more than one and lists which is used and which is ignored. Keep one: uninstall the global tool, or uninstall the desktop app under Windows Settings > Apps.
 

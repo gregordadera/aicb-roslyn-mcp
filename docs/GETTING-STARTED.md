@@ -113,12 +113,19 @@ This writes an `.mcp.json` entry and the
 reports what it did per file. It never overwrites (`--force` does), so running it
 again is safe.
 
+Codex and OpenCode do not read `.mcp.json`. If the project has a `.codex/` or
+`.opencode/` folder, `aicb init` also registers the server in `.codex/config.toml`
+or `opencode.json` and writes the skill to `.agents/skills/`, where both read
+skills. To wire one whose folder does not exist yet, name it:
+`aicb init --hooks codex` or `aicb init --hooks opencode`. Codex reads a project's
+`.codex/config.toml` only once you have trusted the project in Codex.
+
 **Know this before it happens:** if your project has a folder for an agent harness
 aicb knows (`.claude/`, `.codex/`, `.opencode/`), `aicb init` also installs the
 **symbol guard** there. The guard *refuses* a C# symbol search by grep or file read and
 points the agent at the aicb tool that answers it properly. That is what makes the
 tools actually get used - and it is the one part of the install that changes what
-your agent may do. To skip it: `aicb init --hooks none`. To remove an installed guard,
+your agent may do. To skip it: `aicb init --hooks none` (the server is still registered). To remove an installed guard,
 delete the aicb entry from `.claude/settings.json`, `.codex/hooks.json` or
 `opencode.json`.
 
@@ -136,9 +143,9 @@ The server is started as `aicb mcp` over stdio. For clients that read `.mcp.json
 ```
 
 If you use the ZIP without `PATH`, put the absolute path of `cli\aicb.exe` into
-`command`. **OpenCode does not read `.mcp.json`** - add the same command (`aicb`,
-argument `mcp`) to its own `opencode.json` as described in OpenCode's MCP
-documentation.
+`command`. **Codex and OpenCode do not read `.mcp.json`** - add the same command
+(`aicb`, argument `mcp`) to `.codex/config.toml` (a `[mcp_servers.aicb]` table) or to
+the `mcp` section of `opencode.json`, as described in each client's MCP documentation.
 
 ## 5. Check the connection
 

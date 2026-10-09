@@ -308,19 +308,19 @@ Note: saving a new `Base path` can change which database file is active, because
 
 ### Auto-Backup
 
-Introductory text: "Periodically zips the BasePath folder into BasePath\backups\. The backup folder itself is skipped, so archives never nest."
+Introductory text: "Periodically writes a ZIP into BasePath\backups\: a consistent copy of the active database, taken while the app keeps working, plus the other files under BasePath. Other database files there (retired copies) are left out, and so is the backup folder itself."
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `Enable auto-backup on app start` | Checkbox | off | When on, the app zips the base path into `BasePath\backups\` at startup if the minimum interval has elapsed. |
+| `Enable auto-backup on app start` | Checkbox | on for a new installation | When on, the app backs up in the background once the main window is open, if the minimum interval has elapsed. An existing installation keeps the value it had. |
 | `Minimum interval (days)` | Number | `7` | Auto-backup only runs if at least this many days have passed since the last backup. Values below 1 are raised to 1. |
 | `Keep at most (count)` | Number | `5` | Maximum number of backup archives that are kept. Older archives are pruned - except that the newest complete archive is never deleted. Values below 1 are raised to 1. |
 | `Last backup` | Read-only text | `never` | Timestamp of the last successful backup. |
-| `Backup Now` | Button | - | Runs a backup immediately, regardless of the configured interval. Refuses while a background task is active. |
+| `Backup Now` | Button | - | Runs a backup immediately, regardless of the configured interval, in the background; the button is disabled and the status line says `Backing up ...` while it runs. It can be used while an analysis or a run is active. |
 
-The archive contains the whole base path (the `backups` folder itself is skipped), and it also contains the active database even when that file lives outside the base path - together with its `-wal` and `-shm` siblings. A file that could not be archived (typically the database, while another process holds it open) is listed in the result and the archive is renamed with the suffix `-partial`.
+The archive contains the files under the base path (the `backups` folder and other database files are skipped) and a consistent snapshot of the active database, even when that file lives outside the base path. The snapshot is taken with the backup function of SQLite itself while the app and any MCP server on the same database keep working, so the `-wal` and `-shm` siblings are not needed. While it is written, the archive is called `...zip.inprogress`; it gets its final name only when it is complete. A file that could not be read is listed in the result and the archive is renamed with the suffix `-partial`.
 
-Note: the automatic backup runs at startup **before any window appears**, so a large base path can noticeably delay the start. If a run fails - for example because of an unreadable sub-folder - the failure is reported in the startup notice bar, and the run is retried at every start until the cause is fixed. If the automatic backup is not wanted, switch it off here.
+Note: the automatic backup runs in the background **after** the main window appears. If a run fails - for example because of an unreadable sub-folder - the failure is reported in the startup notice bar, and the run is retried at every start until the cause is fixed. If the automatic backup is not wanted, switch it off here. While a backup runs, switching or creating a database and changing the base path wait for it.
 
 ## 8.6 Model Profiles
 
@@ -529,12 +529,14 @@ The editor has three tabs:
 
 - **`Fields`** - the fields that are rendered for this schema. Each row has:
   - a `Field name`,
-  - a `Source` path chosen from the list that is valid for this schema type (the accepted paths are deterministic facts and resolved values, for example `facts.TypeName` or `resolved.Layer`),
+  - a `Source` path chosen from the list that is valid for this schema type (the accepted paths are deterministic facts and resolved values, for example `facts.TypeName` or `resolved.Layer`; the list offers only paths that produce output). A field whose stored path is no longer offered shows a warning, and the schema cannot be saved until the field is changed or removed,
   - an `Active` checkbox: when unchecked, the field is kept in the schema but skipped when rendering,
   - a remove button.
   `Add Field` appends a new row. Fields can only be added or removed on custom schemas.
 - **`Layout`** - only visible for graph schemata. **Note: this tab is reserved for a future renderer.** The four read-only fields (`Node label`, `Edge style`, `Clustering`, `Depth limit (1-10)`) are stored with the schema but are currently not used by any renderer. App-global compression on/off is on the `General` page instead.
 - **`Used by`** - the MD profiles that currently reference this schema. If none do, the page says so.
+
+Under each schema the page says where it shows up in an export, or why it does not. A schema you create yourself reaches the export when an MD profile's `Class`, `Interface`, `Enum` or `Method` row, or the `Sections` panel of a tab, picks it: it becomes the first lines of every such block (for a method, its `METHOD_INFO`). A copy of a built-in block replaces just that block. The `Solution`, `Project` and `File` schemas render the header lines of their sections.
 
 `Apply as Active` marks the schema as the default **for its schema type**. That default is used wherever a render resolves a section without an explicit schema - for example a slot whose schema was deleted, an empty level in a staged slot, or a render that runs without an MD profile. (An empty single slot in an MD profile suppresses its section instead - see "MD Profile".)
 

@@ -11,11 +11,13 @@ The command only writes files. It opens no solution and starts no analysis: no R
 | Artifact | Location, relative to the project directory | Written when |
 |---|---|---|
 | MCP client entry | `.mcp.json` | always |
+| Server entry for Codex / OpenCode | `.codex/config.toml` / `opencode.json` | for Codex or OpenCode when detected or named, also with `--hooks none` |
 | Agent skills | `.claude/skills/<skill>/SKILL.md` | always; one skill by default, three with `--skills all` |
+| Agent skills for Codex / OpenCode | `.agents/skills/<skill>/SKILL.md` | for Codex or OpenCode when detected or named |
 | Symbol guard script(s) | `.claude/hooks/`, `.codex/hooks/` or `.opencode/plugins/` | for every harness that is detected or named |
 | Harness wiring | `.claude/settings.json`, `.codex/hooks.json` or `opencode.json` | for every harness that is detected or named |
 
-The run attempts the artifacts in a fixed order: `.mcp.json` first, then the skills, then **all** guard scripts, then **all** wiring entries. Harness detection happens before the first write, so the run can never count a directory it created itself as evidence that a harness is in use. Each artifact reports its own result - one failure does not cost the others and does not hide them.
+The run attempts the artifacts in a fixed order: `.mcp.json` first, then the Codex and OpenCode server entries, then the skills, then **all** guard scripts, then **all** wiring entries. Harness detection happens before the first write, so the run can never count a directory it created itself as evidence that a harness is in use. Each artifact reports its own result - one failure does not cost the others and does not hide them.
 
 Every file is written atomically: a temporary file in the same directory is filled first and then moved over the target. An interrupted run therefore cannot leave a truncated `.mcp.json` (which would silently remove every other MCP server you had registered).
 
@@ -140,9 +142,9 @@ Both skills are written as a workflow. They gather the pending diff first (pushe
 
 Both accept a `--high` mode (the default, a single pass) and a `--max` mode (parallel angle-finders for higher recall).
 
-### Where the skills go - and where they do not
+### Where the skills go
 
-Skills are written to `.claude/skills/` and nowhere else. Codex and OpenCode receive the guard and its wiring, but no skill: where those harnesses look for skills has never been measured, and `aicb init` does not guess, because a guessed path writes a file nothing loads. The run says so in its output for each affected harness.
+Skills are always written to `.claude/skills/`, where Claude Code reads them. When the project uses Codex or OpenCode, or `--hooks` names one of them, the same skills are also written to `.agents/skills/`: Codex reads skills from there and from `.codex/skills/`, OpenCode from there, `.claude/skills/` and `.opencode/skills/`, and both read the shared folder. OpenCode keeps one copy of a skill it finds under two of its folders.
 
 The skill is written per project. If you want it available in every project instead of one, copy the folder `.claude/skills/aicb-csharp-context/` to the same path under your home directory.
 
@@ -222,8 +224,7 @@ Detection asks whether a **marker directory** exists in the project - `.claude/`
 The price of this rule is a false negative in the safe direction: if your `.claude/` directory contains only your own `skills/` folder, `auto` does not recognize Claude Code. You then get the explicit line
 
 ```text
-No agent harness detected here, so no symbol guard was installed. Pass --hooks
-claude-code|codex|opencode (or --hooks all) to install one anyway.
+No agent harness detected here, so no symbol guard was installed and this run registered the server only in .mcp.json (read by Claude Code). Pass --hooks claude-code|codex|opencode (or --hooks all) to wire one anyway - for Codex and OpenCode that also registers the server in their own config.
 ```
 
 and install it yourself with `--hooks claude-code`. Nothing is installed unasked.
@@ -242,32 +243,38 @@ Each artifact gets one line in the format `<label> <path> - <detail>`, with the 
 A sample run in a Claude Code project:
 
 ```text
-created C:\work\MyApp\.mcp.json - created with the aicb entry
-created C:\work\MyApp\.claude\skills\aicb-csharp-context\SKILL.md - agent skill aicb-csharp-context written
-created C:\work\MyApp\.claude\hooks\aicb-symbol-guard.mjs - aicb symbol guard written
-created C:\work\MyApp\.claude\settings.json - Claude Code: created with the aicb symbol guard wired
+created  C:\work\MyApp\.mcp.json - created with the aicb entry
+created  C:\work\MyApp\.claude\skills\aicb-csharp-context\SKILL.md - agent skill aicb-csharp-context written
+created  C:\work\MyApp\.claude\hooks\aicb-symbol-guard.mjs - aicb symbol guard written
+created  C:\work\MyApp\.claude\settings.json - Claude Code: created with the aicb symbol guard wired
 
 The symbol guard is installed and it BLOCKS: a C# symbol search is refused and redirected to the aicb tools, not merely discouraged. Worth knowing before it surprises you.
   Remove it for Claude Code: delete the aicb entry from C:\work\MyApp\.claude\settings.json
   Skip it next time: aicb init --hooks none (that writes no enforcement - it does not remove what is already there).
+
 Restart or reconnect your MCP client, then call server_info to confirm it took.
 ```
 
-The paragraph after the file list appears only when the run actually installed a guard. It says three things: that the guard blocks rather than discourages, how to remove it (naming the actual wiring file), and that `--hooks none` governs the **next** run rather than undoing an installation. For a harness that does not receive a skill, it adds:
+The paragraph after the file list appears only when the run actually installed a guard. It says three things: that the guard blocks rather than discourages, how to remove it (naming the actual wiring file), and that `--hooks none` governs the **next** run rather than undoing an installation.
+
+In a Codex project the run also registers the server and writes the skill a second time:
 
 ```text
-  Codex CLI got the guard but no agent skill: skills are written to .claude/skills/ only.
-  Where this harness looks for them has never been measured, and init does not guess - a
-  guessed path writes a file nothing loads.
+created  C:\work\MyApp\.mcp.json - created with the aicb entry
+created  C:\work\MyApp\.codex\config.toml - Codex CLI server list: created with the aicb entry
+created  C:\work\MyApp\.claude\skills\aicb-csharp-context\SKILL.md - agent skill aicb-csharp-context written
+created  C:\work\MyApp\.agents\skills\aicb-csharp-context\SKILL.md - agent skill aicb-csharp-context written
+created  C:\work\MyApp\.codex\hooks\aicb-symbol-guard.mjs - aicb symbol guard written
+created  C:\work\MyApp\.codex\hooks.json - Codex CLI: created with the aicb symbol guard wired
 ```
 
-And for a harness that does not read the shared `.mcp.json`, it adds:
+and ends, after the guard paragraph, with the step only you can take:
 
 ```text
-  OpenCode does not read the .mcp.json written above - it discovers MCP servers only
-  through its own configuration. Add the aicb entry there, or the server this run wired
-  stays invisible to it.
+Codex reads .codex/config.toml only in a project it trusts. Open Codex in this folder once and trust it, or the aicb entry stays invisible to it.
 ```
+
+For OpenCode the server entry goes into `opencode.json` (`OpenCode server list: created with the aicb entry`), the file that also carries its guard wiring.
 
 If more than one `aicb` is on your `PATH`, every run also prints a warning, because each MCP client starts the **first** one and updating another one changes nothing a client runs:
 

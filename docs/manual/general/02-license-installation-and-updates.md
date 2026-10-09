@@ -268,7 +268,7 @@ To remove everything AIContextBuilder has written on a machine:
    - `user-data\aicb.acb` - the SQLite database: solutions, sessions, snapshots, profiles, and the MCP usage records;
    - `app-settings.json` - bootstrap settings (storage paths, recent lists);
    - `aicb.mcp.json` - optional MCP server configuration, if you created one;
-   - `backups\*.zip` - automatic backups, if you enabled them (they are off by default);
+   - `backups\*.zip` - automatic backups, if they are switched on (on by default for a new installation);
    - `aicb.log` and `aicb.log.1` to `aicb.log.3` - the desktop app's warning and error log;
    - `load-perf.log` - solution-load timings, if enabled;
    - possibly `templates.json` and `node-overrides.json` from earlier versions; the data they held now lives in the database.
