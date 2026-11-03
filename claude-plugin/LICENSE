@@ -4,7 +4,7 @@ Copyright (c) 2026 Gregor Dadera. All rights reserved.
 This software is licensed under version 0.6 of the AIContextBuilder
 End-User License Agreement (EULA). The full bilingual text (German /
 English) is shipped as EULA.md and published at this immutable reference:
-https://github.com/gregordadera/AICB/blob/eula-v0.6/EULA.md
+https://github.com/gregordadera/aicb-roslyn-mcp/blob/eula-v0.6/EULA.md
 
 SUMMARY (for orientation only; the EULA is binding)
 ===================================================
@@ -106,4 +106,4 @@ Governing law:
 By installing or using the software, you accept the EULA.
 
 Contact for licensing: aicb@dadera.de
-Project page: https://github.com/gregordadera/AICB
+Project page: https://github.com/gregordadera/aicb-roslyn-mcp

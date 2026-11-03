@@ -4,10 +4,12 @@
 
 Licensor: Gregor Dadera · Contact: aicb@dadera.de
 
-The immutable public reference for this version is
-[`eula-v0.6`](https://github.com/gregordadera/AICB/blob/eula-v0.6/EULA.md).
-A short summary is in [`LICENSE.txt`](LICENSE.txt) and, in plain words, in
-[`docs/LICENSING.md`](https://github.com/gregordadera/AICB/blob/main/docs/LICENSING.md).
+The immutable public reference for this version is the tag `eula-v0.6`:
+<https://github.com/gregordadera/aicb-roslyn-mcp/blob/eula-v0.6/EULA.md>
+
+A short summary is in [`LICENSE.txt`](LICENSE.txt). The same in plain words:
+<https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/LICENSING.md>
+
 The summaries are for orientation only; this document is binding.
 
 ---
