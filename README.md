@@ -121,17 +121,17 @@ documents the supported forms and fields.
 
 ![AIContextBuilder desktop app with a loaded solution](https://raw.githubusercontent.com/gregordadera/aicb-roslyn-mcp/main/docs/assets/aicb-main-light.png)
 
-## How analysis and memory work
+## What happens after your first question
 
-```text
-.sln / .slnx / .slnf + C# + XAML/AXAML
-                 ↓
-        MSBuild + Roslyn semantic models
-                 ↓
-  AICB facts and consolidated semantic indexes
-                 ↓
- individual answers or budgeted AI-Builder-MD
-```
+1. **The first question about a solution takes the longest.** You name a `.sln`,
+   `.slnx` or `.slnf`; AICB loads it the way your build would and reads its C#
+   code and its XAML/AXAML markup.
+2. **The questions after it are quick.** Callers, implementations, tests,
+   injection and impact come from what the first analysis learned, as a single
+   answer or as a context document sized to your budget.
+3. **Your saved edits are picked up.** With the shipped settings the next
+   question brings the analysis up to date with the saved files; an explicit
+   refresh does the same in every setting.
 
 AICB analyzes the solution once and then answers each question from what it
 learned: who calls what, which types use or implement which, what the markup refers
@@ -311,15 +311,15 @@ the .NET 10 SDK, installs the published tool, restores the solution and runs
 written:
 
 ```yaml
-- uses: gregordadera/aicb-roslyn-mcp@v0.5.510.1
+- uses: gregordadera/aicb-roslyn-mcp@v0.5.511.1
   with:
-    version: 0.5.510.1
+    version: 0.5.511.1
     solution: App.sln
     output: artifacts/context.md
     fail-on: "critical>0 OR debt>120min"
 ```
 
-The example pins both halves: `@v0.5.510.1` fixes the action, `version` fixes the package it
+The example pins both halves: `@v0.5.511.1` fixes the action, `version` fixes the package it
 installs. Without `version` the action installs the newest published package, and `@main`
 follows every change to the action, so neither belongs in a build you depend on. A release
 tag can in principle be moved; the full commit SHA of that tag is the immutable form. Further
@@ -384,15 +384,18 @@ over the global default.
 
 #### Initialize the three axes
 
-For a freshly registered solution, all three auto-init flags start enabled. The next
-time the desktop Context Builder loads it, AICB attempts each still-unconfigured axis.
-If a sidecar already covers an axis, the GUI offers to restore it without a model
-call. Otherwise, with a usable default model profile, one LLM request proposes layer
-rules and exclusions from declared and referenced namespace lists; test detection is
-derived locally from the analyzed projects and test attributes. The confirmation
-dialog decides whether the proposal is applied - the LLM request has already happened
-at that point. A missing model profile, no detected tests, or declining the proposal
-can leave an axis unconfigured. Existing choices are never overwritten.
+You do not have to set the three axes up by hand. When the desktop Context
+Builder loads a solution, AICB offers a setup for every axis that is still open
+and whose automatic setup you have not switched off:
+
+- If a `<SolutionName>.aicb.json` beside the solution already covers the axis,
+  it offers to take the setting from there, without asking a model.
+- Otherwise, if a default model profile is set up, it asks the model once for a
+  layer map and an exclusion list and shows you the proposal. The request has
+  been sent by the time you see the dialog; you decide whether the proposal is
+  applied. Test code is recognized on your machine, without a model.
+- An axis can stay open: without a model profile, without detected tests, or
+  when you decline. Choices you already made are never overwritten.
 
 Successful GUI auto-initialization stores the chosen profiles in the local database.
 It does **not** create `<SolutionName>.aicb.json` automatically. Use `Workspace →
@@ -465,6 +468,21 @@ machine and needs that version's SDK. A machine that has only .NET 8 or .NET 9 c
 dotnet tool install -g aicb-roslyn-mcp
 aicb --version
 ```
+
+Then register the server with your MCP client. For clients that read `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "aicb": {
+      "command": "aicb",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+`aicb init` writes this file for you; see [Connect a coding agent](#connect-a-coding-agent).
 
 Up to 0.5.465.1 the package was called `AIContextBuilder`. An update does not cross that
 rename: remove the old package first, then install the new one as above.
@@ -551,6 +569,29 @@ Verify the connection by asking the client to call `server_info`. Every analysis
 tool accepts an absolute `.sln`, `.slnx` or `.slnf` path as its session, so no
 separate analyze step is required. See the [five-minute guide](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/GETTING-STARTED.md)
 for setup, first questions and troubleshooting.
+
+## Tools
+
+The questions an agent asks most, and the tool that answers each one:
+
+| Tool | What it answers |
+|---|---|
+| `find_usages` | Who uses this type, method or property? |
+| `impact_of_change` | What else is affected if I change this symbol, and how risky is it? |
+| `find_implementations` | Which types implement this interface? |
+| `find_tests_for` | Which tests cover this symbol? |
+| `resolve_injection` | What is registered for this service, with which lifetime, and where? |
+| `find_by_side_effects` | Which code touches files, the network or a database, and which code is pure? |
+| `find_dead_code` | Which code does nothing reach? |
+| `get_diagnostics` | Which compiler errors and warnings are there, without a build? |
+| `find_symbol` | Where is the type or member with this name? |
+| `explain_symbol` | What does this symbol do, with its source and its surroundings in one answer? |
+| `architecture_overview` | How is the solution structured, without reading all of its source? |
+| `find_binding_usages` | Which XAML bindings name this view-model member? |
+| `prepare_task` | What do I need to read before I edit code for this task? |
+| `server_info` | Is the server running, and which version is it? |
+
+All tools with their parameters: [docs/TOOLS.md](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/TOOLS.md).
 
 ## Tool sets and Agent Skills
 

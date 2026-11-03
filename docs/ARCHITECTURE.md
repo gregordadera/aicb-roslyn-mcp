@@ -157,36 +157,25 @@ comparison pass vacuously. File additions or removals and changes to `.csproj`,
 fall back to a full reload. A combined public matrix for simultaneous multi-file
 edits and branch switches has not yet been published.
 
-## Which data structures hold and deduplicate the graph?
+## How does AICB keep its answers consistent?
 
-The central run state uses separate indexes for separate fact families rather than
-one universal graph object. Method, property, field, event, enum-member and type
-fan-in; interface implementations; interface-method implementations; and resolved
-markup fan-in each have their own keyed index.
+Each kind of relationship has its own index: who calls a method, who uses a type,
+a property or an event, which types implement an interface, which markup refers to
+a member. Every entry is filed under an identity that keeps overloads and two
+explicit implementations of the same interface member apart, so one name never
+merges two different symbols. A relationship that several parts of the analysis
+find is stored once, not counted twice.
 
-Most fan-in indexes have the shape
-`Dictionary<canonical symbol key, HashSet<consumer key>>`. The dictionary gives
-direct lookup by symbol; the set makes insertion idempotent and avoids storing the
-same edge twice when several analysis paths discover it. Method keys include the
-containing type and parameter types, and explicit-interface implementations keep
-the interface identity in the key, so overloads and two distinct explicit
-implementations do not collapse onto one node.
+Relationships that can only be resolved after the whole solution has been read -
+XAML bindings, Razor references and the types a top-level program uses - are
+resolved at the end of the analysis and then count like any other use. Answers
+that follow chains, such as the transitive impact of a change, are worked out when
+you ask, not stored for every possible path in advance.
 
-Raw facts that require a later binding step - XAML bindings and type references,
-Razor member/parameter references and top-level-statement type references - are kept
-in lists during the document walk. Post-processing resolves them against the built
-types and folds the result into the corresponding fan-in index. Transitive change
-impact and similar answers traverse these reusable indexes when requested rather
-than storing every possible path in advance.
-
-Document analysis can run in parallel. Short index insertions share one mutation
-lock, which avoids cross-index lock ordering and keeps a document's registrations
-consistent. For incremental reuse, each document additionally records a
-contribution log containing every index insertion it made. An unchanged document
-can replay that log into the new run state; the `HashSet`-backed indexes make the
-replay idempotent. Its cached record also carries the pristine analyzed file,
-declaration fingerprint, identifier hashes, declared types, base chain and referenced
-type hashes used by the invalidation rules above.
+The analysis runs on several documents at once and stays consistent for each one.
+For an incremental refresh AICB remembers what each document contributed, so an
+unchanged document's facts are reused instead of being analyzed again, under the
+rules in the previous section.
 
 ## Do the GUI and MCP server share the same RAM graph?
 
