@@ -4,6 +4,228 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
+## 0.5.511.1 (unreleased) - resolve_injection judges each target framework on its own, impact_of_change finds the markup users of dependency properties, and a token budget shortens methods before it drops them
+
+**Who is affected.** Everyone on the MCP server: reconnect your client once - 6 tools of the
+default profile have a new description (`apply_solution_config`, `architecture_overview`,
+`find_by_semantics`, `find_implementations`, `find_tests_for`, `impact_of_change`). No tool or
+parameter was added, removed or made required, no default changed, and the tools outside the
+default profile kept their descriptions. The handshake no longer declares
+`resources.listChanged` (see "Loading, `batch` and the server").
+
+**Scripts that read these answers should check the following:**
+
+- `find_implementations`: `isAbstract` is left out on interface rows and on rows whose kind is
+  not known (`via: "back-edge"`). Before, every row carried it, and an interface read `true`.
+  Treat a missing key as "does not apply".
+- `impact_of_change`: the `attachedProperty` block appears for more fields, and its entries can
+  carry a new `kind: "wrapper"`.
+- `find_by_semantics`: a new list `verifiedAbsentAxes`; an axis that moves into it leaves
+  `unclassifiedAxes`.
+- `resolve_injection`: in a multi-targeted project, `optionalDependencies` holds one entry per
+  parameter under the project's own name with a new `targetFrameworks` list, instead of one entry
+  per target framework. Some answers that read `no` now read `unknown`.
+- Exported Markdown under a token budget: a new method form `compact="budget"`, and the budget
+  header gains `used`, a breakdown of what was trimmed and, for a pipeline profile's budget,
+  `scope: methods only` (see "Exported Markdown").
+- `aicb analyze`: the wording of the layer-profile and test-profile notes on stderr changed, and
+  the test-profile note can be absent.
+- Coupling numbers move down where a type uses one generic type with several type arguments: Ce,
+  `ceMax` in `solution_metrics`, the max-Ce rule of the quality gate and the namespace lines of
+  `QUALITY_HOTSPOTS` (see "Side effects, coupling and code quality").
+
+**After updating:** every snapshot and saved session of an earlier version is analyzed afresh the
+first time a session is restored from it, and a codebase remembered with an earlier version is
+recalled as `stale` until `refresh_remembered`. In the desktop app, the Insights debt trend reads
+"not comparable" until two analyses have been stored by this version, and the Solutions tab marks
+the snapshot counts of earlier versions with a `*` (see "Desktop app"). The configuration database
+is not changed by this version, so an older desktop app still opens it.
+
+### Who uses this symbol and what a change reaches
+
+- **`impact_of_change` names the markup users of a dependency property.** Markup sets and binds
+  a dependency property through its wrapper property and never names the field, so changing the
+  field showed no markup user. The `attachedProperty` block now also appears for a plain
+  dependency property of WPF or Avalonia and lists its wrapper property with the XAML/AXAML files
+  that use it, as an entry with `kind: "wrapper"`. An attached property that also has a wrapper
+  property gets both kinds of entry, and the `note` says which applies. As before, the block moves
+  no count and not the risk.
+- **The serializer note of `impact_of_change`** also recognises `[JsonPropertyName]` written with
+  a namespace alias (`[J::JsonPropertyName]`).
+- **`find_implementations`** no longer marks an interface that extends the queried one as
+  abstract, and no longer claims `isAbstract: false` for a row whose kind it does not know (see
+  above).
+- **`coverage_gaps` follows two more routes from a test to a method:** through the command the
+  MVVM toolkit generates for a `[RelayCommand]` method, and from a test that reads a type's static
+  state into the static constructor and the initializers that set it, also across several types.
+    Such methods now carry `testReachDepth`, the number of hops from the nearest tested method,
+  instead of reading as reached by no test; they stay in the list, since no test calls them
+  directly. An initializer of a field nothing reads stays unreached.
+- **Fewer false dead-code candidates:** Avalonia code-behind (`*.axaml.cs`) counts as used by its
+    markup like WPF code-behind already did, a `Tests`, `Fixtures` or `Probes` folder directly under
+  a project counts as test scaffolding like a nested one, and `find_production_dead` (outside the
+  default profile) exempts the methods of a code-behind or test-scaffolding class in all of its
+  files, not only in the one that shows what the class is.
+- **`symbol_signature`** prints a constructor's parameters with their nullable mark and default
+  value (`string? name = null`), like a method's.
+- **`find_by_semantics` tells "declared none" from "no data".** When nothing matches, an axis on
+  which every symbol declares `none` through an `<ai>` annotation is listed in the new
+  `verifiedAbsentAxes`; before, it stood in `unclassifiedAxes` like an axis nobody had classified.
+  An axis declared `none` on only some symbols stays where it was.
+
+### Side effects, coupling and code quality
+
+- **Multi-targeted projects get their full side effects.** Only one framework's copy of a method
+  received the effects it reaches through the methods it calls, so an answer that read another
+  copy could show fewer effects than the method has. Every copy now carries the effects of its own
+  calls, and a call into another multi-targeted project counts the copy the caller compiles
+  against. This shows in `find_by_side_effects`, `explain_symbol`, the `SEMANTICS` of exported
+  Markdown and the insights built on side effects.
+- **`Trace.Assert`, `Trace.Fail` and Code Contracts are checks.** A method calling them was marked
+  `logging` (Trace) or `unknown` (Contracts), and its callers inherited that. They now count as no
+  effect at all, like `Debug.Assert`; `Trace.WriteLine` and the other `Trace` output stays
+  `logging`, and a call inside the checked expression keeps its own effect.
+- **A broad catch with only exclusions is reported.** `catch (Exception ex) when (ex is not
+  OperationCanceledException)` swallows everything else, but any `when` filter used to make a
+    catch count as selective. A filter that only excludes exception types (`is not`, `!(ex is A)`,
+  combined with and, or and not) no longer exempts it; any other filter still does.
+- **One generic type is one coupling.** `Box<Order>` and `Box<Invoice>` counted as two efferent
+  couplings and now count as one; generic types of different arity stay separate. This moves Ce
+  on types and namespaces, `ceMax` in `solution_metrics`, the max-Ce rule of
+  `aicb analyze --fail-on`, the `ce` values and namespace ranking of `QUALITY_HOTSPOTS` and the Ce
+    row of the desktop app's symbol details. A namespace's use of a generic type it declares itself
+  no longer counts as outgoing. Where exported Markdown lists a type's injected and used types, it
+  still lists every closing; other dependency lists, such as the one in the desktop app's symbol
+  details, now show each generic type once, like the Ce row. A quality gate tuned to the old
+  numbers may now pass where it failed.
+- **Framework API areas ignore signatures an outside interface dictates.**
+  `init_solution_config` (`frameworkApiAreas`) and `check_solution_config_drift`
+  (`exclusion.excludedApiAreas`) report excluded namespaces that carry much of a solution's public
+    surface. A public method that implicitly implements an interface the solution does not declare,
+  such as `Convert` of WPF's `IValueConverter`, counted toward that share, so a UI-heavy solution
+  could see an area it never chose. Such methods now count on neither side, like overrides and
+  explicit implementations already did.
+
+### Dependency injection (`resolve_injection`)
+
+- **Each target framework is judged on its own.** In a multi-targeted project an optional
+  constructor dependency is one entry with a `targetFrameworks` list, and each framework's copy is
+  checked against the registrations that framework compiles (a registration under `#if NET8_0`
+  no longer counts for `net10.0`). Copies with different verdicts stay separate entries.
+  `ambiguous` no longer flags two registrations that sit in mutually exclusive framework
+  branches, since no single container holds both. A constructor is counted once per declaration,
+  not once per framework, so a by-type `yes` is no longer withheld as `unknown`.
+- **`unknown` instead of `no` where a library may register the service.** An optional dependency
+  on a service of a referenced library, with no registration the server could read, was answered
+  `no`. When the code in view calls a registration helper of that library (for example
+  `services.Configure(...)`), the answer is now `unknown`, and the reason names the call and where
+  it is. Without such a call, and for a service the solution declares itself, it stays `no`.
+- **Registration keys:** a helper whose key parameter defaults to a constant other than a string
+  (`int key = 3`, an enum member, `default`) and is called without that argument now reports that
+  constant as the key instead of `(dynamic)`.
+- **Closed generics:** a type argument nested in a constructed generic (`Outer<int>.Inner`) keeps
+  its outer type in the row, so two closings of the outer are two services, and a query that
+  differs only there is listed as unresolved rather than matched. A solution's own type named
+  `String` or `Nullable` is no longer taken for the BCL type.
+
+### Solution configuration
+
+- **The exclusion example excludes `System` itself.** `init_solution_config` (`proposalFormat`)
+  and the description of `apply_solution_config` showed only
+  `{"pattern":"System.","matchType":"StartsWith"}`. A proposed list replaces the built-in one, so a
+  list copied from that example stopped excluding the types declared directly in `System`
+  (`Action`, `Func` and the like). The example now adds `{"pattern":"System","matchType":"Exact"}`.
+  If you applied a configuration built from the old example, add that rule.
+
+### Exported Markdown
+
+- **A token budget shortens methods before it drops them.** Before, a budget kept a method whole
+  or removed it. Now a method under a tight budget first loses its code (a comment says so where
+  the code was), then becomes a one-line signature `<METHOD compact="budget">`, then is listed by
+  name in a note per type, and only then disappears. More methods stay visible at the same budget,
+   and a budget that fits changes nothing. The compression legend explains the new form
+  where it occurs. A parser that knew only `compact="isolated"` should accept `compact="budget"`.
+  The heuristic settings of a Compression Rules profile no longer influence what a budget trims;
+  they still drive the method tree's automatic compression in the desktop app.
+- **The budget header says more.** It adds `used`, the measured size of the delivered document
+  (where the export could measure it), and breaks the trimmed methods down into without code,
+  signature only, name only and dropped. A pipeline profile's budget counts only the methods, not
+    the whole document, and the header now marks that with `| scope: methods only`. Adding `used`
+  does not push the delivered document over a size cap.
+- **The compression legend** explains the method blocks of a context slice that carry line
+    numbers, and in most cases no longer counts a method tag that appears inside printed source
+  code.
+- **`LAYER_MAP` lists more types:** helper, converter, attribute, exception and middleware types
+  get a row, and mapper types where an `<ai>` annotation names the role. Such a row reads
+  `Unknown` when no layer profile, annotation or project name gives the type a layer.
+  `architecture_overview` keeps the per-type map up to 2,500 types (before: 2,000) before it
+  switches to counts per layer.
+
+### Loading, `batch` and the server
+
+- **A clearer load error from the MCP server:** a solution with two projects whose project files
+  share a name in the same solution folder used to fail with advice about SDKs, workloads and
+  restore. The error now says what it is and that moving one project to another solution folder or
+  renaming one project file fixes it.
+- **`batch`** names the dropped one of two alternative spellings of the same parameter in its
+  ignored-arguments note, as a direct call already did.
+- **The handshake no longer declares `resources.listChanged`.** The server never sent that
+  notification, and the list of resources does not change while it runs; `tools.listChanged` went
+  the same way in 0.5.510.1.
+- **`aicb mcp` ends when the client closes stdin**, also while a `subscriptions/listen` request is
+  open. Before, such a server stayed until the client killed it.
+- A project file or XAML page that declares a DTD is treated as unreadable by test-project
+    detection and the binding analysis too, as the other readers of a solution's files already did.
+
+### `aicb analyze`
+
+- **`--emit-session-db` keeps the newest 10 automatic snapshots per solution.** Every fresh run
+  used to add one and none was ever removed. Snapshots you saved by hand, and those a saved
+  session or a run refers to, are never removed. If the cleanup cannot run, a warning goes to
+  stderr and the command still succeeds; a snapshot that cannot be deleted stays until a later run
+  removes it.
+- **The profile notes name what uses the profile in this run.** The layer-profile note always names
+  the rendered Markdown and adds the quality gate or the snapshot debt only when they run; the
+  test-profile note names only those two and is left out when neither runs. Both now also appear
+  when a stored snapshot is reused.
+
+### Desktop app
+
+- **Deleting an entry other entries use asks first.** On the master-data pages, Delete now names
+  how many entries refer to the one you delete and what happens to them, and No leaves everything
+  as it was. An entry nothing refers to is deleted without a question.
+- **Insight todos can be cancelled.** A Cancel button beside "Mark done" withdraws queued work,
+  and the line reads "Cancelled" until you queue it again.
+- **The Insights "Max MD size" slider remembers its value.** It starts at 60,000 on a fresh
+  install, keeps the last value you set, and travels with a configuration export. Before, it
+  started from the pipeline profile's budget every time.
+- **Pipeline profiles call their budget a "Method Budget",** with help text saying it counts only
+  the methods, so the document can be many times larger. The Settings page is now called
+  "MD Profiles", and the run-type tooltip no longer promises Pipeline runs for a future version.
+- **Numbers counted under other rules are marked.** The debt trend in the Insights header shows a
+  delta only between two analyses counted the same way and otherwise reads "not comparable", with
+  the reason in its tooltip. In the Solutions tab, a snapshot count stored under other or unknown
+  rules ends in `*` and is shown muted.
+- **A failed save no longer leaves unsaved values in effect** on the Storage page and for "Apply as
+  Active" on the library pages (a save that reached the database keeps the choice). The automatic
+  first run of the Insights page is tried again on the next load if saving that it ran failed, and
+  choosing the same layout selection again after a failed save now stores it instead of being
+  ignored.
+
+### Licence and README
+
+- The links in `EULA.md` and `LICENSE.txt` name the repository `aicb-roslyn-mcp`. In `EULA.md`
+  they now stand on a line of their own, so a site that shows the file as plain text no longer
+  glues `).` onto the address. The agreement text and its version (0.6) are unchanged.
+- The README shows the MCP client configuration right under "Install" and has a "Tools" section
+  with the questions agents ask most.
+
+### Other changes
+
+- The README's GitHub Action example pins this release (`@v0.5.511.1` with `version: 0.5.511.1`).
+- The public tool reference (`docs/TOOLS.md`) describes this release.
+- The three manuals and their PDFs still describe 0.5.505.1; the changes above are not in them yet.
+
 ## 0.5.510.1 (2026-10-29) - call_graph walks through constructors, a cancelled analysis waits for the retry, and a file shared by several projects renders once
 
 This release collects more changes than usual, so its entry is longer than usual too. The
