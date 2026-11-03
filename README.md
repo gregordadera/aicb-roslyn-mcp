@@ -19,8 +19,8 @@ analysis and editing.
 > documentation, license and releases. It is free for individuals, education and
 > organizations below the [license thresholds](#license-at-a-glance).
 
-This page is a short tour, not the reference. It names 35 of the 54 tools an agent
-sees by default; the three [manuals](#documentation) run to 35 chapters, about 39
+This page is a short tour, not the reference. It names 38 of the 54 tools an agent
+sees by default; the three [manuals](#documentation) run to 35 chapters, about 37
 times the length of this page.
 
 ## See it answer a code question
