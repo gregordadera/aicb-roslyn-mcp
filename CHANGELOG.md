@@ -4,7 +4,7 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
-## 0.5.511.1 (unreleased) - resolve_injection judges each target framework on its own, impact_of_change finds the markup users of dependency properties, and a token budget shortens methods before it drops them
+## 0.5.511.1 (2026-11-03) - resolve_injection judges each target framework on its own, impact_of_change finds the markup users of dependency properties, and a token budget shortens methods before it drops them
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once - 6 tools of the
 default profile have a new description (`apply_solution_config`, `architecture_overview`,
