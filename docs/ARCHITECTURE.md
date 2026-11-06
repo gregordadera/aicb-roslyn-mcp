@@ -365,9 +365,10 @@ Reading notes:
 - Diagnostics: `get_diagnostics` on `0.5.515.1` reported `incompleteProjects: []` on all three solutions. Serilog
   reported no errors, MahApps 755 errors (in its net462 test project, as before), RavenDB 1 error and 1 warning.
 - The production counts differ from the 2026-10-04 series for Serilog (129 / 657 there) and RavenDB (9,316 /
-  33,606 there); MahApps matches. This series uses a fresh configuration database and no reuse of MSBuild
-  worker nodes, and the 2026-10-04 condition was not repeated. Absolute values are therefore not comparable with
-  the 2026-10-04 table; the comparison within this series is.
+  33,606 there); MahApps matches. The cause lies in the measuring environment, not in the product: on the same
+  checkouts, `0.5.500.1`, which gave the 2026-10-04 values then, gives 115 / 636 and 9,036 / 32,672 today, the
+  same as `0.5.511.1` in this series. The environment state that changed since 2026-10-04 is not identified.
+  Absolute counts are therefore not comparable with the 2026-10-04 table; the comparison within this series is.
 - Incremental refresh time is not covered by this benchmark, and these numbers are measured data points on one
   machine, not a universal performance promise.
 
