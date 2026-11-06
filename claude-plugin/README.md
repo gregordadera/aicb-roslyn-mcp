@@ -1,7 +1,7 @@
 # AICB Roslyn MCP
 
 Roslyn-based code intelligence for C#/.NET, for coding agents. This plugin connects the
-AIContextBuilder (AICB) MCP server to Claude Code and adds four Agent Skills. Claude then
+AIContextBuilder (AICB) MCP server to Claude Code and adds five Agent Skills. Claude then
 answers questions about a C# solution from the compiler's symbol graph instead of text
 search: who calls a method, what a change breaks, where an interface is implemented,
 which tests cover a symbol, what dependency injection resolves, plus side effects, dead
@@ -84,6 +84,7 @@ covers sessions, profiles and every parameter.
 - `aicb-code-review` checks a completed change for correctness.
 - `aicb-code-simplifier` looks for unnecessary complexity.
 - `aicb-usage-check` reports what the server was actually reached for.
+- `aicb-smoke-test` runs read-only checks on a solution and drafts issues for the maintainer. It creates no GitHub issue until you confirm the drafts.
 
 ## If you already use `aicb init`
 
