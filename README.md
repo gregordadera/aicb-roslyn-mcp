@@ -622,14 +622,15 @@ class lists, `lean` and `all` are also supported. Profile and environment change
 take effect at the next server start. `list_skills` shows the resulting in-pool and
 out-of-pool tools. See [profiles, pools and facets](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/manual/mcp/04-profiles-pools-and-facets.md).
 
-Four Agent Skills ship in [`skills/`](https://github.com/gregordadera/aicb-roslyn-mcp/tree/main/skills):
+Five Agent Skills ship in [`skills/`](https://github.com/gregordadera/aicb-roslyn-mcp/tree/main/skills):
 
 - `aicb-csharp-context` routes semantic C# questions to the right tool.
 - `aicb-code-review` checks a completed change for correctness.
 - `aicb-code-simplifier` looks for unnecessary complexity.
 - `aicb-usage-check` reports what this server was actually reached for.
+- `aicb-smoke-test` runs read-only checks on your own solution, sorts the findings into HIGH, MID and LOW, and drafts reproducible issues for the maintainer. It files nothing until you confirm.
 
-The last three are opt-in: `aicb init --skills=all`.
+The last four are opt-in: `aicb init --skills=all`.
 
 ## Scale, releases and compatibility
 

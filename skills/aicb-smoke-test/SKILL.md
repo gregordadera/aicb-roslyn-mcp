@@ -18,7 +18,7 @@ Reply in the user's language. This file is English.
 ## Hard rules
 
 1. **Read-only aicb tools only.** The tool table at the end lists every tool this skill may call. Never call a writing tool, for example `install_agent_hooks`, `apply_solution_config`, `init_solution_config`, `save_session`, `export_markdown`, or `diff_review` with `recordRegressions`. A build is never started by this skill on its own: only when the user says "build" (phase 1, step 6), and then the user is told that `bin/` and `obj/` get written.
-2. **One write action only:** `gh issue create`, and only after the confirmation in phase 8. Read-only gh calls (`gh --version`, `gh auth status`, `gh label list`) are allowed. Never send email, never comment, never edit, close or label an existing issue, never create a label.
+2. **One write to GitHub only:** `gh issue create`, and only after the confirmation in phase 8. Local files are written only where phases 7 and 9 say so. Read-only gh calls (`gh --version`, `gh auth status`, `gh label list`) are allowed. Never send email, never comment, never edit, close or label an existing issue, never create a label.
 3. **No code, no identifiers from the user's own code or business, no paths, no secrets, no customer or product names in any draft** (phase 7). Framework and tool vocabulary may stay (phase 7 lists it). Every draft is shown in full before anything is created.
 4. **Do not invent results.** If a check cannot run, say so and do not count it as a finding.
 
@@ -191,7 +191,7 @@ The user may waive a hit for one issue in the chat. Waivers are per issue and ne
 
 1. For each confirmed draft, write its body with the Write tool to `aicb-smoke-issue-<n>.md` in the user's home folder under `aicb-smoke-test/`. The body must be the exact text shown in phase 8. Re-run the redaction scan on that file; if it finds a hit, do not create the issue and report why.
 2. Show the exact command, then run it:
-   `gh issue create --repo gregordadera/aicb-roslyn-mcp --title "<title>" --body-file <file> --label smoke [--label <category>]` (the category label is optional; repeat `--label` for each label)
+   `gh issue create --repo gregordadera/aicb-roslyn-mcp --title "<title>" --body-file <file> --label smoke [--label <category>]` (add the category label only where phase 8, step 1 assigned one; repeat `--label` for each label)
    Report each returned URL as a link.
 3. On a gh error, stop that issue, keep the others, and report the error text. Do not retry blindly.
 4. The body files may be deleted after gh has finished, if the user does not want to keep them.
@@ -214,7 +214,7 @@ Say: the solution and its kind, the tests run (IDs), the counts per level, the d
 
 ## Tool reference
 
-Every tool and parameter this skill uses, as the server lists them (checked against aicb 0.5.511.68). All of them sit in the server's default pool; if one is missing from a user's profile, skip that test and say so.
+Every tool and parameter this skill uses, as the server lists them (checked against the tool schemas of aicb 0.5.515.1). All of them sit in the server's default pool; if one is missing from a user's profile, skip that test and say so.
 
 | Tool | Parameters used |
 |---|---|
