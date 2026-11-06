@@ -311,15 +311,15 @@ the .NET 10 SDK, installs the published tool, restores the solution and runs
 written:
 
 ```yaml
-- uses: gregordadera/aicb-roslyn-mcp@v0.5.511.1
+- uses: gregordadera/aicb-roslyn-mcp@v0.5.515.1
   with:
-    version: 0.5.511.1
+    version: 0.5.515.1
     solution: App.sln
     output: artifacts/context.md
     fail-on: "critical>0 OR debt>120min"
 ```
 
-The example pins both halves: `@v0.5.511.1` fixes the action, `version` fixes the package it
+The example pins both halves: `@v0.5.515.1` fixes the action, `version` fixes the package it
 installs. Without `version` the action installs the newest published package, and `@main`
 follows every change to the action, so neither belongs in a build you depend on. A release
 tag can in principle be moved; the full commit SHA of that tag is the immutable form. Further

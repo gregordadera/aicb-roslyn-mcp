@@ -140,14 +140,14 @@ COMPONENTS
       Project    https://docs.microsoft.com/dotnet/standard/data/sqlite/
       In         CLI/MCP + GUI
 
-  Microsoft.Extensions.AI.Abstractions 10.8.3
+  Microsoft.Extensions.AI.Abstractions 10.11.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Caching.Abstractions 10.0.10
+  Microsoft.Extensions.Caching.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -161,7 +161,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Configuration.Abstractions 10.0.10
+  Microsoft.Extensions.Configuration.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -224,7 +224,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.10
+  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -245,14 +245,14 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Diagnostics.Abstractions 10.0.10
+  Microsoft.Extensions.Diagnostics.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.FileProviders.Abstractions 10.0.10
+  Microsoft.Extensions.FileProviders.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -280,7 +280,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Hosting.Abstractions 10.0.10
+  Microsoft.Extensions.Hosting.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -301,7 +301,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Logging.Abstractions 10.0.10
+  Microsoft.Extensions.Logging.Abstractions 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -357,7 +357,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Options 10.0.10
+  Microsoft.Extensions.Options 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -378,7 +378,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Primitives 10.0.10
+  Microsoft.Extensions.Primitives 10.0.13
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -421,14 +421,14 @@ COMPONENTS
       In         CLI/MCP + GUI
       NOTICE     NOTICE  - reproduced below
 
-  ModelContextProtocol 2.2.0
+  ModelContextProtocol 2.3.1
       Licence    Apache-2.0
       Copyright  © Model Context Protocol a Series of LF Projects, LLC.
       Authors    ModelContextProtocol
       Project    https://csharp.sdk.modelcontextprotocol.io/
       In         CLI/MCP
 
-  ModelContextProtocol.Core 2.2.0
+  ModelContextProtocol.Core 2.3.1
       Licence    Apache-2.0
       Copyright  © Model Context Protocol a Series of LF Projects, LLC.
       Authors    ModelContextProtocol
@@ -537,8 +537,8 @@ LICENCE TEXTS
 Apache-2.0  -  applies to 6 components:
 ------------------------------------------------------------------------------
 
-  ModelContextProtocol 2.2.0
-  ModelContextProtocol.Core 2.2.0
+  ModelContextProtocol 2.3.1
+  ModelContextProtocol.Core 2.3.1
   SQLitePCLRaw.bundle_e_sqlite3 3.0.5
   SQLitePCLRaw.config.e_sqlite3 3.0.5
   SQLitePCLRaw.core 3.0.5
@@ -825,10 +825,10 @@ MIT  -  applies to 62 components:
   Microsoft.CodeAnalysis.Workspaces.MSBuild 5.9.0
   Microsoft.Data.Sqlite 8.0.10
   Microsoft.Data.Sqlite.Core 8.0.10
-  Microsoft.Extensions.AI.Abstractions 10.8.3
-  Microsoft.Extensions.Caching.Abstractions 10.0.10
+  Microsoft.Extensions.AI.Abstractions 10.11.0
+  Microsoft.Extensions.Caching.Abstractions 10.0.13
   Microsoft.Extensions.Configuration 10.0.7
-  Microsoft.Extensions.Configuration.Abstractions 10.0.10
+  Microsoft.Extensions.Configuration.Abstractions 10.0.13
   Microsoft.Extensions.Configuration.Binder 10.0.7
   Microsoft.Extensions.Configuration.CommandLine 10.0.7
   Microsoft.Extensions.Configuration.EnvironmentVariables 10.0.7
@@ -837,18 +837,18 @@ MIT  -  applies to 62 components:
   Microsoft.Extensions.Configuration.UserSecrets 10.0.7
   Microsoft.Extensions.DependencyInjection 10.0.5
   Microsoft.Extensions.DependencyInjection 10.0.7
-  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.10
+  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13
   Microsoft.Extensions.DependencyInjection.Abstractions 10.0.5
   Microsoft.Extensions.Diagnostics 10.0.7
-  Microsoft.Extensions.Diagnostics.Abstractions 10.0.10
-  Microsoft.Extensions.FileProviders.Abstractions 10.0.10
+  Microsoft.Extensions.Diagnostics.Abstractions 10.0.13
+  Microsoft.Extensions.FileProviders.Abstractions 10.0.13
   Microsoft.Extensions.FileProviders.Physical 10.0.7
   Microsoft.Extensions.FileSystemGlobbing 10.0.7
   Microsoft.Extensions.Hosting 10.0.7
-  Microsoft.Extensions.Hosting.Abstractions 10.0.10
+  Microsoft.Extensions.Hosting.Abstractions 10.0.13
   Microsoft.Extensions.Logging 10.0.5
   Microsoft.Extensions.Logging 10.0.7
-  Microsoft.Extensions.Logging.Abstractions 10.0.10
+  Microsoft.Extensions.Logging.Abstractions 10.0.13
   Microsoft.Extensions.Logging.Abstractions 10.0.5
   Microsoft.Extensions.Logging.Configuration 10.0.7
   Microsoft.Extensions.Logging.Console 10.0.7
@@ -856,10 +856,10 @@ MIT  -  applies to 62 components:
   Microsoft.Extensions.Logging.Debug 10.0.7
   Microsoft.Extensions.Logging.EventLog 10.0.7
   Microsoft.Extensions.Logging.EventSource 10.0.7
-  Microsoft.Extensions.Options 10.0.10
+  Microsoft.Extensions.Options 10.0.13
   Microsoft.Extensions.Options 10.0.5
   Microsoft.Extensions.Options.ConfigurationExtensions 10.0.7
-  Microsoft.Extensions.Primitives 10.0.10
+  Microsoft.Extensions.Primitives 10.0.13
   Microsoft.Extensions.Primitives 10.0.5
   Microsoft.ML.Tokenizers 1.0.2
   Microsoft.ML.Tokenizers.Data.Cl100kBase 1.0.2
