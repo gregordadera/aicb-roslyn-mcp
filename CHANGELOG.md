@@ -21,7 +21,7 @@ released.
 - `resolve_injection`: each optional parameter is judged only against the registrations of its own closed generic type. Answers can change: a `yes` that came from a registration of another closing becomes `no`.
 - Reflection usage: a method that only names a type, such as `GetType().Name` or `Type.FullName`, no longer counts as reflection in `find_by_code_traits("reflection")`. A bare `GetType()` or a `typeof` inside an attribute no longer makes a method reflective, which changes the method role in exported Markdown.
 - `find_unresolved_bindings`: a new `sitesSkippedByView` list names the skipped binding sites per view with their line numbers. It is capped at 100 views, and `sitesSkippedByViewTruncated` names what the cap left out.
-- Coupling numbers (Ce and `ceMax`): a constructor parameter that is stored in a field is judged by the exclusion list, so a type the list excludes, such as `Action<string>`, no longer counts as an injected dependency. Ce can move down.
+- Coupling numbers (Ce and `ceMax`): a constructor parameter whose type the exclusion list excludes, such as `Action<string>`, no longer counts as an injected dependency. Ce can move down.
 - Test projects: a padded `IsTestProject` value no longer marks a project as a test project, as `dotnet test` reads it.
 - `aicb analyze`: the quality findings in the written Markdown follow the configured test profile, so the Markdown and `--fail-on` agree.
 
@@ -29,12 +29,12 @@ released.
 
 - **Idle release.** An MCP session that nobody uses for 30 minutes by default releases its Roslyn solution and keeps its analysis graph. The next call that needs Roslyn opens the solution again. The General page has the setting under Session & Analysis, in whole minutes from 5 to 600. A running MCP server takes a changed value at its next start.
 - **Settings precedence.** For the session keys, the built-in default is overridden by the desktop app's setting (stored in the configuration database), then by `sessionCache.idleReleaseMinutes` in `aicb.mcp.json`, then by `idleReleaseMinutes=` in `AICB_MCP_SESSION`.
-- **Stored data.** Snapshots and saved sessions written by an earlier version are analyzed again the first time they are reused. The stored compressed form of a snapshot differs from the earlier form for the same analysis. The JSON it holds is unchanged.
+- **Stored data.** Snapshots and saved sessions written by an earlier version are analyzed again the first time they are reused. The JSON it holds is unchanged.
 
 ### Who uses this symbol and what a change reaches
 
 - **Overloads are named.** When a method name matches several overloads, `find_usages` says which overload each user calls. `find_tests_for` says when its answer is the union of several overloads, and it leads its notes with that.
-- **Overrides receive the callers of their virtual member.** A call bound to a virtual method is recorded on the declaration, not on the override that runs. `find_usages` and `impact_of_change` now credit an override with the callers of the virtual member it overrides, where such a caller can run that override. This includes an override of a generic base class's virtual method. Callers on another branch of the hierarchy are left out, and the note says so.
+- **Overrides receive the callers of their virtual member.** `find_usages` and `impact_of_change` now credit an override with the callers of the virtual member it overrides, where such a caller can run that override. This includes an override of a generic base class's virtual method. Callers on another branch of the hierarchy are left out, and the note says so.
 - **Interface events show their implementations.** `find_usages` on an interface event names each implementing event, the users on its own type, and the implementing types that declare no such event.
 - **Namesakes are named in all three tools.** `impact_of_change` and `find_tests_for` now name the namesakes that `find_usages` already named. A type name shared by several declared types is answered as their union, and the answer says so.
 - **Nested types keep their outer type.** `find_symbol` gives a nested type its declaring type, so same-named nested classes stay separate rows.
@@ -63,10 +63,10 @@ released.
 - **Calls through external generic interfaces.** A test that calls `Equals` on an `IEqualityComparer<string>` now reaches the solution's implementation. The framework note of `find_tests_for` names the interface members its rows called.
 - **Commands written by hand.** A hand-written command property that a body of the same type builds from a generated method is paired with that method, like a generated command.
 - **Virtual calls.** `coverage_gaps` follows a call on a virtual member to each override its caller can run, and marks those entries `viaDispatch`. `find_by_complexity_and_coverage` and the complex-untested insight follow the same route.
-- **Framework calls.** `coverage_gaps` follows a call through a BCL generic interface, and the equality of a hashed collection keyed by a solution type, to the solution's implementations. Those entries are marked `viaDispatch`.
+- **Framework calls.** `coverage_gaps` follows a call through a framework generic interface to the solution's implementations. Those entries are marked `viaDispatch`.
 - **Commands that share a test.** An entry whose command a test runs beside another command carries `commandCreditRefused`, and the note says that its depth is unknown rather than measured.
 - **What coverage cannot measure.** The description of `coverage_gaps` says that a test may run a command beside another one, which the tool cannot tell apart.
-- **Single-command rule.** When the rule that a body reading several commands earns no command row empties an answer, the note says so and counts the bodies set aside.
+- **Several commands in one body.** When a test body reads several commands and that empties an answer, the note says so.
 - **One call deep.** The notes of `find_tests_for` say that it matches tests one call deep at most, in the test's own body and in one method it calls.
 
 ### Dependency injection (`resolve_injection`)
@@ -78,22 +78,20 @@ released.
 
 ### Analysis facts and architecture graphs
 
-- **Dispatch through a base method.** A base-class method that a derived class maps onto an interface is a dispatch target of that interface. A call through the interface therefore reaches the side effects of the base method, and `find_by_side_effects` reports them.
+- **Dispatch through a base method.** A call through an interface reaches the side effects of the base-class method that implements it, and `find_by_side_effects` reports them.
 - **Decorators keep their edge.** `ARCHITECTURE_FLOW` and `CLASS_DEPENDENCY_GRAPH` keep the edge from a decorator to the interface it wraps, when a constructor parameter has that interface type.
-- **Injected and used types together.** `ARCHITECTURE_FLOW`, `CLASS_DEPENDENCY_GRAPH`, `SERVICE_DEPENDENCY_GRAPH` and `INTERFACE_RELATIONS` read a type's injected and used types together. `ROLE_GRAPH` keeps its order. The graphs show more edges, and the exported Markdown grows by 0.07 to 0.23 percent in the measured solutions. The class-to-own-interface edge that the flow and class graphs showed before is gone, because INTERFACE_RELATIONS already shows it.
-- **Methods with the same name in one file.** A generic method beside its plain namesake, an explicit interface implementation beside the public method of the same name, and two types of one simple name with different arity each keep their own trimming rung and their own drop count.
+- **Injected and used types together.** `ARCHITECTURE_FLOW`, `CLASS_DEPENDENCY_GRAPH`, `SERVICE_DEPENDENCY_GRAPH` and `INTERFACE_RELATIONS` show a type's injected and used types together, so they show more edges.
+- **Methods with the same name in one file.** A generic method beside its plain namesake, an explicit interface implementation beside the public method of the same name, and two types of one simple name with different arity are kept apart in exported Markdown.
 
 ### Exported Markdown and token budgets
 
-- **Method seeds fit their budget.** When the seeds are methods, the budget now counts the full text of each method. On one measured solution, `get_context` for a single method at a budget of 8,000 tokens came back at about four times that budget. In the measured case the answer now fits the budget.
-- **Less repeated work.** A budgeted whole-solution export does less repeated work. In the measured calls the delivered documents are the same.
+- **Method seeds fit their budget.** `get_context` for a single method stays within its token budget.
 - **Printed code and the legend.** The compression legend of a lean export no longer promises full method blocks where printed source code contains a method tag.
-- **One insight run per export.** A budgeted export runs the insight analysis once per export instead of once per size adjustment. The delivered text is unchanged in the measured calls.
 
 ### Batch and the response budget
 
 - **The budget is shared.** A batch whose answers fit the total is returned untouched. Otherwise the small answers come back whole, and the large answers share what is left.
-- **Large answers.** A large answer of `explain_symbol`, `get_context`, `pack_for_task` or `prepare_task` is rendered again at its share and says so in a note. A render that still does not fit is omitted, not cut.
+- **Large answers.** A large answer of `explain_symbol`, `get_context`, `pack_for_task` or `prepare_task` is rendered again at its share. When that render comes back smaller, a note says so. A render that still does not fit is omitted, not cut.
 - **Other large answers.** A large answer of any other tool is never cut. It is omitted, with a hint to call the tool directly.
 - **Default budget.** For every MCP client the total stays at 9000 tokens.
 - **CLI option.** `aicb call batch --batch-budget <tokens>` sets the total for that call. Any other tool refuses the option.
@@ -102,7 +100,7 @@ released.
 
 - **Idle release.** An MCP session that is not used for the idle release time releases the loaded workspace and its compilations, and keeps its analysis graph. Graph-only tools answer without reopening the solution. The tools that need Roslyn reopen it: `resolve_injection`, `evaluate_change_set`, `get_diagnostics`, `init_solution_config`, `check_solution_config_drift` and the refresh.
 - **The watcher leaves a released session at rest.** A file change does not reopen a released session. The next tool call that needs Roslyn reopens it once, and `refresh_session` reopens it as before.
-- **Waiting for a reopen.** A Roslyn tool waits for a reopen without blocking a thread, and a cancelled call stops waiting.
+- **Waiting for a reopen.** A Roslyn tool waits for a reopen, and a cancelled call stops waiting.
 - **Refresh after a reopen.** A refresh after a reopen reads the disk again. Before, it could report an older graph as current after an edit.
 - **Restores.** A restore that rewrote a project's assets file after the solution was loaded is reported in the staleness trailer as `restoredProject` with `stale: true`, and the hint names `refresh_session`. The report survives an idle release, and a refresh while the solution is released still reloads after such a restore.
 - **Failed automatic refresh.** After a failed automatic refresh, the automatic path does not retry until the source changes. `refresh_session` always tries again. While that hold stands, the trailer carries `autoRefreshRetry: "after-source-change"`.
@@ -111,7 +109,7 @@ released.
 - **Explicit refresh.** An explicit `refresh_session` no longer waits behind automatic refreshes that keep being held.
 - **Readings during a build.** A reading taken while a build runs no longer leaves the session reporting stale afterwards, because the markup compiler's temporary project is ignored.
 - **Design-time build cache.** The answers of `analyze_solution` and `refresh_session` say, under `designTimeBuildCache`, why a design-time build was not stored in the cache.
-- **Source text after a rewrite.** The textual binding answers no longer come from cached text when a file is rewritten within the same timestamp and keeps its length.
+- **Source text after a rewrite.** The textual binding answers no longer use stale source text after a file is rewritten.
 
 ### Desktop app
 
@@ -138,7 +136,7 @@ released.
 - **`aicb call batch --batch-budget`.** The option sets the total response budget of one batch call. Any other tool refuses it.
 - **`aicb call --db-path`.** The source file cache cap is read from that database before a tool runs.
 - **`aicb analyze`.** The quality findings written to the Markdown follow the test profile that the quality gate uses.
-- **`aicb init --skills=all`.** The option also installs the `aicb-smoke-test` skill. It runs read-only checks on a solution, sorts the findings into HIGH, MID and LOW, and drafts issues for the maintainer. It files nothing until you confirm each group of drafts.
+- **`aicb init --skills=all`.** The option also installs the `aicb-smoke-test` skill. It runs read-only aicb checks on your solution (a build only when you ask for one), sorts the findings into HIGH, MID and LOW, and drafts issues for the maintainer. It creates no GitHub issue until you confirm the drafts in one reply, and you can change or drop any of them.
 
 ### Settings, contracts and imports
 
@@ -149,12 +147,10 @@ released.
 Measured on the product's own solution unless stated otherwise.
 
 - **Usage answers.** In a debug build, measured over 50 symbols, `find_usages` for the name `Name` fell from about 1.0 s to 0.26 s, and `impact_of_change` for the type `AnalyzedSolution` fell from about 1.14 s to 0.70 s.
-- **Latest snapshot.** Reading the latest stored snapshot of a solution took 783 ms in a measured copy of a database with six rows, and now takes 15 ms.
-- **Snapshot writes.** Encoding a stored snapshot of 109 MB of JSON allocated 54 MB instead of 304 MB. The time stayed about the same.
-- **Reads per prepare_task.** A cold `prepare_task` performed about 12 read operations instead of about 2,400.
-- **Lean answers.** Lean `get_context`, `pack_for_task` and `explain_symbol` no longer run an insight analysis that they discard, which saved about a second per call.
+- **Latest snapshot.** Reading the latest snapshot is faster.
+- **Lean answers.** Lean `get_context`, `pack_for_task` and `explain_symbol` answer faster.
 - **Single insight.** `get_insight` runs only the producer for the requested insight.
-- **Memory after refresh.** After an incremental refresh, the memory held by the first analysis is released. In a probe on a test fixture it was kept in 5 of 5 runs before and in none after.
+- **Memory after refresh.** Memory use stays lower after a refresh.
 
 ### Dependencies
 
