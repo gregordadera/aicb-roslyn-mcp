@@ -4,7 +4,7 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
-## 0.5.515.1 (unreleased) - find_usages and find_tests_for tell overloads, namesakes and overrides apart, an idle MCP session releases its Roslyn solution, and batch shares its budget across the answers
+## 0.5.515.1 (2026-11-06) - find_usages and find_tests_for tell overloads, namesakes and overrides apart, an idle MCP session releases its Roslyn solution, and batch shares its budget across the answers
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of several tools changed, among them `find_usages`, `impact_of_change`, `find_tests_for`, `coverage_gaps`, `find_symbol`, `find_unresolved_bindings` and `batch`. No tool was added or removed. The desktop app has a new field for the idle release time on the General page, and a new option `--batch-budget` exists for `aicb call batch`.
 
