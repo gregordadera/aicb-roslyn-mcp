@@ -167,6 +167,7 @@ The server reads an optional, hand-written config file at `%APPDATA%\AIContextBu
 | `SessionCache.TtlMinutes` | session time-to-live in minutes; default 90 |
 | `SessionCache.MaxSessions` | upper bound on concurrently held sessions; default 8 |
 | `SessionCache.SweepMinutes` | interval of the background sweep in minutes; default 5 |
+| `SessionCache.IdleReleaseMinutes` | idle time after which a session releases its Roslyn solution, in minutes, clamped to 5 to 600; default 30, and it overrides the GUI setting |
 
 A missing file means "no override". A broken file is reported on stderr and the server starts on the defaults instead of failing. Property names are case-insensitive, and comments and trailing commas are tolerated.
 

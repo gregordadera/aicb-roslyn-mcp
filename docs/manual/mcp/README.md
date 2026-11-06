@@ -1,6 +1,6 @@
 # AICB - MCP Server
 
-The complete reference, one file per chapter. Describes AICB V0.5.505.1.
+The complete reference, one file per chapter. Describes AICB V0.5.515.1.
 
 The same text as one printable document: [AICB-MCP-Server.pdf](AICB-MCP-Server.pdf).
 

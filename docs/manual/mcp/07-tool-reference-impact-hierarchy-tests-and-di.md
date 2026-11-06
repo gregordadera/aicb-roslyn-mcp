@@ -42,7 +42,7 @@ The tools in this chapter answer four groups of questions:
 | Query | `resolvedKind` | Answer |
 |---|---|---|
 | Type name | `type` | The types that reference it - a type of the same simple name that derives from it, or holds or creates it under another arity or a namespace-qualified name, included (`Identity<T1, T2> : Identity`, `Ef.User : Core.User`), while a type that names only itself is not its own user - plus markup views, `.razor` files, `.cshtml` views and files of top-level statements. A doc `cref` counts (unmarked), and so does an attribute application at any position; an assembly- or module-level attribute is credited to the file that applies it, as `<file> (assembly)` or `<file> (module)`. A generic type parameter that shares the type's name (a `T` beside a solution type `T`, a Razor `@typeparam`) is not a use of it. |
-| Method name | `method` | The methods that call it (the union across overloads). |
+| Method name | `method` | The methods that call it (the union across overloads). An override is also credited with the callers of the virtual member it overrides. |
 | Property or field name | `property` / `field` | The methods that read or write it. A CommunityToolkit `[ObservableProperty]` backing field additionally lists the consumers of its generated property - the two are one symbol pair to a caller. |
 | Event name | `event` | The methods that raise, subscribe to or unsubscribe from it. The subscriber types are also available through `find_by_event_subscription`. |
 | Enum member (bare `Partial` or qualified `BackupStatus.Partial`) | `enum_member` | The methods that reference it - a switch label, a comparison, an assignment. |
@@ -98,6 +98,10 @@ Depending on the answer, additional steering fields appear:
 - `viaContract` and `viaContractNote` - set when a qualified method was credited the callers of the interface or abstract members it implements.
 - `selfReferences` - how many of the listed users of a member sit on its own type. Counted only when the matched members sit on one type by full name; two same-named types are not taken for one owner.
 - `textuallyInvisibleUsers`, `textualBindingKinds`, `textualBindingNote` - see below.
+- `overloads` - set on a method answer that unions several overloads: it names which ones, and each item's `calls` names the overloads that item calls.
+- `viaImplementation` and `viaImplementationNote` - set on an interface event answer: the implementing events and where they are raised, which the `usedBy` list does not hold.
+- `resourceKeyNote` - set on a type answer when a markup view declares the type as a keyed resource: the views that use it by key are not in the list.
+- `docCrefOnly: true` - on an item whose only reference to the type is a documentation `cref`: it is counted, because a rename breaks it, but it is not code that uses the type.
 - `testUsersFiltered` - on `includeTests: false` only: how many users the filter left out because they are declared in test projects. For the constructor form (`Type.Type`) test sites are dropped too, and the note says how many construction edges sat in tests. `selfReferences` and the textual-binding fields are counted over the users that remain.
 
 **`not_found` is not "undeclared".** A delegate type and a qualified or nested type name (`Outer.Inner`) answer `not_found` too. Where the declarations can explain the miss, a `note` says why: a member asked on a type that does not declare it (the note names the types that do), a qualified member whose qualifier names none of the same-named types that declare it (the note names their full names and suggests a tail of one of them, or `Type.member` for all of them), a declared type named by a qualified form, namespace-qualified or nested (the note names the simple name to ask for), or a Blazor component written only in a `.razor` file (the note names its file; it does not list the component's users).
@@ -148,7 +152,7 @@ The JSON names of the kinds are `viaReturnType`, `viaOptionalParameter`, `viaClo
 | `sessionId` | string | yes | - | Session id, or an absolute `.sln` path for self-init. |
 | `symbol` | string | yes | - | The same strings `find_usages` accepts - a user-defined operator by its metadata name included - except the constructor form `Type.Type`, which is not resolved here (use `find_usages`). A type takes its simple name only. |
 
-**Response.** `symbol`, `resolvedKind`, an optional `note`, `directCount`, `transitiveCount`, `risk`, `productionImpactCount`, `directImpact` (capped envelope, maximum 20 entries), the textual-binding fields described under `find_usages`, and `nearest` on an unresolved name. Where they apply: `saturation`, `viaContract` and `viaContractNote`, `implementers`, `riskBasis`, `collision` and `generatedCodeNote` (ahead of `risk`; see "Recurring conventions across the catalog").
+**Response.** `symbol`, `resolvedKind`, an optional `note`, `directCount`, `transitiveCount`, `risk`, `productionImpactCount`, `directImpact` (capped envelope, maximum 20 entries), the textual-binding fields described under `find_usages`, and `nearest` on an unresolved name. Where they apply: `saturation`, `viaContract` and `viaContractNote`, `implementers`, `riskBasis`, `collision`, `namesakes` and `generatedCodeNote` (ahead of `risk`; see "Recurring conventions across the catalog").
 
 | Field | Meaning |
 |---|---|
@@ -162,6 +166,7 @@ The JSON names of the kinds are `viaReturnType`, `viaOptionalParameter`, `viaClo
 | `implementers` | On an interface or abstract method or type: one entry per contract with `contract`, `count`, `testCount`, `typeCount`, `testTypeCount` and `members` - what a signature change breaks. See below. |
 | `riskBasis` | Set together with `implementers`: `closure`, `implementers`, `total` and an optional `note` - the number the risk was graded on. |
 | `collision` | A same-named symbol of another kind, not counted. |
+| `attachedProperty` | For a queried field that registers a dependency property: the accessors through which markup sets and reads the attached property, and the instance wrapper property (an entry of `kind: "wrapper"`) through which markup sets and binds it, each with its markup files. It moves no count, and the risk does not change because of these files. |
 
 ```json
 {
@@ -229,7 +234,7 @@ The risk counts dependents, not what the change means.
 | `depth` | int | no | `2` | Maximum traversal depth. Values are clamped to 1-10. |
 | `direction` | string | no | `"callees"` | `"callees"` follows project-internal calls outward; `"callers"` follows the inverse (who calls this). |
 
-**Response.** `root`, `direction`, `maxDepth`, `edges` (pairs of caller and callee keys), `truncated`, and `rootedAt`. The edge list is cycle-safe and capped at 500 edges; `truncated` says whether the cap was hit.
+**Response.** `root`, `direction`, `maxDepth`, `edges` (pairs of caller and callee keys), `truncated`, and `rootedAt`. The edge list is cycle-safe and capped at 500 edges; `truncated` says whether the cap was hit. The key of a local function carries its character offsets, and `localFunctionKeyNote` says so when such a key appears.
 
 **Notes.**
 
@@ -360,7 +365,7 @@ The risk counts dependents, not what the change means.
 
 **Response.** An optional leading `note` (set when the analysis run could not resolve all project references), the item list in the shared capped envelope (`items`, `count`, `totalFound`, `truncated`, maximum 100, sorted by name), an optional `hint`, an optional `generatedCodeNote`, `testImplementationsFiltered`, `typeArgumentFilter` on a closed query, and `typeArgumentBaseFilter` when `typeArgumentBase` is set.
 
-Each item carries `name`, `isAbstract`, `kind` (`class`, `struct`, `record` or `interface`), `isTestProject` and, where known, `namespace`, so an abstract base or a test fake is distinguishable from a concrete production implementer. A generic implementer additionally carries `declaration`, its arity-qualified form such as `PolicyWrap<TResult>`, so a generic and a non-generic pair sharing name and namespace stay distinguishable. `via` says how an item was found when it is not by an interface the type itself declares: `via: "back-edge"` marks an item known only from the interface's own implementer list, `via: "inherited"` a type that gets the interface through a base class or interface declared in the solution - including an interface that extends the queried one through another interface, at any depth.
+Each item carries `name`, `kind` (`class`, `struct`, `record` or `interface`), `isTestProject` and, where known, `namespace`, and `isAbstract` where it applies: the key is left out on interface rows and on rows whose kind is not known (`via: "back-edge"`), and a missing key means it does not apply. With `isAbstract`, an abstract base or a test fake is distinguishable from a concrete production implementer. A generic implementer additionally carries `declaration`, its arity-qualified form such as `PolicyWrap<TResult>`, so a generic and a non-generic pair sharing name and namespace stay distinguishable. `via` says how an item was found when it is not by an interface the type itself declares: `via: "back-edge"` marks an item known only from the interface's own implementer list, `via: "inherited"` a type that gets the interface through a base class or interface declared in the solution - including an interface that extends the queried one through another interface, at any depth.
 
 On a generic interface each item also carries `closes`: the type arguments it closes the interface with, directly or through its bases and generic interfaces, one entry per distinct argument list (`ContentDeletedNotification`, or `Saved, IContent` for two arguments). An open generic implementer names its own type parameter; a position that cannot be read - an outer type parameter of a nested type - is written `*`. An item that does not name the interface in its own base list carries `through`: the base class or interface it gets it through (`IContentLastChanceFinder`, or `WebhookEventBase<TNotification>` for a generic solution type). Both are omitted when empty or when the chain could not be read.
 
@@ -508,12 +513,14 @@ On a generic interface each item also carries `closes`: the type arguments it cl
 
 **Response.** The shared capped envelope (`items`, `count`, `totalFound`, `truncated`, maximum 50), plus `invokesTotal`, `dispatchTotal` (omitted at 0) and an optional `note` after the list. Each item carries `testType`, `testMethod`, `project` and `matchReason`.
 
-**Match tiers.** `matchReason` names one of nine tiers, in sort order:
+**Match tiers.** `matchReason` names one of eleven tiers, in sort order:
 
 | Tier | Meaning |
 |---|---|
 | `invokes` | The test calls the target itself. |
 | `invokes-via` | The test reaches the target through one method or constructor it calls - still strong, but second-hand. A test that builds an object reaches what that object's constructor calls. |
+| `command` | The test reads the generated command property of a `[RelayCommand]` target method, or a hand-written command property that a body of the target's type builds on it, and executes the command. This is a pairing by the generator's naming rule, not a recorded call. |
+| `command-via` | The same through one method the test calls; or the test executes the generated command of a `[RelayCommand]` method that calls the target. |
 | `accesses` | The test reads or writes the target property or field; for a type, a static one. |
 | `accesses-via` | The same, through one method or constructor the test calls. |
 | `constructs` | The test builds the target type (type and constructor queries only). |
@@ -522,7 +529,7 @@ On a generic interface each item also carries `closes`: the type arguments it cl
 | `dispatch-via` | The same, through one method or constructor the test calls. |
 | `name` | The weak guess: the test's own name or its test class's name mentions the symbol at an identifier-segment boundary - for `Type.Member`, both names. A mid-word substring is not a mention. |
 
-The first six tiers are strong. The evidence reaches two hops at most: the test itself and one method or constructor it calls, or one property getter it reads. A deeper chain (helper calling helper) or a table-driven sweep is not counted, so an empty answer is not "nothing pins this". `invokesTotal` counts the strong rows and `dispatchTotal` the contract rows over the whole result, not only the returned page; `totalFound` minus both is the number of name guesses. Stronger evidence sorts first, so the cap can only drop the least load-bearing end.
+The first eight tiers are strong; `dispatch` and `dispatch-via` are contract rows, and `name` is a guess. The evidence reaches one call deep at most: the test's body and one method or constructor it calls, or one property getter it reads, or for a command row the one `[RelayCommand]` method that calls the target. A deeper chain (helper calling helper) or a table-driven sweep is not counted, so an empty answer is not "nothing pins this". `invokesTotal` counts the strong rows and `dispatchTotal` the contract rows over the whole result, not only the returned page; `totalFound` minus both is the number of name guesses. Stronger evidence sorts first, so the cap can only drop the least load-bearing end.
 
 **Notes.** The `note` says so on an empty answer, and names the other cases where the bare numbers mislead:
 
@@ -532,6 +539,9 @@ The first six tiers are strong. The evidence reaches two hops at most: the test 
 - A constructor query (`Type.Type`).
 - Contract rows (`dispatch`, `dispatch-via`), and construction rows, which are matched on the type's simple name, so a same-named type counts too.
 - A non-empty answer in which no row is strong (`invokesTotal` 0) - only name guesses or contract rows. The note says that the list does not show that anything pins the symbol, and for a member it adds the declaring type's own count as a cross-check.
+- A method that a body subscribes as an event handler (`+= OnX`) is not a call to it. Tests whose only edge to the method is such a subscription are counted in the note and not listed as invocations, and the note says that this tool follows no event raise, so a test that raises the event is not listed on the strength of the raise.
+- `namesakes` - set when the name matches several declared types: the answer is their union, and the field says which types share the name.
+- When the answer is the union of several overloads, the note leads with that.
 
 **Example**
 
@@ -558,7 +568,7 @@ The first six tiers are strong. The evidence reaches two hops at most: the test 
 
 | Field | Meaning |
 |---|---|
-| `uncovered` | Methods that no test invokes directly. Each item carries `kind`, `name`, `declaringType`, `namespace` and, when applicable, `testReachDepth`. |
+| `uncovered` | Methods that no test invokes directly. Each item carries `kind`, `name`, `declaringType`, `namespace` and, when applicable, `testReachDepth`, `viaDispatch` and `outerType` (the enclosing type of a nested type). |
 | `verifiedAbsent` | Semantic axes the developer explicitly declared as `none`. Each item carries `kind`, `name`, `declaringType`, `namespace` and `field`. |
 | `symbolsScanned` | Every unit in scope, methods and types. |
 | `judgedUnits` | The non-test, non-abstract methods the uncovered list is drawn from - the population behind the gap count. |
@@ -577,8 +587,10 @@ The entries are marked rather than filtered out, because a deep transitive path 
 - A `scope` that matches no namespace answers `symbolsScanned: 0` with a `note` that says where to look instead: the namespace of a type the prefix names, the namespaces that contain the prefix as whole segments, or the closest namespace.
 - Abstract and interface method declarations are excluded: they have no body and are not coverable units.
 - A weak test-name match does not count as coverage here; it is too weak to prove anything.
+- An entry without `testReachDepth` may carry `commandCreditRefused`: the number of test or test-reached bodies that read the command running the method, execute a command and also read another command property. The facts do not show which command ran, so no reach is credited, and such an entry may still be reached - its missing depth is unknown, not measured.
 - Runtime coverage from a coverage tool remains the only measurement that sees reflection, generated and framework-invoked paths.
 - Absence of a detected test is not proof that zero tests exist.
+- Dispatchable through `batch`/`measure`.
 
 **Example**
 
@@ -713,7 +725,7 @@ Rows noted `inferred, not read` count as rows - in `matchCount`, `multiRegistrat
 | `effectiveRegistration` | Present when two or more registrations match: `winner` is the registration a single-service resolve receives - the last one kept, with `TryAdd*` keeping nothing once the service is registered - read only where the order is certain, within one straight-line registration method. Otherwise `winner` is `null` and `reason` says why (for example several sites, a call inside a branch or loop, two types of one simple name, a `TryAddEnumerable`, `Replace` or `AddHostedService` with its rule named, or a row inferred from a package helper's call shape). A descriptor `Add`/`TryAdd` takes part in the order like `AddSingleton`/`TryAddSingleton`. Keyed registrations are set aside, because a plain resolve never receives one. When a service has two or more MEF exports and no Microsoft DI registration, `reason` says that MEF composes by contract and no export wins. |
 | `constructorConsumerCount` | How many types take the service as a plain constructor parameter - visibility, never a usage verdict. |
 | `otherConsumers` | The consumers that take the service other than through a constructor parameter, one entry per form found: `locator` (a `GetService<T>()`, `GetRequiredService<T>()` or `GetService(typeof(T))` call or its keyed twin, whatever the receiver - `Ioc.Default`, an `IServiceProvider` - also through `?.`) and `inject-property` (a C# property with `[Inject]`, a Razor `@inject` directive, an `[Inject]` property in a `@code` block, in `.razor` and `.cshtml` files outside build output). Each entry carries `form`, `consumers` (distinct declaring types; a Razor file, and a call outside any type, count as their own consumer), `sites` (calls or properties; a Razor file is one site) and `examples` (up to three, as `File.cs:line`; a Razor example carries no line). Test projects count only with `includeTests`. `GetServices<T>` stays with `consumedAsCollection`. Omitted when there are none. |
-| `optionalDependencies` | The constructors taking the service as an optional parameter, each judged `yes`, `no` or `unknown`. On a MEF export row, an optional constructor parameter of the part is never judged `yes` (it reads `unknown`), because MEF fills an importing constructor from its imports. |
+| `optionalDependencies` | The constructors taking the service as an optional parameter, each judged `yes`, `no` or `unknown`. A closed generic service is judged against the registrations of its own closing only, so a `yes` that came from a registration of another closing reads `no`. In a multi-targeted project there is one entry per parameter under the project's own name, with a `targetFrameworks` list. On a MEF export row, an optional constructor parameter of the part is never judged `yes` (it reads `unknown`), because MEF fills an importing constructor from its imports. |
 | `typeArgumentFilter` | On a closed query only: `typeArguments`, `otherClosings` (registrations of the same name closed with other arguments, left out; `matchCount + otherClosings` is the answer to the bare name under the same filters), `unresolved` (rows whose closing the call does not fix, kept in the list) and a `note` saying which fields stay at the level of the bare name - `otherConsumers` among them, which reads every closing. |
 | `testRegistrationsFiltered` | How many registrations the default test filter removed. Omitted when nothing was hidden. |
 | `collectionBuilders` | Umbraco collection builders whose collection, item type, builder or collected types the query names - listed apart, never as registrations: `registrations`, `matchCount` and the other fields are unchanged by them. A `note`, and per builder `builder`, `collection`, `item`, `operationCount`, `unreadCount` and up to 100 `operations` in the order they are written (by project, file and position), each with `operation` (`append`, `insert`, `insertBefore`, `insertAfter`, `add`, `remove`, `replace`, `exclude` or `clear`), `type`, `anchor` (for `insertBefore`, `insertAfter` and `replace`), `location` and `project`. `type` is null for `clear`, for a type passed as a runtime value and for a generic helper's own type parameter; the last two count in `unreadCount`. The builder registers each collected type as itself and the collection through a factory, so nothing registers the item type, and the resulting order and set depend on the order the composers run in. A builder is recognized by Umbraco's `CollectionBuilderBase` (namespace `Umbraco.Cms.Core.Composing`); a namesake in another namespace is not. The `site` and test filters apply to the operations as to the list. Omitted otherwise. |

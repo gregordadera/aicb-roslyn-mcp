@@ -57,11 +57,12 @@ Every environment variable the MCP server reads, with its default:
 | Variable | Default | Effect |
 |---|---|---|
 | `AICB_MCP_TOOLS` | - | Tool-set spec: `all`, `lean`, or a comma-separated list of tool-group names. Overrides `toolSpec` from the file and makes the exposed set static |
-| `AICB_MCP_SESSION` | - | Session cache as a comma-separated `key=value` list, for example `maxSessions=4,ttlMinutes=120`. Keys: `ttlMinutes`, `maxSessions`, `sweepMinutes` |
+| `AICB_MCP_SESSION` | - | Session cache as a comma-separated `key=value` list, for example `maxSessions=4,ttlMinutes=120`. Keys: `ttlMinutes`, `maxSessions`, `sweepMinutes`, `idleReleaseMinutes` |
 | `AICB_MCP_AUTO_REFRESH` | the active profile's mode (built-in profiles: `reactive`; without a config DB: `off`) | `off`, `reactive` or `proactive`; overrides the profile's mode for this process only |
 | `AICB_MCP_DEBOUNCE_MS` | `15000` | Quiet window of the file watcher, in milliseconds |
 | `AICB_MCP_STALENESS_WINDOW_MS` | `5000` | Throttle window of the staleness check, in milliseconds |
 | `AICB_MCP_LOAD_WAIT_MS` | `45000` | How long a tool call waits at the load gate before it is told what is currently loading, in milliseconds |
+| `AICB_MCP_MAX_RESPONSE_BYTES` | `16000000` | The size ceiling of one tool answer as JSON, in bytes. An answer above it is refused with a message that names the remedy. Thousands separators are accepted; zero, negative or unparsable values fall back to the default |
 | `AICB_MCP_ERROR_TEXT` | on | `off` records only the exception **type**, no message (see "Privacy and what leaves your machine") |
 | `AICB_DESIGN_TIME_BUILD_CACHE` | on at `%LOCALAPPDATA%\AIContextBuilder\design-time-build-cache` | `0`, `off` or `false` disables the persisted design-time-build cache; an absolute path relocates it |
 | `AICB_ANALYZE_PROFILE_PATH` | - | A path arms the opt-in analysis wall-clock profiler and selects its report file |
@@ -71,7 +72,7 @@ Every environment variable the MCP server reads, with its default:
 
 Details that matter in practice:
 
-- **`AICB_MCP_SESSION`** accepts the three keys above in any order; an unknown key or a non-positive value is ignored and the corresponding field keeps its current value (the file's value if set, otherwise the default).
+- **`AICB_MCP_SESSION`** accepts the keys above in any order; an unknown key or a non-positive value is ignored and the corresponding field keeps its current value (the file's value if set, otherwise the default).
 - **`AICB_MCP_AUTO_REFRESH`** also accepts the spellings `0`, `false`, `no` for `off` and `1`, `on`, `true`, `yes` for `proactive`. An unrecognized value is ignored rather than treated as `off`, so a typo can neither switch the mode on nor silently undo a configured mode. The modes are: `off` only discloses a drifted session in the answer; `reactive` repairs it before the tool answers; `proactive` additionally watches the solution folder for file changes. The mode is read once at server start.
 - The three timing variables are positive integers in milliseconds. Zero, negative and unparsable values fall back to the built-in value; there is no upper bound. A zero debounce or a zero throttle would fire work on every keystroke or every call, which is why zero is refused rather than honored.
 - Environment variables are per process: set them where your client launches the server, not in a shell you use for something else.
@@ -112,14 +113,14 @@ For the MCP analysis itself, resolution is per axis:
 | Axis | MCP analysis resolution |
 |---|---|
 | Layer profile | explicit profile argument where offered > database (per-solution, then global) > sidecar > role-based heuristic |
-| Namespace exclusions | database, as soon as a usable database exists > sidecar > none |
-| Test profile | database (per-solution, then global) > built-in default; the sidecar's test definition is not in this chain |
+| Namespace exclusions | database list (per-solution, then global) > sidecar > built-in `BCL default` |
+| Test profile | database choice (per-solution, then global) > sidecar > built-in default |
 | Analysis scope | sidecar |
 | Design-time build platform | sidecar key `designTimeBuildPlatform` (written by hand; `apply_solution_config` keeps it when it rewrites the file) |
 | Suppressions | not part of the semantic analysis configuration; suppression-aware reading tools combine their documented database and sidecar sources |
 | Auto-init flags | reported as setup state where applicable, not evaluated by headless analysis |
 
-A repository with only a sidecar can therefore supply layer rules, exclusions and analysis scope to a database-free headless analysis, but it is not accurate to call every axis fully configured from that file alone.
+A database entry wins over the sidecar only where it is a choice. A per-solution choice always is, even when it names a built-in entry (a per-solution `No mapping`, the default test profile or an empty exclusion list opts the solution out of the sidecar). A database that only holds the built-in defaults - the `Empty` layer preset as global default, the global default test profile, the built-in exclusion list - counts as nothing configured, so the committed sidecar wins over it. A repository with only a sidecar can therefore supply layer rules, exclusions, test detection and analysis scope to a headless analysis, with or without a database.
 
 `solution_config_status` reports, per axis, which source is currently active: `db`, `sidecar` or `none`.
 
@@ -131,7 +132,7 @@ The design-time build platform is the one exception, because it is a property of
 
 | Setting | Stored in | When the MCP server reads it |
 |---|---|---|
-| Per-solution configuration (layer, exclusions, test detection) | config DB and the git-tracked `.aicb.json` sidecar | at analysis time, according to the per-axis matrix above; layer/exclusion sidecar fallback needs no `dbPath`, while headless test detection does not consume the sidecar test axis |
+| Per-solution configuration (layer, exclusions, test detection) | config DB and the git-tracked `.aicb.json` sidecar | at analysis time, according to the per-axis matrix above; the sidecar fallback needs no `dbPath` on any of the three axes |
 | Active MCP profile (tools, instructions, token budget) | config DB | once at server start: tool list, callability, instructions and auto-refresh mode |
 | Session cache (TTL, max sessions, sweep) | `aicb.mcp.json` / `AICB_MCP_SESSION` only - there is no editor in the desktop application | at server start |
 | Tool-set spec (`lean` / `all` / list) | `aicb.mcp.json` / `AICB_MCP_TOOLS` only | at server start (static once set) |

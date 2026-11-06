@@ -121,7 +121,7 @@ Note: `API Surface Only` does not filter by accessibility - private members are 
 
 The profile editor has four tabs: `Overview` (slot statistics: Total, Active, Empty, Non-graph, Graph, plus the description), `Non-graph slots` (the staged and single section slots), `Graph slots`, and `Referenced by` (which templates use this profile). Graph slots carry the hint that layout and compression are controlled globally under Settings → General → `Default graph layout (compression)` with a per-tab override in the Context Builder.
 
-![The MD Profile page: slot statistics and the staged and single slots](img/gui-settings-md-profiles.png)
+![The MD Profiles page: slot statistics and the staged and single slots](img/gui-settings-md-profiles.png)
 
 ### Graph slots and graph selection
 

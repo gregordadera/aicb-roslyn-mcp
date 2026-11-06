@@ -60,7 +60,9 @@ projects in the solution - inside the `aicb` process, exactly as an IDE or
 generator that records the process it runs in. `aicb` does not index the generated
 code itself: generated documents are not walked, and where it reports
 source-generated members (e.g. `[ObservableProperty]` / `[RelayCommand]`), it
-re-derives their names from the attributes in the parsed syntax. A generator whose
+re-derives their names from the attributes in the parsed syntax. The one exception
+is the C# the Razor generator compiles from a `.cshtml` view: it is read for what
+the view uses, and every such use is credited to the view's own file. A generator whose
 assembly is missing, for example an in-solution generator project that was never
 built, cannot run; its generated code is then missing from the analysis.
 

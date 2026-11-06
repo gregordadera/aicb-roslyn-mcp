@@ -7,7 +7,7 @@ The Context Builder is the workspace in which a loaded solution becomes a contex
 - the `Main` tab with its six configuration panels, which decide what the generated document contains and how it is written;
 - the `Details` tab, a built-in code workspace with an editable source editor and a symbol inspector.
 
-The run-template selector sits in the workspace header above the tabs, not inside `Main`, and it is the anchor of most panels: the prompt fields, the active MD profile, the detail presets and the expansion strategies are all resolved from the run template's context template. The selector lists every run type, but only `Manual` can be selected - `Iteration` and `Preselection` runs are **not yet released**, and `Pipeline` is a **planned placeholder** that the stored data and repositories accept, but that nothing executes yet. The tooltip of the selector also lists the graphs the current selection includes.
+The run-template selector sits in the workspace header above the tabs, not inside `Main`, and it is the anchor of most panels: the prompt fields, the active MD profile, the detail presets and the expansion strategies are all resolved from the run template's context template. The selector lists every run type, but only `Manual` can be selected - `Iteration` and `Preselection` runs are **not yet released**. The tooltip of the selector also lists the graphs the current selection includes.
 
 A distinction that matters throughout this chapter: everything on `Main` configures **the current run**. The panels never edit the libraries behind these settings - prompt records, MD profiles, detail presets and expansion strategies are maintained in `Settings`.
 
@@ -56,7 +56,7 @@ The tooltips of the fields read:
 
 ## 4.3 `Sections`: the tag schema per output section
 
-The `Sections` panel is the configurator for **one run**. It never changes the MD profile library - that is what the `MD Profile` page under `Settings` is for.
+The `Sections` panel is the configurator for **one run**. It never changes the MD profile library - that is what the `MD Profiles` page under `Settings` is for.
 
 **`Active MD Profile` card.** The card shows the resolved profile name, a `Built-in` pill when the profile ships with the application, and a source line. The resolution chain is:
 

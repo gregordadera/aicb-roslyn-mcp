@@ -98,7 +98,7 @@ Two facts worth knowing about the file itself:
 - It is a SQLite database in WAL journal mode, so while it is open two companion files exist next to it: `aicb.acb-wal` and `aicb.acb-shm`. They belong to the database; a backup takes a consistent snapshot of the database instead of archiving them (see "Backups").
 - Runs, sessions, snapshots and evaluations hang off a solution. Removing a solution in the application therefore removes its dependent data too, and the confirmation names what that is: the sessions, the snapshots, and "all related runs, run snapshots, LLM interactions, reasoning entries". This cannot be undone.
 
-Note: the database stores runs of the types `Manual`, `Iteration`, `Preselection` and `Pipeline`. Only **Manual** runs can currently be selected in the interface; `Iteration` and `Preselection` are not released yet, and `Pipeline` is a placeholder - it is accepted by the stored data and the repositories, but nothing executes it.
+Note: the database stores runs of the types `Manual`, `Iteration` and `Preselection`. Only **Manual** runs can currently be selected in the interface; `Iteration` and `Preselection` are not released yet.
 
 ### Schema version and migrations
 
@@ -279,7 +279,7 @@ The file `<SolutionName>.aicb.json` sits next to your `.sln`. It is meant to be 
 - `analyzePreferredTfmOnly` - the analysis-scope opt-in (see "Profiles, master data and solution configuration"; it has no database counterpart and is edited by hand),
 - `designTimeBuildPlatform` - the platform of the design-time build, read by the desktop app, the CLI and the MCP server (it has no database counterpart either and is edited by hand).
 
-The file is written atomically through a temporary file of its own, then a replace; a temporary file left by an interrupted write is removed by a later write. It is hand-editable: comments, trailing commas and case-insensitive keys are accepted, and an invalid value fails the whole file rather than silently dropping one axis - with one exception: a malformed entry in `suppressions` costs only that entry. In the Solutions tab, `Export Config` writes the active layer profile, exclusion list, test profile, triage decisions and the analysis-scope value into the sidecar, and keeps a `designTimeBuildPlatform` the file already holds. `Import Config` reads the layer, exclusion and test axes into the desktop database; the remaining fields keep their separate reading paths.
+The file is written atomically through a temporary file of its own, then a replace; a temporary file left by an interrupted write is removed by a later write. It is hand-editable: comments, trailing commas and case-insensitive keys are accepted, and an invalid value fails the whole file rather than silently dropping one axis - with one exception: a malformed entry in `suppressions` costs only that entry. On the `Workspace` page, `Export Config` writes the active layer profile, exclusion list, test profile, triage decisions and the analysis-scope value into the sidecar, and keeps a `designTimeBuildPlatform` the file already holds. `Import Config` reads the layer, exclusion and test axes into the desktop database; the remaining fields keep their separate reading paths.
 
 ## 10.7 Removing your data
 

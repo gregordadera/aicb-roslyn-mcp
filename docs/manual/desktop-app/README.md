@@ -1,6 +1,6 @@
 # AICB - Desktop Application
 
-The complete reference, one file per chapter. Describes AICB V0.5.505.1.
+The complete reference, one file per chapter. Describes AICB V0.5.515.1.
 
 The same text as one printable document: [AICB-Desktop-App.pdf](AICB-Desktop-App.pdf).
 
@@ -85,7 +85,7 @@ The same text as one printable document: [AICB-Desktop-App.pdf](AICB-Desktop-App
     - [8.10 Exclude Namespaces](08-settings.md#810-exclude-namespaces)
     - [8.11 Quality Profiles](08-settings.md#811-quality-profiles)
     - [8.12 Test Profiles](08-settings.md#812-test-profiles)
-    - [8.13 MD Profile](08-settings.md#813-md-profile)
+    - [8.13 MD Profiles](08-settings.md#813-md-profiles)
     - [8.14 Tag Schemata](08-settings.md#814-tag-schemata)
     - [8.15 Detail Presets](08-settings.md#815-detail-presets)
     - [8.16 Other File Types](08-settings.md#816-other-file-types)

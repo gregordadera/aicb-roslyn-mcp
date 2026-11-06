@@ -10,7 +10,7 @@ A **solution** is a Visual Studio solution: the `.sln` file plus all the project
 
 You meet the solution in several places:
 
-- In the GUI, in the `Workspace` area (the sidebar entry of the same name). Its left list is headed `Solutions`; each entry is one solution the application knows about.
+- In the GUI, on the `Workspace` page (the sidebar entry of the same name in the `Workspace` group). Its left list is headed `Solutions`; each entry is one solution the application knows about.
 - In the `Solution Tree` of the Context Builder, which shows the loaded solution's projects and files.
 - On the command line: `aicb analyze --solution <path-to-.sln>`, and `aicb call <tool> --sln <path-to-.sln>` for a single tool call.
 - In the MCP server: a `sessionId` argument accepts the absolute path of a solution file (`.sln`, `.slnx` or `.slnf`) directly and analyzes it on first use.
@@ -264,7 +264,7 @@ Note: this is not the **MCP session** - the analysis result an MCP server keeps 
 
 ### Snapshots
 
-A **snapshot** is a frozen analysis result of a solution at a point in time. A run is tied to a snapshot, so a later re-analysis does not act back on completed runs. Snapshots live in the `Snapshots` sub-tab of the `Workspace` area:
+A **snapshot** is a frozen analysis result of a solution at a point in time. A run is tied to a snapshot, so a later re-analysis does not act back on completed runs. Snapshots live in the `Snapshots` sub-tab of the `Workspace` page:
 
 - `Create Manual Snapshot` creates a named snapshot you keep.
 - `Diff Two Snapshots` compares two snapshots.

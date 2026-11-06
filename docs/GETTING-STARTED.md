@@ -24,11 +24,13 @@ Windows one download covers both.
   reports that MSBuild could not be registered, install the .NET 10 SDK or set
   `DOTNET_ROLL_FORWARD=LatestMajor` (a preview .NET additionally needs
   `DOTNET_ROLL_FORWARD_TO_PRERELEASE=1`). Versions up to 0.5.465.11 needed the .NET 8 SDK.
-- The desktop app and the ZIP bring their own .NET runtime; nothing else to install.
+- The desktop app and the ZIP bring their own .NET runtime, so they need no separate
+  .NET runtime; MSBuild (the first point) is still needed to analyze a solution.
 
 ### Supported projects
 
-AICB loads C# projects in the SDK project format:
+AICB loads C# projects in the SDK project format and, with the requirements below the
+table, in the classic .NET Framework project format. SDK-style projects:
 
 | Target | Versions |
 |---|---|
@@ -126,10 +128,11 @@ The Codex entry carries `tool_timeout_sec = 300`: Codex gives up on a tool call 
 
 **Know this before it happens:** if your project has a folder for an agent harness
 aicb knows (`.claude/`, `.codex/`, `.opencode/`), or a `CLAUDE.md` for Claude Code,
-`aicb init` also installs the **symbol guard** there. The guard *refuses* a C# symbol
-search by grep or file read and points the agent at the aicb tool that answers it
+`aicb init` also installs the **symbol guard** there. The guard *refuses* a `Grep`
+search for a C# symbol name and points the agent at the aicb tool that answers it
 properly; once the agent has asked aicb about that name (Claude Code), or where aicb
-is not available, such a grep goes through with a note. That is what makes the
+is not available, such a grep goes through with a note. Reading a file and a shell
+`grep` are never refused - they get at most a reminder. That is what makes the
 tools actually get used - and it is the one part of the install that changes what
 your agent may do. To skip it: `aicb init --hooks none` (the server is still registered). To remove an installed guard,
 delete the aicb entry from `.claude/settings.json`, `.codex/hooks.json` or

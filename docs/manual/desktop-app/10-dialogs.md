@@ -102,8 +102,8 @@ The places it is used, with the title and label each one supplies:
 |---|---|---|---|
 | Create a manual snapshot (Snapshots tab) | `Create Manual Snapshot` | `Name for the snapshot:` | empty |
 | Rename a snapshot (Snapshots tab) | `Rename Snapshot` | `New name:` | the current name |
-| Pin a snapshot (Solutions tab) | `Pin Snapshot` | `Snapshot name (manual snapshots are kept longer):` | the latest snapshot's name, or `Pinned <date>` |
-| Rename a snapshot (Solutions tab) | `Rename snapshot` | `New snapshot name:` | the current name |
+| Pin a snapshot (Workspace page, `Overview` tab) | `Pin Snapshot` | `Snapshot name (manual snapshots are kept longer):` | the latest snapshot's name, or `Pinned <date>` |
+| Rename a snapshot (Workspace page) | `Rename snapshot` | `New snapshot name:` | the current name |
 | LLM Layer Wizard (Layer Profiles) | `LLM Layer Wizard` | `Describe your architecture (layers / conventions), or leave blank to let the model infer it:` | empty |
 
 Note: `Cancel`, Escape and the X give the caller nothing, and the operation is abandoned. Confirming an empty field gives the caller an empty string: the first four flows above treat that as "no change", while the LLM Layer Wizard uses it as "no description - let the model infer the architecture".
@@ -153,7 +153,7 @@ Fields:
 | `Old path (missing)` | read-only, monospace; selectable so you can copy it | `The saved path where the .sln is expected but currently missing (read-only; select to copy).` |
 | `New path` | editable, monospace | `Full path to the new .sln file (type it or pick via Browse).` |
 
-`Browse...` opens the Windows file picker titled `Select relocated solution` with the filter `Solution files (*.sln)` and `All files (*.*)`. It starts in the folder of the old path when that folder still exists. Choosing a file fills `New path`; cancelling the picker changes nothing. The focus starts in the `New path` field.
+`Browse...` opens the Windows file picker titled `Select relocated solution` with the filter `Solution files (*.sln;*.slnx;*.slnf)` and `All files (*.*)`. It starts in the folder of the old path when that folder still exists. Choosing a file fills `New path`; cancelling the picker changes nothing. The focus starts in the `New path` field.
 
 Buttons:
 
@@ -291,7 +291,7 @@ Note: if the database contains no run templates at all, the dialog does not open
 
 ### Pick namespaces
 
-This dialog offers a filterable, checkable list of the namespaces found in a solution, and turns your selection into rules. It opens from `Suggest...` in the Layer Profiles editor and in the Namespace Exclusions editor. Both first ask for a solution file (title `Pick a solution to read namespaces from`, filter `Solution files (*.sln)` and `All files (*.*)`), read the namespaces, and then show this picker. Layer Profiles reads the namespaces the solution declares; Namespace Exclusions reads the namespaces the solution references.
+This dialog offers a filterable, checkable list of the namespaces found in a solution, and turns your selection into rules. It opens from `Suggest...` in the Layer Profiles editor and in the Namespace Exclusions editor. Both first ask for a solution file (title `Pick a solution to read namespaces from`, filter `Solution files (*.sln;*.slnx;*.slnf)` and `All files (*.*)`), read the namespaces, and then show this picker. Layer Profiles reads the namespaces the solution declares; Namespace Exclusions reads the namespaces the solution references.
 
 ![The Pick namespaces dialog](img/gui-dialog-namespace-picker.png)
 
@@ -398,9 +398,9 @@ Open dialogs you can meet:
 | Opened from | Title | Filter |
 |---|---|---|
 | Open a solution (Welcome, Solutions, Context Builder) | `Open solution` | `Solution files (*.sln;*.slnx;*.slnf)` |
-| Layer Profiles - `Suggest...` | `Pick a solution to read namespaces from` | `Solution files (*.sln)` and `All files (*.*)` |
-| Namespace Exclusions - `Suggest...` | `Pick a solution to read namespaces from` | `Solution files (*.sln)` and `All files (*.*)` |
-| Layer Profiles - LLM Layer Wizard | `Pick a solution for the LLM layer wizard` | `Solution files (*.sln;*.slnx)` |
+| Layer Profiles - `Suggest...` | `Pick a solution to read namespaces from` | `Solution files (*.sln;*.slnx;*.slnf)` and `All files (*.*)` |
+| Namespace Exclusions - `Suggest...` | `Pick a solution to read namespaces from` | `Solution files (*.sln;*.slnx;*.slnf)` and `All files (*.*)` |
+| Layer Profiles - LLM Layer Wizard | `Pick a solution for the LLM layer wizard` | `Solution files (*.sln;*.slnx;*.slnf)` and `All files (*.*)` |
 | `MCP Usage` panel - `Import` | `Import Usage Report` | `Usage report (*.json)` |
 | Run templates - import | `Import RunTemplates` | `JSON files (*.json)` |
 | Master data - import | `Import <entities>` | `JSON files (*.json)` |

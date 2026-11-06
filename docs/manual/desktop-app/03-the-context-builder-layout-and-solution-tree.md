@@ -85,7 +85,7 @@ The header card is persistent across all sub-tabs (`Main`, `Details`, `MD Input`
 
 | Control | Meaning |
 |---|---|
-| Slider | Target token count for every render. Range 8,000 (floor) to 200,000, snapping in steps of 1,000. Default 60,000. |
+| Slider | Target token count for every render. Range 8,000 (floor) to 200,000, snapping in steps of 1,000. Default 60,000; the value you set is kept across restarts. |
 | Readout | The current value, for example `60,000 tokens`, or `No limit`. |
 | `No limit` | Removes the cap and renders the entire solution - the tooltip says: "Render the entire solution with no size cap (former behavior - can be very large)." The slider is disabled while this is checked. |
 | `Overshoot:` | The maximum headroom above `Max MD size`, as a whole number from 0 to 1000. The ceiling is the target plus this percentage; the renderer still aims at the target and does not deliberately spend the allowance. The default comes from the active pipeline profile (50 unless changed); edit the saved default under Settings › Pipeline Profiles. |
@@ -97,7 +97,7 @@ Note: when a tree was restored from a stored snapshot (read-only snapshot mode),
 
 **Run Template and LLM.** Two selectors side by side, each with its caption above it.
 
-- **`Run Template`** lists every available template with its name and a colored run-type pill. The tooltip lists the active graphs in addition. Only templates of type `Manual` can be selected; the tooltip states: "All run-template types are listed, but only type "Manual" can be selected. Iteration and Preselection runs are wired end to end and simply not finished, so they are not released yet. Pipeline is a placeholder: it is accepted by the stored data and the repositories, but nothing executes it. Both will follow in a future version." An already-selected entry remains selectable regardless of its type, so you can always switch back to it.
+- **`Run Template`** lists every available template with its name and a colored run-type pill. The tooltip lists the active graphs in addition. Only templates of type `Manual` can be selected; the tooltip states: "All run-template types are listed, but only type "Manual" can be selected. Iteration and Preselection runs are wired end to end and simply not finished, so they are not released yet. Pipeline is a placeholder: it is accepted by the stored data and the repositories, but nothing executes it, so it is not available in this version." The `Pipeline` the tooltip names is a value only stored data can carry: the run-template editor does not offer it, and nothing executes it. An already-selected entry remains selectable regardless of its type, so you can always switch back to it.
 - **`LLM`** selects the model-profile override for subsequent sends from this tab. The first entry shows the resolved default model with a `Default` badge and keeps the normal resolution chain. The choice remains active until you select another entry, close the tab or restart the application.
 
 **The three run actions.** All three buttons are the width of the widest label and each has its own color.

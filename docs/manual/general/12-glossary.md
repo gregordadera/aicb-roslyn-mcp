@@ -120,7 +120,7 @@ This glossary explains the terms this manual uses. UI labels, tool names, parame
 
 **MCP session** - An analysis result held in the server process, addressed by a `session_id`, with no name and no database row; it is gone when the process ends. Every tool that takes a session also accepts the absolute `.sln` path directly and analyzes on first use - that is `Self-Init`, and it makes `analyze_solution` optional. The cache is keyed by `.sln` path within one server process, with a sliding expiry (default 90 minutes, at most 8 sessions); a second process analyzes from scratch. `AICB_MCP_SESSION` tunes `ttlMinutes`, `maxSessions` and `sweepMinutes`.
 
-**MD profile** - A container with one slot per output-section type (27 types, six of them graph types; four are staged slots for classes, methods, interfaces and enums), and in each slot a tag schema. The navigation entry is literally `MD Profile` (singular), even though the page manages several profiles. The MD profile is the assignment, the tag schema is the content.
+**MD profile** - A container with one slot per output-section type (27 types, six of them graph types; four are staged slots for classes, methods, interfaces and enums), and in each slot a tag schema. The navigation entry is `MD Profiles`; the run template's field is `MD Profile`, because it selects one. The MD profile is the assignment, the tag schema is the content.
 
 **`measure`** - An MCP tool that reports how large a read-only query's answer would be, in tokens, without returning the answer. It still runs the query, so it saves context, not time.
 
@@ -161,7 +161,7 @@ This glossary explains the terms this manual uses. UI labels, tool names, parame
 | Label | What it controls | Where |
 |---|---|---|
 | `Layer Profiles` | type → architecture layer, plus strictness | `Settings` library + per-solution picker |
-| `MD Profile` | one slot per output-section type, with the chosen tag schema | `Settings` |
+| `MD Profiles` | one slot per output-section type, with the chosen tag schema | `Settings` |
 | `Quality Profiles` | which insight producers run | `Settings` |
 | `Test Profiles` | what counts as a test project and as a test method | `Settings` library + per-solution picker |
 | `Pipeline Profiles` | token budget and trimming behavior of the export | `Settings` |
@@ -184,7 +184,7 @@ This glossary explains the terms this manual uses. UI labels, tool names, parame
 
 **Run template** - The configuration of a run: which run type, which context template, a description, and an optional suggested text for the goal field of a manual run. Page `Run Templates`. A run template **selects** a context template; it is not one.
 
-**Run type** - What a run does per trigger. The released type is `Manual` (one model call per trigger, or a pure Markdown render). Two further types are **not yet released**: `Iteration` (one call per tree node of the selection) and `Preselection` (the model selects first, then the actual processing runs in two or three stages). A fourth value, `Pipeline`, exists in the data format as a placeholder for a planned multi-step run with optional loops and splits; it is **not yet released** and cannot be selected.
+**Run type** - What a run does per trigger. The released type is `Manual` (one model call per trigger, or a pure Markdown render). Two further types are **not yet released**: `Iteration` (one call per tree node of the selection) and `Preselection` (the model selects first, then the actual processing runs in two or three stages).
 
 ## 12.7 S
 

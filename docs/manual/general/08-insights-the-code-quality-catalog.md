@@ -243,7 +243,7 @@ Both axes are applied on the **reading surfaces**: the Insights tab and the MCP 
 1. Run `Analyze Solution` and expand the card.
 2. To record a decision the team should see, click **Intentional here** on the line. AICB records a suppression scoped to that line's symbol.
 3. To simply stop seeing the line locally, click **Seen this one**. AICB records a dismissal scoped to that line's symbol.
-4. Export the solution configuration from the Solutions tab to write the suppressions into the `.aicb.json` sidecar. Commit the file so the decision travels with the repository; entries declared there stay in force even when you reset your local triage.
+4. Export the solution configuration on the `Workspace` page (`Overview` > `Export Config`) to write the suppressions into the `.aicb.json` sidecar. Commit the file so the decision travels with the repository; entries declared there stay in force even when you reset your local triage.
 
 Lines that carry no resolvable symbol (relation or marker lines) cannot be suppressed or dismissed individually; there is nothing stable to key them on.
 

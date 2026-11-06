@@ -27,7 +27,7 @@ Open **Configuration → Settings** in the sidebar. The tab has its own sub-side
 | | `Exclude Namespaces` | "Glob patterns to skip in analysis (e.g. System.*)." |
 | | `Quality Profiles` | "Code-quality producer toggles, metric thresholds (LOC + cyclomatic complexity) + debt/gate behaviour." |
 | | `Test Profiles` | "Pin per-solution test detection: which projects are test projects + which method attributes mark a test case. Default replicates the built-in heuristic." |
-| **Rendering** | `MD Profile` | "Markdown render-profiles (per Section-Slot)." |
+| **Rendering** | `MD Profiles` | "Markdown render-profiles (per Section-Slot)." |
 | | `Tag Schemata` | "Per-tag rendering rules (Class / Method / Interface / Enum)." |
 | | `Detail Presets` | "Per-section Detail-Level mappings (Compact/Normal/Detailed/Source)." |
 | | `Other File Types` | "Read-only reference: recognized file types + the 4 detail stages. The compression stage is chosen per node in the Solution Tree." |
@@ -136,9 +136,9 @@ Saving always follows the same order, which is why a rejected input never arrive
 
 1. The entry is fetched from the store.
 2. The editor fields are written into it.
-3. The entry is validated. If validation fails, the save is aborted, the message appears in the status line, and the rejected input is discarded - it does not stay alive in the background.
+3. The entry is validated. If validation fails, the save is aborted and the message appears in the status line. The list shows the stored entry again, and your input stays in the editor so you can correct it.
 4. If the entry is a built-in, it is marked as `Overridden` *before* it is written. The list badge and the stored data stay in sync.
-5. Then the write happens. If the store rejects the write (for example an invalid source path in `Tag Schemata`), the status line shows `Save failed: {message}` instead of crashing.
+5. Then the write happens. If the store rejects the write (for example an invalid source path in `Tag Schemata`), the status line shows `Save failed: {message}` instead of crashing. Nothing is stored: the built-in mark set in step 4 is taken back, the list shows the stored entry again, and your input stays in the editor.
 6. The list is reloaded, the selection is restored, and the status line reads `{Kind} '{Name}' saved.`
 
 Built-ins are **not** read-only. The editor is active as soon as an entry is selected; saving a built-in turns it into an `Overridden` built-in, and `Restore` brings the code defaults back. "In use" states (a template that an open session references, a run template while a run is active) are advisory hint banners, not locks.
@@ -148,7 +148,7 @@ Built-ins are **not** read-only. The editor is active as soon as an entry is sel
 The `Delete` button does two different things depending on what is selected:
 
 - **A built-in** is only *hidden* (soft-deleted). It disappears from the list and can be brought back with `Show hidden` plus `Restore`. Status line: `{Kind} '{Name}' hidden (built-in). Use 'Show hidden' + Restore to bring back.`
-- **Your own entry** is removed permanently. Status line: `{Kind} '{Name}' deleted.`
+- **Your own entry** is removed permanently. Status line: `{Kind} '{Name}' deleted.` If other entries refer to it, Delete first asks with the title `Delete {Kind}`: `Other entries refer to '{Name}' (N references).`, followed by a warning that they keep pointing at an entry that no longer exists, and the question `Delete '{Name}' anyway?`. No leaves everything as it was. An entry that nothing refers to is deleted without a question.
 
 Note: this asymmetry is intentional. A built-in that was deleted for real would simply be re-created from the code seed on the next read, so the delete would look as if it did nothing.
 
@@ -187,7 +187,7 @@ Fifteen pages share the master/detail pattern. All of them offer `Add`, `Duplica
 | Pages | Badge | Meaning of `Apply as Active` |
 |---|---|---|
 | Compression Rules · Pipeline Profiles · Quality Profiles · Test Profiles · MCP Profiles · Templates | `Active` | Exactly one entry is globally active; the list shows an `Active` badge on it. |
-| Detail Presets · Expansion Strategies · MD Profile · Model Profiles · Tag Schemata | `Default` | Exactly one entry is the default (for `Tag Schemata`: one per schema type). |
+| Detail Presets · Expansion Strategies · MD Profiles · Model Profiles · Tag Schemata | `Default` | Exactly one entry is the default (for `Tag Schemata`: one per schema type). |
 | Layer Profiles · Exclude Namespaces · Prompts · Test Descriptions | (none) | The `Apply as Active` button is not shown. |
 
 For `Layer Profiles` and `Exclude Namespaces` the global default is set elsewhere, on the `General` page (`Default layer-mapping profile` and `Default namespace-exclusion list`).
@@ -215,12 +215,14 @@ The header has a `Reload` button ("Reload all settings from disk, discarding uns
 | `Font family` | Dropdown | `Segoe UI` | Font family for the whole interface. Choices: `Segoe UI`, `Segoe UI Variable`, `Calibri`, `Verdana`, `Tahoma`, `Consolas`, `Cascadia Mono`. Applies immediately on Save. |
 | `Font size` | Dropdown | `Medium` | `Small`, `Medium` or `Large`. Acts as a **UI zoom over the whole interface** - text, controls and spacing - not just the base font. Applies immediately on Save. |
 | `Scale with window size` | Checkbox | on | The UI zoom additionally scales gently with the window size (clamped). |
-| `Default layer-mapping profile` | Dropdown | `No mapping` (role heuristic only) | Applied as the fallback for Context Builder tabs whose solution has no override. The Solutions tab resolves this default for display, but changing its picker stores a per-solution override; only this General setting changes the application-wide default. |
-| `Default namespace-exclusion list` | Dropdown | `None` | Drives the framework filter of the code analysis. A per-solution override on the Solutions tab takes precedence; `None` here means the per-solution choice (or the built-in BCL default) decides. |
+| `Default layer-mapping profile` | Dropdown | `No mapping` (role heuristic only) | Applied as the fallback for Context Builder tabs whose solution has no override. The Workspace page resolves this default for display, but changing its picker stores a per-solution override; only this General setting changes the application-wide default. |
+| `Default namespace-exclusion list` | Dropdown | `None` | Drives the framework filter of the code analysis. A per-solution override on the Workspace page takes precedence; `None` here means the per-solution choice (or the built-in BCL default) decides. |
 | `Default graph layout (compression)` | Checkbox | on | Initial value for the `Layout` checkbox in each new Context Builder graph-selection tab. Controls adaptive/compressed rendering for graphs and a few non-graph sections (for example entry points). A per-tab override is preserved. |
 | `Reveal Details tab on tree click` | Checkbox | on | A single click on a class or method in the Context Builder's solution tree switches to the Details tab so the code is shown right away. Folder, project and solution nodes never switch. When off, the Details tab still updates on click, but you open it yourself. |
 
 The interface is in English; there is no language picker.
+
+When the active database changes, this page reloads its values from the new database. Unsaved edits are dropped, the theme and font of the new database apply at once, and the status line reads `Reloaded from the newly active database; edits that were not saved are gone.`
 
 Note on the font size: `Ctrl+Plus` and `Ctrl+Minus` zoom the current session without changing this setting; `Ctrl+0` returns to the size stored here.
 
@@ -231,6 +233,8 @@ Note on the font size: `Ctrl+Plus` and `Ctrl+Minus` zoom the current session wit
 | `Auto-save enabled` | Checkbox | on | Periodically persists tabs that have a session ID. This includes an `Untitled ...` session created automatically by the first send; only a tab with no session is skipped. Changes to this setting take effect after the next application start. |
 | `Auto-save interval (minutes)` | Number | `5` | How often auto-save runs. Only effective when auto-save is enabled. Values below 1 are raised to 1. Changes take effect after the next application start. |
 | `Max snapshots per solution` | Number | `10` | How many automatic snapshots are kept per solution. One snapshot is written on every fresh analysis; older ones are deleted when the limit is exceeded. Snapshots you saved yourself are never deleted and do not count towards the limit. Values below 1 are raised to 1. |
+| `Source file cache (MB)` | Number | `64` | Memory limit for the source file texts this app keeps between reads. Range 16 to 1024 MB; a value outside the range is set to the nearest limit. Every process has its own cache, and this app applies a change on save and on a database switch. |
+| `MCP: release idle Roslyn solution after (minutes)` | Number | `30` | An MCP server session that nobody has used for this long releases its loaded Roslyn solution and keeps its analysis; the next question that needs Roslyn opens the solution again. Range 5 to 600 minutes; one value for every MCP profile. A running MCP server applies a change at its next start. An operator setting in `aicb.mcp.json` or `AICB_MCP_SESSION` takes precedence. |
 | `Tab-close confirmation` | Checkbox | on | Asks before closing a tab with unsaved edits. When off, such a tab closes immediately and its unsaved edits are discarded. Closing the whole application always asks, regardless of this setting. |
 | `Record solution-load performance timings` | Checkbox | on | Appends solution-load phase timings to `%APPDATA%\AIContextBuilder\load-perf.log`. This is separate from the rotating warning/error support log. |
 | `Persist insights with session` | Checkbox | on | Analyzer insights are stored per solution and restored on the next load (no re-analysis needed). When off, insights stay transient - recomputed each time and never written to the database. |
@@ -247,7 +251,7 @@ Note on the font size: `Ctrl+Plus` and `Ctrl+Minus` zoom the current session wit
 
 | Field | Type | Default | Effect |
 |---|---|---|---|
-| `Confirm threshold (tokens)` | Number | `50000` | Before sending a run whose estimated prompt reaches this token count, the app asks you to confirm. The comparison is `>=`, so a value of `0` makes the app ask before **every** run - there is no value that switches the pre-flight off by itself; to do that, set a value no run will reach. |
+| `Confirm threshold (tokens)` | Number | `50000` | Before sending an `Iteration` or `Preselection` run whose estimated total tokens reach this number, the app asks you to confirm. Manual runs are never asked. The comparison is `>=`, so a value of `0` makes the app ask before **every** such run - there is no value that switches the pre-flight off by itself; to do that, set a value no run will reach. |
 
 Note: the cost pre-flight applies to `Iteration` and `Preselection` runs. A `Manual` run is sent without a cost estimate by design; only the context-window check below still applies to it, and only when the model profile has a `Context window` value.
 
@@ -266,6 +270,8 @@ Below the section: "Auto-retry for LLM calls on rate-limit and transient errors.
 ### Empty numeric fields
 
 An emptied or unreadable numeric field on the `General` and `Storage` pages falls back to the **default** of that setting - not to its minimum. The difference matters where the minimum has a special meaning: `Max attempts` = `1` means "no retry", and `Confirm threshold (tokens)` = `0` means "always ask". Clearing such a field restores the default (`3` and `50000` respectively).
+
+After a save, every numeric field shows the value that was stored. A value outside the field's range is replaced by the nearest limit, and an emptied field shows the default, so the box always matches what the app uses.
 
 ## 8.5 Storage
 
@@ -379,7 +385,7 @@ The name in the header is a short identifier used in the picker when you attach 
 
 ## 8.9 Layer Profiles
 
-**What it is:** mappings from namespace patterns to architectural layers. There is no active/default entry here - the app-wide default is set on the `General` page, and a solution can pick its own profile in the Workspace.
+**What it is:** mappings from namespace patterns to architectural layers. There is no active/default entry here - the app-wide default is set on the `General` page, and a solution can pick its own profile on the Workspace page.
 
 ![Settings > Layer Profiles: namespace rules and layering policy](img/gui-settings-layer-profiles.png)
 
@@ -500,11 +506,11 @@ The `Default` profile replicates the built-in heuristic exactly, so without an a
 
 `Apply as Active` makes a profile the global default. The analyzer consumers use it unless a per-solution profile overrides it; the per-solution choice wins over the global one.
 
-## 8.13 MD Profile
+## 8.13 MD Profiles
 
 **What it is:** the mapping from section types to tag schemata, staged by detail level. Exactly one profile is the `Default`; a template picks the profile it uses.
 
-![Settings > MD Profile](img/gui-settings-md-profiles.png)
+![Settings > MD Profiles](img/gui-settings-md-profiles.png)
 
 The editor has four tabs:
 
@@ -538,7 +544,7 @@ The editor has three tabs:
 
 Under each schema the page says where it shows up in an export, or why it does not. A schema you create yourself reaches the export when an MD profile's `Class`, `Interface`, `Enum` or `Method` row, or the `Sections` panel of a tab, picks it: it becomes the first lines of every such block (for a method, its `METHOD_INFO`). A copy of a built-in block replaces just that block. The `Solution`, `Project` and `File` schemas render the header lines of their sections.
 
-`Apply as Active` marks the schema as the default **for its schema type**. That default is used wherever a render resolves a section without an explicit schema - for example a slot whose schema was deleted, an empty level in a staged slot, or a render that runs without an MD profile. (An empty single slot in an MD profile suppresses its section instead - see "MD Profile".)
+`Apply as Active` marks the schema as the default **for its schema type**. That default is used wherever a render resolves a section without an explicit schema - for example a slot whose schema was deleted, an empty level in a staged slot, or a render that runs without an MD profile. (An empty single slot in an MD profile suppresses its section instead - see "MD Profiles".)
 
 ## 8.15 Detail Presets
 
@@ -666,15 +672,15 @@ What the stages do, per pipeline:
 
 ![Settings > Pipeline Profiles](img/gui-settings-pipeline-profiles.png)
 
-**`Token Budget`**
+**`Method Budget`**
 
 | Field | Default | Notes |
 |---|---|---|
 | `Enable budgeted trimming (opt-in)` | off | Master toggle. When on, every context document runs through a deterministic trimming pipeline before the LLM call, reducing code methods by score until the budget is met. |
-| `Max Token Budget (Floor 8000)` | `60000` | Hard cap for the generated document size in tokens. Values below 8000 are raised to the floor. |
+| `Max Method Budget (floor 8000)` | `60000` | A budget for the estimated size of the methods in tokens, not a size of the whole document: type blocks, graphs and file sections are neither trimmed nor counted, so the generated document can be many times larger. Values below 8000 are raised to the floor. |
 | `Max overshoot when the selection exceeds the budget (%)` | `50` | How far the output may exceed the budget before over-budget selected types are dropped. The ceiling is `budget × (1 + %/100)`. `0` means a hard cap (drop down to the budget exactly); a large value effectively never drops a selected type. Clamped to 0-1000. The least-relevant selected types are first reduced to structure, then dropped down to the ceiling; the focal type always keeps its code. The finished render is measured and pruned again if it still exceeds the ceiling. |
 | `Auto-bypass at read-only snapshot tabs` | on | Snapshot tabs skip the trimming pipeline so they stay identical to the saved state. |
-| `Show budget header in MD output` | off | Prefixes the output with an HTML comment containing budget statistics (token budget, estimated size after trimming, trimmed methods and, under an enforced budget, the types dropped or reduced to structure). |
+| `Show budget header in MD output` | off | Prefixes the output with an HTML comment containing budget statistics (token budget, scope, used size, trimmed methods and, under an enforced budget, the types dropped or reduced to structure). With this profile's budget the scope reads `methods only`. |
 
 **`Snapshot Auto-Reload`**
 
@@ -740,7 +746,7 @@ This section is a practical order of work for setting up AICB on a team, from "n
 
 **Step 2 - One model profile per machine.** For the LLM workflow, each user needs a model profile with an API key. The key is stored in the Windows Credential Manager and is tied to the Windows account, so it never travels in an export and every team member enters their own. If a key is missing, the app says where to add it: `API key for model '{Name}' is missing. Settings > Model Profiles.` The built-in model profiles can serve as starting points; use `Duplicate` to create your own entry and `Test Connection` to verify endpoint, key and model name before the first real run.
 
-**Step 3 - Set the three per-solution axes where they belong.** The layer profile, the namespace-exclusion list and the test profile can each be chosen **per solution** in the Workspace's Solutions tab. The choice wins over the app-wide default from the `General` page; the resolution order is always per-solution → app-wide default → built-in default. Use the app-wide defaults for the common case and the per-solution override only for solutions that differ.
+**Step 3 - Set the three per-solution axes where they belong.** The layer profile, the namespace-exclusion list and the test profile can each be chosen **per solution** on the Workspace page, `Profiles` tab. The choice wins over the app-wide default from the `General` page; the resolution order is always per-solution → app-wide default → built-in default. Use the app-wide defaults for the common case and the per-solution override only for solutions that differ.
 
 If you work headless or want the configuration in version control, write the solution configuration as a git-tracked sidecar file named `<SolutionName>.aicb.json` next to the `.sln` file. It carries rules rather than database IDs, so it is portable. The desktop app can restore its profile content; database-free headless analysis uses the layer/exclusion fallback and analysis scope, while test detection and suppressions follow their separately documented paths. Of the related MCP tools, `solution_config_status` only reads status and `init_solution_config` only gathers proposal material; `apply_solution_config` is the operation that writes the configuration database and sidecar.
 

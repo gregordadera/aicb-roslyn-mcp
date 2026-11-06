@@ -96,7 +96,7 @@ The section `Snapshot history` lists all snapshots of the solution, newest first
 
 | Element | Meaning |
 |---|---|
-| Short number | `<types>-<methods>` from the snapshot's quality stamp; for older snapshots without one, the first eight characters of the snapshot ID. |
+| Short number | `<types>-<methods>` from the snapshot's quality stamp; a count stamped under another or an unknown metric version ends in `*` and is shown muted, because it is not comparable with unmarked rows. For older snapshots without a stamp, the first eight characters of the snapshot ID. |
 | Name | The snapshot name, or `(unnamed)` for an automatic snapshot that was never named. |
 | `Current` pill | Marks the newest snapshot. |
 | Type pill | `auto` or `manual` (lower case). |
@@ -293,7 +293,7 @@ A status line at the bottom of the region reports the result of the last action.
 
 A manual snapshot needs the live analysis, so the solution must be open in the Context Builder right now. The button is always clickable; if the selected solution is not the one that is open, a dialog explains: `Manual snapshots can only be created for the solution currently open in the Context Builder. Open the selected solution there first.` Without any selected solution the status line says `Select a solution first.`
 
-1. Select the solution in the Workspace list and make sure it is open in the Context Builder.
+1. Select the solution in the `Solutions` list of the Workspace page and make sure it is open in the Context Builder.
 2. Click `Create Manual Snapshot`.
 3. Enter a name in the `Create Manual Snapshot` dialog (`Name for the snapshot:`). The button tooltip mentions a name plus optional notes, but the dialog itself asks only for the name; its input tooltip merely explains Enter and Escape.
 4. The status line confirms `Manual snapshot "<name>" created.`
@@ -373,7 +373,7 @@ Two comparison paths exist and should not be confused:
 | Path | Compares | Where |
 |---|---|---|
 | `Reload solution` | the previously loaded tree with the freshly analyzed one | Context Builder, automatically after the reload |
-| `Diff Two Snapshots` | two stored snapshots with each other | Workspace, `Snapshots` region |
+| `Diff Two Snapshots` | two stored snapshots with each other | Workspace page, `Snapshots` region |
 
 ### When the solution has moved
 

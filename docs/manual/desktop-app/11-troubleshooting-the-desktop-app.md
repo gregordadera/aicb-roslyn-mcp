@@ -41,7 +41,7 @@ After the start, **no tab is open and no sidebar entry is selected** - the Start
 | Entry text | `Turn your C# solution into a semantically compressed context for LLMs. Open a solution or load a previous session to get started.` |
 | `New Solution` card | Opens the file dialog for a `.sln`, `.slnx` or `.slnf` file and loads it. |
 | `Open Solution` card | Opens the same file dialog. Both cards behave identically today; the tooltips describe a difference that does not exist yet. |
-| `Load Session` card | Opens the `Workspace` tab, where you pick a saved session. |
+| `Load Session` card | Opens the `Workspace` page, where you pick a saved session. |
 | `Recent Solutions` list | The solutions you opened most recently (up to 8), with an `Open` button and double-click. A warning icon marks an entry whose `.sln` no longer exists at the saved path. |
 | `Recent Sessions` list | Your most recently saved sessions (up to 5). |
 | `Refresh` button | Reloads both lists. |
@@ -129,9 +129,9 @@ Panels report the result of an action in a status line - usually at the bottom o
 | `Import failed: <reason>` | Run templates, master data |
 | `Check failed: <reason>` | Code editor in the Details tab |
 | `Send failed: <reason>` | Context Builder, under `MD Input` |
-| `Snapshot history could not be read` | Workspace, snapshot list |
-| `Statistics could not be read` | Workspace, overview cards |
-| `Not analyzed yet` | Workspace, overview cards - a statement, not an error |
+| `Snapshot history could not be read` | Workspace page, snapshot list |
+| `Statistics could not be read` | Workspace page, overview cards |
+| `Not analyzed yet` | Workspace page, overview cards - a statement, not an error |
 | `- runs` | A session row whose run count could not be read (a dash, not a zero) |
 | `Auto-save could not save one of your open sessions. ...` | Dialog (once per session), see "Auto-save and unnamed tabs" |
 
@@ -390,7 +390,7 @@ Two further causes leave symbols out without a message in the app. A git submodu
 
 **Symptom.** You drag a splitter between panels, restart the app, and the position is back to the default.
 
-**Cause.** Splitter positions are saved on every drag, but the write is best-effort: a failure (missing service, database not migrated, write error) is swallowed. The saved position also takes effect only the next time the view is loaded.
+**Cause.** Splitter positions are saved when you release the splitter, but the write is best-effort: a failure (missing service, database not migrated, write error) is swallowed. The saved position also takes effect only the next time the view is loaded.
 
 **What to do.** Nothing to repair - re-drag the splitter. If it never survives a restart, check `aicb.log` for write errors on the settings side.
 

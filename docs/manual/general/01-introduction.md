@@ -56,7 +56,7 @@ AICB has three faces, and they are not three independent programs: all three run
 | The command line (`aicb`) | Seven verbs for analysis, export, import, listing, wiring and the MCP server | Windows, Linux, macOS |
 | The MCP server (`aicb mcp`) | A stdio JSON-RPC server that offers the semantic tools to a coding agent | Windows, Linux, macOS |
 
-The MCP server and the CLI install from nuget.org; the desktop app downloads from GitHub Releases as a Windows installer or a portable ZIP.
+The .NET tool (CLI and MCP server) installs from nuget.org; the desktop app comes from GitHub Releases as a Windows installer or a portable ZIP, and both Windows forms carry their own copy of the CLI and MCP server.
 
 ### The desktop app
 

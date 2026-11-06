@@ -405,7 +405,7 @@ Note: the comparison is "greater than or equal", so a threshold of `0` means the
 
 Independent of the run type, a request whose input plus maximum response would exceed the model's context window triggers a warning before sending, with the estimated size and the model's window. Lower the token budget or pick a model with a larger window.
 
-Note: `Iteration` and `Preselection` run templates are wired but not finished, so they are not released yet; only `Manual` templates can be selected. `Pipeline` exists in the stored data model only and executes nothing.
+Note: `Iteration` and `Preselection` run templates are wired but not finished, so they are not released yet; only `Manual` templates can be selected.
 
 ## 11.4 Data and persistence
 

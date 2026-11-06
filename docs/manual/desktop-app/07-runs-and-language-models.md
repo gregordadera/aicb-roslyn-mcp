@@ -16,16 +16,15 @@ A run is recorded in the database when it has a session and a snapshot to attach
 
 ## 7.2 Run types
 
-The run type is a property of the run template. The Context Builder's run-template picker in the workspace header lists every template, but in the current release only templates of type `Manual` can be selected. Iteration and Preselection runs are implemented end to end but are not released yet; the `Pipeline` type is a placeholder that stored data and repositories already accept, but nothing executes it.
+The run type is a property of the run template. The Context Builder's run-template picker in the workspace header lists every template, but in the current release only templates of type `Manual` can be selected. Iteration and Preselection runs are implemented end to end but are not released yet.
 
-Note: **Iteration** and **Preselection** are **not yet released** and cannot be started from the interface. The description below documents their intended behavior so you know what the configuration fields mean; it is not an invitation to use them. **Pipeline** is **planned**.
+Note: **Iteration** and **Preselection** are **not yet released** and cannot be started from the interface. The description below documents their intended behavior so you know what the configuration fields mean; it is not an invitation to use them.
 
 | Run type | Requests per run | Status |
 |---|---|---|
 | `Manual` | one | Released |
 | `Iteration` | one per selected tree node | Not yet released |
 | `Preselection` | two or three (selection, optional refinement, main run) | Not yet released |
-| `Pipeline` | multi-step with optional loops and splits | Planned |
 
 ![The Run Templates page with a template of type Manual](img/gui-run-template-manual.png)
 
@@ -70,10 +69,6 @@ The app is deliberately lenient when parsing the model's selection: it first tri
 
 Pausing is checked between the stages, not within them. Resuming a preselection run is not supported: it restarts from stage 1 and notes that in the result document.
 
-### Pipeline (planned)
-
-`Pipeline` is reserved for future multi-step runs with optional loops and splits. It is accepted by the stored data, but there is no executor and the run-template editor does not offer it. Nothing in the interface can start it.
-
 ## 7.3 Sending a context document
 
 Two commands in the Context Builder send a run. Both are disabled while a request is pending.
@@ -111,12 +106,12 @@ Before the request is sent, the app estimates the token consumption and, when a 
 
 There are two independent triggers; either one is enough to show the dialog:
 
-1. **Token threshold.** The estimated total number of tokens (input plus worst-case output) is greater than or equal to the configured threshold. The default is 50,000 tokens; you change it in Settings > General, section `Run Confirmation`, field `Confirm threshold (tokens)`. The value is read fresh on every send, so a change takes effect immediately, without a restart.
+1. **Token threshold.** The estimated total number of tokens (input plus worst-case output) is greater than or equal to the configured threshold. The threshold applies to `Iteration` and `Preselection` runs only; a `Manual` run is never asked about it. The default is 50,000 tokens; you change it in Settings > General, section `Run Confirmation`, field `Confirm threshold (tokens)`. The value is read fresh on every send, so a change takes effect immediately, without a restart.
 2. **Context window overflow.** The input of one single request plus its maximum response would exceed the context window of the model profile. This is a correctness check and applies to all run types, independently of the threshold.
 
-The comparison for the threshold is "greater than or equal". A threshold of **0 therefore means: ask for every run**. There is no value that means "never ask"; to switch the confirmation off in practice, enter a number that no run will reach.
+The comparison for the threshold is "greater than or equal". A threshold of **0 therefore means: ask before every `Iteration` or `Preselection` run**. There is no value that means "never ask"; to switch the confirmation off in practice, enter a number that no run will reach.
 
-Note: The help text below the field currently says that `0` sends without asking. In practice `0` asks on every run. Use a very high value if you do not want to be asked.
+Note: The help text below the field says the same: `0` asks before every such run, and a very high value stops the question. Use a very high value if you do not want to be asked.
 
 The dialog has the title `Pre-flight budget check` and offers OK and Cancel. Its content looks like this:
 

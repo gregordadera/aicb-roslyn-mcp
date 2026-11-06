@@ -4,6 +4,162 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
+## 0.5.515.1 (unreleased) - find_usages and find_tests_for tell overloads, namesakes and overrides apart, an idle MCP session releases its Roslyn solution, and batch shares its budget across the answers
+
+**Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of several tools changed, among them `find_usages`, `impact_of_change`, `find_tests_for`, `coverage_gaps`, `find_symbol`, `find_unresolved_bindings` and `batch`. No tool was added or removed. The desktop app has a new field for the idle release time on the General page, and a new option `--batch-budget` exists for `aicb call batch`.
+
+**Scripts that read these answers should check the following:**
+
+- `batch`: an answer that the response budget leaves out carries `"omitted"` instead of `"error"`, and the response counts those in `omittedCount`. Treat `omitted` as not delivered, not as a failure.
+- `batch`: a malformed `budget` argument on a list tool no longer fails the whole batch.
+- `find_usages`: when the name matches several overloads, each `usedBy` item carries `calls`, the overloads it calls, and the answer adds `overloads`. Items credited through an override carry no `calls`, and the note says so.
+- `find_usages` on an interface event: `viaImplementation` names each implementing event, with `viaImplementationNote` beside it.
+- `find_tests_for`: a body that only subscribes or unsubscribes a handler is no longer a row, so handler methods can show fewer rows. Its notes say "one call deep" where they said "two hops".
+- `find_tests_for` and `impact_of_change`: a `namesakes` field appears when a type name is shared by several declared types.
+- `coverage_gaps`: entries can carry `testReachDepth`, `viaDispatch`, `commandCreditRefused` and `outerType`. An entry that no test calls directly stays in the list with its depth.
+- `find_symbol`: a nested type carries `declaringType`, and two same-named types nested in different classes are no longer merged into one row. Member rows of a nested type carry `outerType`.
+- `resolve_injection`: each optional parameter is judged only against the registrations of its own closed generic type. Answers can change: a `yes` that came from a registration of another closing becomes `no`.
+- Reflection usage: a method that only names a type, such as `GetType().Name` or `Type.FullName`, no longer counts as reflection in `find_by_code_traits("reflection")`. A bare `GetType()` or a `typeof` inside an attribute no longer makes a method reflective, which changes the method role in exported Markdown.
+- `find_unresolved_bindings`: a new `sitesSkippedByView` list names the skipped binding sites per view with their line numbers. It is capped at 100 views, and `sitesSkippedByViewTruncated` names what the cap left out.
+- Coupling numbers (Ce and `ceMax`): a constructor parameter that is stored in a field is judged by the exclusion list, so a type the list excludes, such as `Action<string>`, no longer counts as an injected dependency. Ce can move down.
+- Test projects: a padded `IsTestProject` value no longer marks a project as a test project, as `dotnet test` reads it.
+- `aicb analyze`: the quality findings in the written Markdown follow the configured test profile, so the Markdown and `--fail-on` agree.
+
+**After updating:**
+
+- **Idle release.** An MCP session that nobody uses for 30 minutes by default releases its Roslyn solution and keeps its analysis graph. The next call that needs Roslyn opens the solution again. The General page has the setting under Session & Analysis, in whole minutes from 5 to 600. A running MCP server takes a changed value at its next start.
+- **Settings precedence.** For the session keys, the built-in default is overridden by the desktop app's setting (stored in the configuration database), then by `sessionCache.idleReleaseMinutes` in `aicb.mcp.json`, then by `idleReleaseMinutes=` in `AICB_MCP_SESSION`.
+- **Stored data.** Snapshots and saved sessions written by an earlier version are analyzed again the first time they are reused. The stored compressed form of a snapshot differs from the earlier form for the same analysis. The JSON it holds is unchanged.
+
+### Who uses this symbol and what a change reaches
+
+- **Overloads are named.** When a method name matches several overloads, `find_usages` says which overload each user calls. `find_tests_for` says when its answer is the union of several overloads, and it leads its notes with that.
+- **Overrides receive the callers of their virtual member.** A call bound to a virtual method is recorded on the declaration, not on the override that runs. `find_usages` and `impact_of_change` now credit an override with the callers of the virtual member it overrides, where such a caller can run that override. This includes an override of a generic base class's virtual method. Callers on another branch of the hierarchy are left out, and the note says so.
+- **Interface events show their implementations.** `find_usages` on an interface event names each implementing event, the users on its own type, and the implementing types that declare no such event.
+- **Namesakes are named in all three tools.** `impact_of_change` and `find_tests_for` now name the namesakes that `find_usages` already named. A type name shared by several declared types is answered as their union, and the answer says so.
+- **Nested types keep their outer type.** `find_symbol` gives a nested type its declaring type, so same-named nested classes stay separate rows.
+- **Private members say how far an edit reaches.** On a private method or field, `impact_of_change` adds a note that a rename or signature change reaches only code inside the declaring type when every direct user sits there. The counts stay as they were. They measure what depends on the users, which is the reach of a change in behaviour, not of an edit.
+- **Members a type does not declare.** When the queried type does not declare a member, `find_usages`, `impact_of_change` and `find_tests_for` give the same sentence. The sentence says when a partial type, an external base class or `System.Object` can supply the member, because the index cannot see those.
+- **Documentation-only users are marked.** A user that names the type only in a documentation comment carries `docCrefOnly: true` in `find_usages` and `impact_of_change`.
+- **Binding sites of a property.** `find_usages` on a property adds one sentence that names the `{Binding}` sites the analysis could not tie to the property. Such sites are bindings in a DataTemplate without a DataType, or bindings through RelativeSource or ElementName. The sentence appears only where no other type declares a property of that name.
+- **Untyped bindings.** The untyped-binding hint counts only the sites that bind through a DataContext, and it reads the markup once per analysis.
+- **Static members and external members.** An empty answer for a static method or an operator no longer lists XAML and markup forms that cannot name it, and it says so in one sentence. A qualified name of an external member names that member and points to `calls_external`.
+- **Serialization.** A type that is only the receiver of static calls is no longer reported as serialized. A generic deserializing call, such as `Deserialize<T>`, keeps the type it reads.
+- **Constructors.** `symbol_signature` on a type that declares no constructor names the constructor the compiler gives it. A delegate is told that it has the compiler-generated constructor.
+- **Enums.** `find_tests_for` on an enum counts the tests that read its members and points to `find_usages` for the per-member list. Several enums with one simple name are counted as a union, and the note says how many enums contributed.
+- **Test-side initializers and private members.** `find_tests_for` names a property's or field's users that are initializers in a test project. For a private member it says that no test outside the declaring type can name it.
+- **Instantiation sites.** `instantiation_sites` says when every listed site is a test, and it names the markup views in that case.
+- **Constructor answers.** The constructor answer of `find_usages` places each item by the file and line of the sites behind it.
+- **Local functions.** `call_graph` labels the key of a local function with character offsets and adds a `localFunctionKeyNote` when such a key appears.
+- **Unresolved XAML bindings in file scope.** `list_insights` with files no longer drops an unresolved XAML binding line when a view model of the same name elsewhere declares the member.
+- **Dead-code notes.** The note of `find_dead_code` on methods it could not judge gives both the count it judged and the count that are not eligible.
+- **Insight producers.** `list_insight_producers` names the two producers that this server does not register.
+- **Public mutable fields.** The public-mutable-field finding skips fields of a private type and of a type nested in one.
+
+### Test coverage and reach
+
+- **Handler subscriptions are not invocations.** A test or helper body that subscribes or unsubscribes a handler no longer counts as calling it. `find_tests_for` says that an event raise runs the handler and that the tool follows no raise.
+- **Command predicates.** A body that reads a `[RelayCommand]` method's command and calls its `CanExecute` is a command row for the predicate named by `CanExecute = nameof(...)`. Executing the command does not credit its predicate. `coverage_gaps` follows the same edge.
+- **Calls through external generic interfaces.** A test that calls `Equals` on an `IEqualityComparer<string>` now reaches the solution's implementation. The framework note of `find_tests_for` names the interface members its rows called.
+- **Commands written by hand.** A hand-written command property that a body of the same type builds from a generated method is paired with that method, like a generated command.
+- **Virtual calls.** `coverage_gaps` follows a call on a virtual member to each override its caller can run, and marks those entries `viaDispatch`. `find_by_complexity_and_coverage` and the complex-untested insight follow the same route.
+- **Framework calls.** `coverage_gaps` follows a call through a BCL generic interface, and the equality of a hashed collection keyed by a solution type, to the solution's implementations. Those entries are marked `viaDispatch`.
+- **Commands that share a test.** An entry whose command a test runs beside another command carries `commandCreditRefused`, and the note says that its depth is unknown rather than measured.
+- **What coverage cannot measure.** The description of `coverage_gaps` says that a test may run a command beside another one, which the tool cannot tell apart.
+- **Single-command rule.** When the rule that a body reading several commands earns no command row empties an answer, the note says so and counts the bodies set aside.
+- **One call deep.** The notes of `find_tests_for` say that it matches tests one call deep at most, in the test's own body and in one method it calls.
+
+### Dependency injection (`resolve_injection`)
+
+- **Closed generic types.** A parameter typed as one closing of a generic interface is judged against registrations of that closing only, and a registration of another closing no longer decides it.
+- **Nested and top-level names.** A nested type named in a binding is no longer read as the same service as a top-level type of the same name.
+- **Configure helpers.** When no registration is found, the zero note names the Configure helpers that the library declaring the service offers, and marks them as not counted above.
+- **Where Configure calls count.** Configure calls are read only for a service that a referenced library declares.
+
+### Analysis facts and architecture graphs
+
+- **Dispatch through a base method.** A base-class method that a derived class maps onto an interface is a dispatch target of that interface. A call through the interface therefore reaches the side effects of the base method, and `find_by_side_effects` reports them.
+- **Decorators keep their edge.** `ARCHITECTURE_FLOW` and `CLASS_DEPENDENCY_GRAPH` keep the edge from a decorator to the interface it wraps, when a constructor parameter has that interface type.
+- **Injected and used types together.** `ARCHITECTURE_FLOW`, `CLASS_DEPENDENCY_GRAPH`, `SERVICE_DEPENDENCY_GRAPH` and `INTERFACE_RELATIONS` read a type's injected and used types together. `ROLE_GRAPH` keeps its order. The graphs show more edges, and the exported Markdown grows by 0.07 to 0.23 percent in the measured solutions. The class-to-own-interface edge that the flow and class graphs showed before is gone, because INTERFACE_RELATIONS already shows it.
+- **Methods with the same name in one file.** A generic method beside its plain namesake, an explicit interface implementation beside the public method of the same name, and two types of one simple name with different arity each keep their own trimming rung and their own drop count.
+
+### Exported Markdown and token budgets
+
+- **Method seeds fit their budget.** When the seeds are methods, the budget now counts the full text of each method. On one measured solution, `get_context` for a single method at a budget of 8,000 tokens came back at about four times that budget. In the measured case the answer now fits the budget.
+- **Less repeated work.** A budgeted whole-solution export does less repeated work. In the measured calls the delivered documents are the same.
+- **Printed code and the legend.** The compression legend of a lean export no longer promises full method blocks where printed source code contains a method tag.
+- **One insight run per export.** A budgeted export runs the insight analysis once per export instead of once per size adjustment. The delivered text is unchanged in the measured calls.
+
+### Batch and the response budget
+
+- **The budget is shared.** A batch whose answers fit the total is returned untouched. Otherwise the small answers come back whole, and the large answers share what is left.
+- **Large answers.** A large answer of `explain_symbol`, `get_context`, `pack_for_task` or `prepare_task` is rendered again at its share and says so in a note. A render that still does not fit is omitted, not cut.
+- **Other large answers.** A large answer of any other tool is never cut. It is omitted, with a hint to call the tool directly.
+- **Default budget.** For every MCP client the total stays at 9000 tokens.
+- **CLI option.** `aicb call batch --batch-budget <tokens>` sets the total for that call. Any other tool refuses the option.
+
+### Sessions, refresh and the Roslyn solution
+
+- **Idle release.** An MCP session that is not used for the idle release time releases the loaded workspace and its compilations, and keeps its analysis graph. Graph-only tools answer without reopening the solution. The tools that need Roslyn reopen it: `resolve_injection`, `evaluate_change_set`, `get_diagnostics`, `init_solution_config`, `check_solution_config_drift` and the refresh.
+- **The watcher leaves a released session at rest.** A file change does not reopen a released session. The next tool call that needs Roslyn reopens it once, and `refresh_session` reopens it as before.
+- **Waiting for a reopen.** A Roslyn tool waits for a reopen without blocking a thread, and a cancelled call stops waiting.
+- **Refresh after a reopen.** A refresh after a reopen reads the disk again. Before, it could report an older graph as current after an edit.
+- **Restores.** A restore that rewrote a project's assets file after the solution was loaded is reported in the staleness trailer as `restoredProject` with `stale: true`, and the hint names `refresh_session`. The report survives an idle release, and a refresh while the solution is released still reloads after such a restore.
+- **Failed automatic refresh.** After a failed automatic refresh, the automatic path does not retry until the source changes. `refresh_session` always tries again. While that hold stands, the trailer carries `autoRefreshRetry: "after-source-change"`.
+- **Shared refresh.** Cancelling one call no longer cancels the refresh that other calls wait for. Server shutdown still ends it.
+- **Forced refresh.** A `refresh_session` that asks for a forced refresh is no longer answered by a run that was not forced.
+- **Explicit refresh.** An explicit `refresh_session` no longer waits behind automatic refreshes that keep being held.
+- **Readings during a build.** A reading taken while a build runs no longer leaves the session reporting stale afterwards, because the markup compiler's temporary project is ignored.
+- **Design-time build cache.** The answers of `analyze_solution` and `refresh_session` say, under `designTimeBuildCache`, why a design-time build was not stored in the cache.
+- **Source text after a rewrite.** The textual binding answers no longer come from cached text when a file is rewritten within the same timestamp and keeps its length.
+
+### Desktop app
+
+- **MD Input.** The MD Input tab shows the Create MD output in a code-style editor with word wrap. The editor stays responsive on large documents. A drop or a Paste from the menu is written back when the editor is left, and Tab moves the focus as it does in other fields.
+- **Create MD in the background.** Create MD and the whole-solution export render in the background, so the window stays responsive during a long render. A busy overlay appears for long renders.
+- **Create MD says why it did nothing.** Create MD reports "A render is already running." or that the solution changed while it rendered, and Generate & Send adds that nothing was sent.
+- **Overtaken exports.** A whole-solution export that a load overtakes while it renders writes nothing, and the status line says so.
+- **Finding sends during a render.** While a render runs, a finding send says in the status line that the selected lines were not sent.
+- **Finding sends during an LLM request.** The send buttons of findings are disabled while an LLM request runs. A send that arrives anyway changes neither the run template nor the goal, and its status line gives the reason.
+- **No double send.** A second send cannot start while a Generate & Send is still waiting for its render.
+- **Deleted context template.** A run template that names a deleted context template still renders, and the active context template is used. The status line names the template that was kept. No stored data is rewritten.
+- **Deleted model or template.** A run template that names a deleted model, or a slot that names a deleted template, falls to the next tier, and the send says so.
+- **Insight history.** A Create MD with a maximum size writes each insight-history row once per question instead of once per trimming pass.
+- **Insights baseline.** The public-contract breaking-changes insight compares the analysis with the newest snapshot other than the one the load has just written. Preselection runs compare the same way.
+- **Reloads of the same solution.** A reload of the same solution path refreshes the Insights tab.
+- **General page after a database switch.** The General page reads its values and both profile lists again after a switch on the Storage page, applies the new theme and font at once, and says so in the status line.
+- **Numeric fields.** Every numeric field of the settings pages shows the clamped value it stored after a save. A box that a save regroups while it has focus keeps the digits typed.
+- **Confirm threshold.** The help text of the confirm threshold says what 0 means: the app asks before every run.
+- **Source file cache.** The new setting Source file cache (Session & Analysis on the General page) sets the cap of the source file cache, from 16 to 1024 MB, with a default of 64 MB. A lower cap takes effect at once, and a database switch applies the cap of the new database.
+- **Idle release in configuration bundles.** The idle release time travels with exported configuration bundles.
+
+### Command line
+
+- **`aicb call batch --batch-budget`.** The option sets the total response budget of one batch call. Any other tool refuses it.
+- **`aicb call --db-path`.** The source file cache cap is read from that database before a tool runs.
+- **`aicb analyze`.** The quality findings written to the Markdown follow the test profile that the quality gate uses.
+- **`aicb init --skills=all`.** The option also installs the `aicb-smoke-test` skill. It runs read-only checks on a solution, sorts the findings into HIGH, MID and LOW, and drafts issues for the maintainer. It files nothing until you confirm each group of drafts.
+
+### Settings, contracts and imports
+
+- **Imported profiles.** An imported MCP profile whose slot map is null no longer breaks the MCP render or `list_mcp_profiles`.
+
+### Speed and memory
+
+Measured on the product's own solution unless stated otherwise.
+
+- **Usage answers.** In a debug build, measured over 50 symbols, `find_usages` for the name `Name` fell from about 1.0 s to 0.26 s, and `impact_of_change` for the type `AnalyzedSolution` fell from about 1.14 s to 0.70 s.
+- **Latest snapshot.** Reading the latest stored snapshot of a solution took 783 ms in a measured copy of a database with six rows, and now takes 15 ms.
+- **Snapshot writes.** Encoding a stored snapshot of 109 MB of JSON allocated 54 MB instead of 304 MB. The time stayed about the same.
+- **Reads per prepare_task.** A cold `prepare_task` performed about 12 read operations instead of about 2,400.
+- **Lean answers.** Lean `get_context`, `pack_for_task` and `explain_symbol` no longer run an insight analysis that they discard, which saved about a second per call.
+- **Single insight.** `get_insight` runs only the producer for the requested insight.
+- **Memory after refresh.** After an incremental refresh, the memory held by the first analysis is released. In a probe on a test fixture it was kept in 5 of 5 runs before and in none after.
+
+### Dependencies
+
+- **MCP library.** The server now uses version 2.3.1 of the ModelContextProtocol package, which was 2.2.0.
+
 ## 0.5.511.1 (2026-11-03) - resolve_injection judges each target framework on its own, impact_of_change finds the markup users of dependency properties, and a token budget shortens methods before it drops them
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once - 6 tools of the

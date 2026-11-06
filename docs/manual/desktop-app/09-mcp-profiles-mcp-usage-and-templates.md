@@ -6,7 +6,7 @@ This chapter covers the three pages that belong to the MCP feature and to contex
 
 ## 9.1 MCP Profiles
 
-**Where:** main menu → `MCP` → `MCP Profiles`.
+**Where:** sidebar, group `MCP`, entry `MCP Profiles`.
 
 An MCP profile bundles a complete MCP working environment: the task facets (per facet a tool menu and a context template), the guidance blocks, the opt-in tool bundles, the output notation, the token budget, and how the server keeps its analysis in step with your edits. Exactly one profile is active and drives the MCP server; the active one carries the `Active` pill in the list.
 
@@ -265,7 +265,7 @@ Note: saving a built-in profile freezes its current facet menus into the stored 
 
 ## 9.2 MCP Usage
 
-**Where:** main menu → `MCP` → `MCP Usage`.
+**Where:** sidebar, group `MCP`, entry `MCP Usage`.
 
 The page shows the telemetry the MCP server records for every handled call, read from the same database the app uses. It is not an editor: it is an evaluation view with a note function, export/import, and a controlled deletion path. The panel reloads whenever the tab is activated - the MCP server writes into the same database while the app runs, so a re-activated tab would otherwise keep showing the numbers from its first open.
 
@@ -407,7 +407,9 @@ The upper section `MCP protocol revision` shows a bar and a legend per protocol 
 
 ![The Clients & protocol tab](img/mcp-usage-clients.png)
 
-> `Traffic per MCP protocol revision: the version of the Model Context Protocol the client negotiated when it connected (for example 2024-11-05 or 2025-06-18), which follows from the MCP SDK version the client is built on. 'Not attributed' is not an unknown client: those calls were recorded before the server could tell, and they stay in the denominator.`
+> `Traffic per MCP protocol revision: the version of the Model Context Protocol each call arrived on. An MCP client reaches this server on one of two entry paths: with an initialize handshake at connect time, where client and server agree on one of several revisions (for example 2025-11-25), or without one, with the revision sent on every request (for example 2026-07-28). The path is the client's choice, and its version does not fix it: the same version can switch between the two within minutes. '(none)' marks a one-shot aicb call, which speaks no protocol. 'Not attributed' is not an unknown client: those calls were recorded before the server could tell, and they stay in the denominator.`
+
+Below the bars, a line states: `Two rows with the same client and version differ only in protocol revision: that client version arrived on two revisions, for example on both entry paths above.`
 
 The lower section `Clients` lists `Client`, `Protocol revision`, `Calls` and `Last seen`. A client that did not identify itself appears as `not attributed`. `Last seen` sorts by the raw timestamp, because the displayed text does not sort chronologically. The table shows up to 50 client-and-revision groups; if there are more, a note says how many of how many are shown.
 
@@ -441,12 +443,12 @@ On a database whose live table is empty but which holds an imported snapshot, th
 1. A scope dialog titled `Clear Usage Data` shows how many calls are recorded and over which period, and offers `Clear everything` or `Clear calls older than` with a date picker (pre-filled with 30 days ago). `Clear calls older than` deletes calls recorded strictly before the chosen day; that day itself and everything after it stays. If nothing is recorded: `There are no recorded calls to clear.`
 2. If the chosen scope matches nothing: `No recorded call is older than the chosen date.`
 3. An export is forced. If you cancel the file dialog, the whole operation is cancelled: `Clear cancelled: no export target was chosen.` If the export cannot be written: `The export could not be written, so nothing was cleared: ...`
-4. A destructive confirmation names the number of calls, the file - and the notes: `{n} notes written on those calls will be deleted with them, and the export does not contain them.` This warning matters: notes hang off the calls and are deleted with them, while the forced export contains only the aggregate. The notes are the one thing this operation destroys irrecoverably.
+4. A destructive confirmation names the number of calls and the file. When notes would be deleted as well, it adds `{n} notes written on those calls will be deleted with them, and the export does not contain them.` This warning matters: notes hang off the calls and are deleted with them, while the forced export contains only the aggregate. The notes are the one thing this operation destroys irrecoverably.
 5. The calls are deleted and the status line shows `Cleared {n} calls (exported to {file} first)`.
 
 ## 9.3 Templates
 
-**Where:** main menu → `Configuration` → `Templates`.
+**Where:** sidebar, group `Configuration`, entry `Templates`.
 
 ![The Templates page](img/gui-templates.png)
 
@@ -508,15 +510,15 @@ Note: XAML, `.csproj` and other supporting files are included automatically by r
 
 ## 9.4 Layer Profiles, Exclude Namespaces and Test Profiles appear twice
 
-Three pages exist under the same names in two places, and they do different things:
+Three libraries each appear in two places, and the two places do different things. The plural names the library under `Settings` (`Layer Profiles`, `Test Profiles`), the singular names the picker for one solution (`Layer Profile`, `Test Profile`). `Exclude Namespaces` is spelled the same in both places, so only the location tells them apart: `Settings > Exclude Namespaces` against `Workspace > Profiles > Exclude Namespaces`.
 
-| | Settings page | Solutions page |
+| | Settings page | Workspace page |
 |---|---|---|
 | **Role** | The library editor: create, edit, delete, import, export entries. | The picker per solution: choose which entry applies to the selected solution. |
-| **Reachability** | Settings container (for example `Settings` → `Layer Profiles`). | The Solutions workspace, three pickers side by side. |
+| **Reachability** | Settings container (for example `Settings` → `Layer Profiles`). | The `Profiles` tab of the Workspace page, three pickers side by side. |
 | **Without a selected solution** | Normally usable. | The picker is read-only and shows only the global default. |
 
-The Settings pages write to the application settings; the Solutions pages write the per-solution choice into the solution record. The per-solution choice wins on all three axes:
+The Settings pages write to the application settings; the pickers on the Workspace page write the per-solution choice into the solution record. The per-solution choice wins on all three axes:
 
 | Axis | Resolution order |
 |---|---|
@@ -524,7 +526,7 @@ The Settings pages write to the application settings; the Solutions pages write 
 | Exclusion list | Per-solution choice > global default (`AppSettings.DefaultExclusionListName`) > built-in `BclDefault` > empty. |
 | Layer profile | Per-solution choice > app-global default; the configured name is matched by id **or** name, case-insensitively. |
 
-The Solutions-side picker shows how many entries are available, points to the Settings library (`Manage profiles in Settings > Layer Profiles.` and equivalents), and offers `Initialize Now` to restore the solution's axis from its sidecar file - no LLM, no analysis; it does nothing if the axis is already configured or the sidecar does not cover it.
+The picker on the Workspace page shows how many entries are available, points to the Settings library (`Manage profiles in Settings > Layer Profiles.` and equivalents), and offers `Initialize Now` to restore the solution's axis from its sidecar file - no LLM, no analysis; it does nothing if the axis is already configured or the sidecar does not cover it.
 
 The sidecar file is a separate thing from the per-solution setting. It is written as `<directory>\<SolutionName>.aicb.json` next to the solution, carries the rules embedded (no database id references, so it is portable in version control), and exists for hosts that run without a database. The order one level up is: explicit call parameter > database > sidecar > nothing - each host consults the sidecar only for an axis that would otherwise be empty.
 

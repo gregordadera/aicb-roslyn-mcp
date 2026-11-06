@@ -18,7 +18,7 @@ Which tabs and panels are visible depends on the five mode chips in the header (
 
 The run-template group of the header carries two selectors and three actions.
 
-- `Run Template` - selects the run template for this tab. Picking one switches the active context template, reloads the prompt fields from it and fills `Goal / Task (User Prompt)` from the template - but only while that field is still empty; text you have typed is never overwritten. The current view shows no confirmation message for this switch.
+- `Run Template` - selects the run template for this tab. Picking one switches the active context template, reloads the prompt fields from it and fills `Goal / Task (User Prompt)` from the template - but only while that field is still empty; text you have typed is never overwritten. The current view shows no confirmation message for this switch. If the run template names a context template that was deleted after the run template was saved, the switch is skipped: the active context template stays in place, and the run template itself is not changed. The Sections and Selection Engine source lines then name the active template as a stand-in, for example `From active context template 'X' - run template 'Y' names a deleted one`. The view shows no message for this either.
 - `LLM` - selects the model-profile override for subsequent sends from this tab. The first entry carries a `Default` badge and stands for the standard resolution order (model pinned by the run template → profile marked as default → first profile). The choice remains active until you select another entry, close the tab or restart the application.
 
 | Action | What it does | Shortcut |
@@ -45,7 +45,7 @@ Below the banner a card reports what the document contains:
 | graphs | the graph sections actually present in the document, as short labels joined with ` + ` (for example `Architecture + Service + Layer`); `-` when the document contains none |
 | code mode | `Enabled` or `None` - whether any node contributed source code |
 
-The document itself is an editable text box with a permanently visible scrollbar. Your edits are taken over when the box loses focus, not on every keystroke, so a large whole-solution document stays responsive.
+The document itself is an editable AvalonEdit text editor with word wrap, a monospace font and a permanently visible scrollbar. It shows no line numbers, and URLs in it are not turned into links. Your edits are taken over when the editor loses focus, not on every keystroke, so a large whole-solution document stays responsive. The right-click menu offers Cut, Copy and Paste.
 
 ![The MD Input tab with a generated context document](img/gui-context-md.png)
 
@@ -197,7 +197,7 @@ With the `LLM` chip on, the `Prompt` panel holds the five fields that are sent w
 
 ### 4. Set the budget
 
-`Max MD size` in the header caps the document (8,000 to 200,000 tokens, default 60,000 from the active pipeline profile); `No limit` switches the cap off, and `Overshoot:` sets the tolerated headroom above the target. The renderer converges on the target by lowering detail and dropping the least relevant content, never by cutting a block in half; `+X% over budget` reports what the last render actually used.
+`Max MD size` in the header caps the document (8,000 to 200,000 tokens, default 60,000, and the value you set is kept across restarts); `No limit` switches the cap off, and `Overshoot:` sets the tolerated headroom above the target. The renderer converges on the target by lowering detail and dropping the least relevant content, never by cutting a block in half; `+X% over budget` reports what the last render actually used.
 
 ### 5. Render the document
 
@@ -245,7 +245,6 @@ The tree state is expensive to reconstruct, so the workspace tracks unsaved chan
 | `Manual` | Released. One request over the current document. This is the type you select in the workspace. |
 | `Iteration` | Not yet released. One request per selected node; the executors are wired, but the type cannot be selected yet. |
 | `Preselection` | Not yet released, same as `Iteration`. |
-| `Pipeline` | Planned. It is accepted by the stored data, but nothing executes it. |
 
 The `Run Template` selector lists every template, but only templates of type `Manual` can be chosen; the other entries are shown disabled with a tooltip explaining that they are not released yet. The entry that is already selected stays selectable regardless of its type, so you can always return to it.
 

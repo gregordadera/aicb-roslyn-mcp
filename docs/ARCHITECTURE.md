@@ -118,10 +118,13 @@ contract is in
 ### How far does one edit invalidate reuse?
 
 There are two conservative gates. The outer refresh planner permits its incremental
-path only for an existing C# file whose text changed in place. A file addition or
-removal, or a changed non-C# file tracked by the snapshot (including XAML and
-project-shaping files), takes the full reload path because it can change project
-membership, generated code or compilation structure.
+path only when nothing but C# files moved: text changed in place, or C# files added,
+renamed or removed. An added C# file is placed in the loaded solution only where the
+files already beside it show which project compiles it; where that is not clear, the
+refresh takes the full reload path. Any non-C# file tracked by the snapshot that was
+added, removed or changed (including XAML, Razor and project-shaping files) takes the
+full reload path too, because it can change project membership, generated code or
+compilation structure.
 
 The analyzer then decides which previous document results are safe to replay:
 
@@ -147,15 +150,17 @@ already rendered answer.
 The regression suite compares the complete normalized analysis dump from an
 incrementally refreshed session with a separately opened full-reload session. Its
 single-edit matrix covers method-body changes, added and deleted methods, changed
-signatures, deleted and renamed types, changes in one half of a partial type, and
+signatures, deleted and renamed types, changes in one half of a partial type,
 re-deriving attribute-declared source-generated members on the forked Roslyn
 snapshot (name reconstruction from the parsed syntax, independent of the
-generators' own output). It also asserts
+generators' own output), and C# files added, removed or renamed in place, including
+an added file a source generator reads. It also asserts
 that the incremental path really ran, so an accidental full reload cannot make the
-comparison pass vacuously. File additions or removals and changes to `.csproj`,
-`.props`, `.targets`, solution, XAML and other project-shaping files deliberately
-fall back to a full reload. A combined public matrix for simultaneous multi-file
-edits and branch switches has not yet been published.
+comparison pass vacuously. An added C# file whose project cannot be told from the
+files beside it, and changes to `.csproj`, `.props`, `.targets`, solution, XAML and
+other project-shaping files, deliberately fall back to a full reload. A combined
+public matrix for simultaneous multi-file edits and branch switches has not yet been
+published.
 
 ## How does AICB keep its answers consistent?
 
@@ -303,45 +308,68 @@ not a declared support limit. The desktop app can record per-phase load timings 
 distributions. These let a team measure its own solution rather than extrapolate
 from an unrelated repository.
 
-### Published benchmark (re-measured 2026-10-04)
+### Published benchmark (re-measured 2026-11-06)
 
-A standardized public benchmark that reports cold analysis time, warm-query time
-and peak RAM on three public .NET solutions is published below. Measurement
-procedure: each repository was analyzed at the stated revision after a restore
-with its pinned SDK; a fresh MCP server process answered `solution_metrics` twice
-on the restored solution. The first call is **cold** - it carries the full MSBuild
-load and Roslyn analysis, with no warm AICB session, no persisted analysis, no
-session cache and an empty design-time-build cache. The second identical call in
-the same session is the **warm** query. Peak RAM is the peak working set of the
-AICB process tree during the cold phase, sampled once per second. NuGet and
-MSBuild machine caches were warm from the restore. `get_diagnostics` reported
-`incompleteProjects: []` on all three solutions.
+A standardized public benchmark reports cold analysis time, warm-query time and RAM on three public .NET
+solutions. This series measures AICB `0.5.511.1` (the published release) and `0.5.515.1` (the next release
+candidate) on the same machine, interleaved in one session. Each cell reads `0.5.511.1 -> 0.5.515.1`: the
+median of 6 valid runs per version and solution, each run in a fresh server process. The idle-release column
+exists only for `0.5.515.1`, because the idle release is not part of `0.5.511.1`; its cell reads `n/a -> value`.
 
-Each cell reads `0.5.465.11 -> 0.5.500.1`: both versions measured in the same
-series, medians of 6 interleaved runs per version, each run in a fresh process.
+Procedure, per run:
 
-| Solution | Repository revision | C# LOC (git-tracked) | Cold | Warm | Peak RAM | Production types / methods |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `Serilog.sln` | `serilog/serilog` `2ef6364` | ~ 24,700 | 14.4 s -> 13.5 s | 98 ms -> 100 ms | 1.29 GB -> 1.28 GB | 129 / 657 |
-| `src/MahApps.Metro.sln` | `MahApps/MahApps.Metro` `72099e3` | ~ 54,700 | 23.2 s -> 20.3 s | 146 ms -> 136 ms | 3.64 GB -> 3.52 GB | 322 / 1,840 |
-| `RavenDB.sln` | `ravendb/ravendb` `5415dde` | ~ 1.76 M | 85.5 s -> 69.7 s | 2.00 s -> 1.70 s | 4.35 GB -> 4.31 GB | 9,316 / 33,606 |
+- A fresh MCP server process (`aicb mcp`) starts with an empty configuration database, an empty
+  design-time-build cache folder, `AICB_MCP_AUTO_REFRESH=off`, and MSBuild worker-node reuse disabled
+  (`MSBUILDDISABLENODEREUSE=1`) for both versions.
+- The first `solution_metrics` call on the restored solution is **cold**; the second identical call in the same
+  process is **warm**. Both are timed on the client from sending the request to receiving the answer.
+- **Peak RAM** is the largest working set of the server's process tree (the server and its child processes)
+  between sending the cold call and receiving its answer, sampled about once per second (median sample interval
+  0.87 s).
+- **RAM warm (after peak)** is the largest working set of the same tree from the moment the cold answer arrives
+  until 30 s after the warm answer. The cold peak lies outside this window.
+- **RAM after idle release** is the working set of the tree 660 s (11 minutes) after the last answer. For these
+  runs the idle release time was set to its shortest allowed value, 5 minutes, in the configuration database of
+  the run. In all nine runs the working set stepped down 341 to 348 s after the last answer, which is the release.
 
-Machine: Windows 10 Pro, Intel Core i9-9900K (8 cores / 16 threads), 32 GB RAM,
-measured 2026-10-04. Cold, `0.5.500.1` is 6.5 % faster on Serilog, 12.3 % on
-MahApps and 18.5 % on RavenDB. Warm is a tie on Serilog and 7 and 15 % faster on
-the other two. The peak RAM differences lie inside the run-to-run spread, so
-memory did not change measurably. Both versions return the same production types
-and methods. The change is version against version - .NET 10, Roslyn 5.9 and the
-load-path work since `0.5.465.11` together - not the effect of any one of them.
+Runs in which a foreign build process used CPU between server start and the end of the warm call were dropped
+and repeated. Foreign build processes are other processes on the same machine, not AICB. Three of 39 measured
+runs were dropped: two `0.5.511.1` runs and one `0.5.515.1` run, all on RavenDB. No idle run overlapped one.
 
-Reading notes: the MahApps solution as published carries 755 compiler diagnostics
-in its `net462` test project; they do not affect the production-scope analysis.
-Serilog's restore required `-p:NuGetAudit=false` because a vulnerable transitive
-test dependency would otherwise fail the restore as an error. The very first
-analysis on a cold machine additionally pays one-time MSBuild node startup (about
-9 s on the test machine). Incremental refresh time is not yet covered by this
-benchmark, and these numbers are measured data points on one machine, not a
-universal performance promise.
+| Solution | Repository revision | C# LOC (git-tracked) | Cold | Warm | Peak RAM | RAM warm (after peak) | RAM after idle release | Production types / methods |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `Serilog.sln` | `serilog/serilog` `2ef6364` | ~ 24,700 | 14.7 s -> 14.8 s | 140 ms -> 139 ms | 897 MB -> 901 MB | 912 MB -> 910 MB | n/a -> 379 MB | 115 / 636 |
+| `src/MahApps.Metro.sln` | `MahApps/MahApps.Metro` `72099e3` | ~ 54,700 | 21.0 s -> 21.0 s | 176 ms -> 178 ms | 2,582 MB -> 2,574 MB | 2,503 MB -> 2,583 MB | n/a -> 865 MB | 322 / 1,840 |
+| `RavenDB.sln` | `ravendb/ravendb` `5415dde` | ~ 1.76 M | 74.8 s -> 74.8 s | 2.33 s -> 2.15 s | 4,134 MB -> 4,125 MB | 3,148 MB -> 3,190 MB | n/a -> 950 MB | 9,036 / 32,672 |
+
+Machine: Windows 10 Pro (10.0.19045), Intel Core i9-9900K (8 cores / 16 threads), 31.9 GB RAM, measured
+2026-11-06. Each solution was analysed in the restore state it had in the validation folder; no restore was run in
+this series. Binaries: `0.5.511.1` is the
+self-contained win-x64 CLI from the published release package; `0.5.515.1` is a self-contained win-x64 publish
+of the same CLI project in Release configuration, built from the release candidate sources.
+
+Reading notes:
+
+- Cold and warm: the cold times of the two versions agree on all three solutions. On RavenDB the warm query is
+  about 8 % faster on `0.5.515.1`; the two versions' warm runs do not overlap (`0.5.511.1` 2.31 to 2.37 s,
+  `0.5.515.1` 2.12 to 2.25 s). One `0.5.511.1` cold run on MahApps took 28.0 s; the median is taken over all six
+  runs and is barely affected by it.
+- Peak RAM: the differences lie inside the run-to-run spread on all three solutions. RAM warm (after peak) lies
+  inside the spread on Serilog and MahApps; on RavenDB the two ranges barely do not overlap (3.08 to 3.16 GB on
+  `0.5.511.1`, 3.17 to 3.20 GB on `0.5.515.1`), so the 1 % higher median there is a small but separate difference.
+- RAM after idle release: the release happened in every run. The working set after it is 379 MB on Serilog,
+  865 MB on MahApps and 950 MB on RavenDB, measured 660 s after the last answer.
+- Analysis answers: both versions return the same production types and methods. Two answer fields differ: MahApps reports 10 info-severity insights on `0.5.511.1` and 9 on
+  `0.5.515.1`, and RavenDB's debt estimate is 441,818 minutes on `0.5.511.1` and 439,748 on `0.5.515.1`. The
+  cause of these two differences has not been established in this series.
+- Diagnostics: `get_diagnostics` on `0.5.515.1` reported `incompleteProjects: []` on all three solutions. Serilog
+  reported no errors, MahApps 755 errors (in its net462 test project, as before), RavenDB 1 error and 1 warning.
+- The production counts differ from the 2026-10-04 series for Serilog (129 / 657 there) and RavenDB (9,316 /
+  33,606 there); MahApps matches. This series uses a fresh configuration database and no reuse of MSBuild
+  worker nodes, and the 2026-10-04 condition was not repeated. Absolute values are therefore not comparable with
+  the 2026-10-04 table; the comparison within this series is.
+- Incremental refresh time is not covered by this benchmark, and these numbers are measured data points on one
+  machine, not a universal performance promise.
 
 #### First measurement (2026-09-26)
 

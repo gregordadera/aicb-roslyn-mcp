@@ -42,6 +42,7 @@ Markup connects views to view-models and to resources by string. Resource keys h
 | `bindingSitesInMarkup` | Binding sites found by the same live walk - the markup population. |
 | `sitesJudged`, `sitesSkipped` | The denominator of `count`: the binding sites whose root member was checked on a resolved type, and the sites the tool skipped. `null` on a session without a live verdict (a recalled snapshot); `0` there only when the live walk found no binding site at all. |
 | `sitesSkippedBy` | The skipped sites, counted per reason. Omitted when nothing was skipped. |
+| `sitesSkippedByView` | The skipped sites of each view, by reason, with their lines (capped at 100 views; `sitesSkippedByViewTruncated` names the views the cap left out). A site listed here was never judged, so a renamed site listed there is not one the tool checked. |
 | `judgementNote` | Present only when the judged population differs from `bindingSitesInMarkup`, naming each part of the difference with its number: element-syntax `<Binding Path="X"/>` sites (counted as judged or skipped, but not in `bindingSitesInMarkup`, which lists the `{Binding}` form only), markup edited since the analysis (call `refresh_session`), and sites that could not be attributed, with how many of them are element-syntax sites. On a recalled session it says why both counts are `null`. |
 | `note` | Present when the zero needs qualification: a session without a live binding verdict (a recalled snapshot), an incomplete analysis run, or a solution with no markup at all. |
 

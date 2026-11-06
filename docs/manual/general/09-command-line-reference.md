@@ -147,7 +147,7 @@ Path, format and other inputs listed below are checked before the expensive work
 ### The run itself
 
 1. **MSBuild bootstrap.** If MSBuild cannot be registered, the run ends with exit `5`.
-2. **Snapshot decision**, only when `--session-db` points to an existing file. The file-set fingerprint of the solution is compared against the fingerprint stored with the latest snapshot. The fingerprint covers the solution's `.cs`, `.csproj`, `.xaml`, `.cshtml` and `.razor` files, ignoring `bin`, `obj`, `.vs`, `node_modules`, `packages` and `TestResults`. A snapshot is reused only when it carries an analysis, was produced by a compatible version of the analysis engine (payload schema and analyzer identity), and the source files have not changed. Because the fingerprint uses file timestamps, a difference is first checked against a content fingerprint - so a branch switch or a save without a content change does not force a re-analysis. On a hit the run prints `Snapshot hit (file-set hash <hash>); skipping Roslyn analysis.` and skips Roslyn. On a miss it says why, for example:
+2. **Snapshot decision**, only when `--session-db` points to an existing file. The file-set fingerprint of the solution is compared against the fingerprint stored with the latest snapshot. The fingerprint covers the solution's `.cs`, `.csproj`, `.xaml`, `.cshtml` and `.razor` files, ignoring `bin`, `obj`, `.vs`, `node_modules`, `packages`, `TestResults` and every folder whose name starts with a dot. A snapshot is reused only when it carries an analysis, was produced by a compatible version of the analysis engine (payload schema and analyzer identity), and the source files have not changed. Because the fingerprint uses file timestamps, a difference is first checked against a content fingerprint - so a branch switch or a save without a content change does not force a re-analysis. On a hit the run prints `Snapshot hit (file-set hash <hash>); skipping Roslyn analysis.` and skips Roslyn. On a miss it says why, for example:
    - `Force flag set; running full Roslyn analysis.`
    - `No usable snapshot in session DB; running full Roslyn analysis.`
    - `Snapshot payload-schema mismatch; running full Roslyn analysis.`
@@ -349,6 +349,7 @@ Invokes **one** MCP tool exactly once and prints its result. No server, no clien
 | `--sln <path>` | no | An absolute `.sln` path. It is bound to the tool's `sessionId`/`solutionPath` argument and analyzes the solution once (self-init). Omit it for a tool that needs no session, such as `server_info`. |
 | `--arg <name=value>` | no, repeatable | One tool argument per occurrence. |
 | `--db-path <path>` | no | An optional configuration database. Without it the tool runs database-free. |
+| `--batch-budget <tokens>` | no | Only for `batch`: the total token budget its answers share. Default 9000, the MCP default that keeps a batch inside a client's inline result limit. stdout has no such limit, so a script may raise it to receive large answers whole. |
 
 Examples:
 
@@ -385,7 +386,7 @@ export AICB_MCP_TOOLS=all
 | Variable | Values | Default | Effect |
 |---|---|---|---|
 | `AICB_MCP_TOOLS` | `all`, `lean`, empty, or a selection list | the active MCP profile's tool pool | Assembly-wide tool curation: which tool groups the server exposes. `all` also exposes the opt-in infrastructure tools (session, memory, DB-entity and API-compatibility tools) that no profile menu lists. Literal `lean` selects the complete 72-tool lean core. Empty or unset means no override, so the active profile decides (54 tools in the default profile). A selection list is either a comma-separated list of tool-group names or the `methods:<tool>,<tool>` form naming individual tools. Unknown group names are ignored and a group list with no matches falls back to the lean core; a `methods:` list is used literally, so unknown names can produce an empty tool set and do not trigger that fallback. An explicit spec is static: it does not change when a profile is switched. |
-| `AICB_MCP_SESSION` | comma-separated `key=value`, keys `ttlMinutes`, `maxSessions`, `sweepMinutes` | TTL 90 minutes, at most 8 sessions, sweep every 5 minutes | Fine-tuning of the in-memory session cache. The TTL is sliding: every tool access resets the clock. The session limit is the hard memory bound; on overflow the least recently used session is evicted. Invalid or non-positive values are ignored per key, and unset keys keep their default. |
+| `AICB_MCP_SESSION` | comma-separated `key=value`, keys `ttlMinutes`, `maxSessions`, `sweepMinutes`, `idleReleaseMinutes` | TTL 90 minutes, at most 8 sessions, sweep every 5 minutes, idle release after 30 minutes (5 to 600) | Fine-tuning of the in-memory session cache. The TTL is sliding: every tool access resets the clock. The session limit is the hard memory bound; on overflow the least recently used session is evicted. `idleReleaseMinutes` makes a session that nobody has used for that long release its loaded Roslyn solution and keep its analysis; the next call that needs Roslyn opens the solution again. Invalid or non-positive values are ignored per key, and unset keys keep their default. |
 | `AICB_MCP_AUTO_REFRESH` | `Off`/`0`/`false`/`no`, `Reactive`, `Proactive`/`1`/`on`/`true`/`yes` | the active profile's value; profiles the product creates use `Reactive` | Whether a stale MCP session is re-analyzed before a read tool answers, and whether file watchers are armed. `Reactive` repairs a drifted session when a question arrives; `Proactive` additionally watches the solution folder in the background. Missing, empty or unrecognized values mean no override. See "Sessions and staleness" in the MCP manual for the modes. |
 | `AICB_MCP_DEBOUNCE_MS` | positive integer (milliseconds) | 15000 (15 seconds) | Debounce of the file watcher in `Proactive` mode: how long the watcher waits for quiet before it refreshes. |
 | `AICB_MCP_STALENESS_WINDOW_MS` | positive integer (milliseconds) | 5000 (5 seconds) | Throttle window of the staleness check, so a burst of tool calls does not repeat the directory walk for each one. |
@@ -409,7 +410,7 @@ All fields are optional; a field that is not set means "no override". Precedence
 ```
 
 - `toolSpec` uses the same grammar as `AICB_MCP_TOOLS`.
-- `sessionCache` accepts `ttlMinutes`, `maxSessions` and `sweepMinutes`; only set, positive values are applied.
+- `sessionCache` accepts `ttlMinutes`, `maxSessions`, `sweepMinutes` and `idleReleaseMinutes`; only set, positive values are applied. `idleReleaseMinutes` is clamped to 5 to 600.
 - The file is read fail-open: if it is missing, unreadable or malformed, the server starts on the built-in defaults and logs a warning. That warning is the only thing that distinguishes a broken file from a missing one, so check the server's standard error if a setting appears to have no effect.
 - Parsing is case-insensitive and tolerates comments and trailing commas, because the file is written by hand.
 

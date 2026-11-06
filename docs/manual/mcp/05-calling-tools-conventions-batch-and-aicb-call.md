@@ -57,7 +57,7 @@ Rules and limits:
 - **Each sub-query is isolated.** One that fails reports `ok: false` plus its error while the others still answer normally. A cancelled call aborts as a whole.
 - **The active pool governs the proxy path too.** A read-only tool that your active profile does not expose is refused per entry, with its own message - exactly as a direct call would be.
 
-The response has the shape `{ results: [ {tool, ok, result | error} ], count, okCount }`:
+The response has the shape `{ results: [ {tool, ok, result | error | omitted} ], count, okCount, omittedCount }`, where `omittedCount` appears only when some answer was omitted:
 
 | Field | Meaning |
 |---|---|
@@ -65,9 +65,10 @@ The response has the shape `{ results: [ {tool, ok, result | error} ], count, ok
 | `ok` | `true` for an answer, `false` for a failure or an omission. |
 | `result` | The answer. A JSON-returning tool's answer is nested as a JSON object (not an escaped string); a Markdown-returning tool's answer (for example `get_context` or `explain_symbol`) arrives as a string. |
 | `error` | The failure message when `ok` is `false`. |
+| `omitted` | The reason an answer was left out of the response budget, with `ok` `false`. It is not a failure. |
 | `note` | An optional disclosure, omitted when there is nothing to disclose (see "Silently dropped arguments"). |
 
-**Response budget: 9,000 tokens.** The answers are walked in order; an answer that is larger than the whole budget, or that would push the running total past it, is replaced by `ok: false` with its measured size and a pointer to call that tool directly. Only the **answer** is trimmed - the work was already done, so a dropped result costs latency but never correctness. In practice this only affects the slice tools, whose renders can be tens of thousands of tokens. `measure` has no such budget, because it has nothing large to return.
+**Response budget: 9,000 tokens.** A batch whose answers fit the total is returned untouched. Otherwise the small answers come back whole first, and the large answers share what is left. A slice tool (`get_context`, `explain_symbol`, `pack_for_task`) whose share reaches its floor of 8,000 tokens is rendered smaller to fit, and the note says so; a share below that floor, or the answer of any other large tool, is not cut. Such an answer is omitted: it carries `omitted` instead of `error`, `ok` is `false`, and the response counts the omitted answers in `omittedCount`. An omission means the query ran and its answer was left out to keep the batch inline, not that it failed - call that tool directly to get the answer. The budget trims only the **answer**; the work was already done. `measure` has no such budget, because it has nothing large to return.
 
 **Identifying a sub-query in an error or omission.** Because several sub-queries may name the same tool, failure and omission messages carry an echo of the sub-query's identifying arguments (`symbol=OrderService`, the first three scalar arguments) - inside the message text, not as a field of its own.
 
@@ -82,7 +83,7 @@ The response has the shape `{ results: [ {tool, ok, result | error} ], count, ok
 | 3 | **Recursion** - the meta-tools themselves. | `batch`, `measure` |
 | 4 | It is **read-only but a poor batch member**: a heavyweight walk, renderer or multi-file payload whose answer would routinely exceed the response budget and be dropped after the work was paid for. | `evaluate_change_set`, `init_solution_config`, `prepare_task`, `review_context` |
 
-Note: the names in each bracket are **examples, not the whole group**. A tool's absence from those lists does not mean it writes anything - it only means the reason does not name it. The message itself says so. In particular, a number of non-dispatchable tools must be called directly (for example `docs`, `list_skills`, `server_info`, `list_mcp_profiles`, `usage_report`, `solution_config_status`, `check_solution_config_drift`). The last two are observational in purpose but can initialize a previously unknown solution row in the configuration database.
+Note: the names in each bracket are **examples, not the whole group**. A tool's absence from those lists does not mean it writes anything - it only means the reason does not name it. The message itself says so. In particular, a number of non-dispatchable tools must be called directly (for example `docs`, `list_skills`, `server_info`, `list_mcp_profiles`, `usage_report`, `solution_config_status`, `check_solution_config_drift`). The last two are observational in purpose: they only read the configuration. They never insert a solution row in the configuration database, although they upgrade an older database's schema when they open it.
 
 The final `Available:` line of the refusal names **every** dispatchable tool, regardless of your active profile. Since a sub-query outside the active profile is refused per item, take the tools you can actually dispatch from `list_skills` under `inPool`, not from that line.
 
@@ -152,7 +153,7 @@ Note: `measure` has exactly one steering deviation. For `export_markdown` - whic
 `aicb call <tool>` invokes one MCP tool from the command line without starting a stdio server. It is meant for validating any tool - including a brand-new or non-default-pool one - in a single process.
 
 ```
-aicb call <tool> [--sln <path>] [--arg name=value]... [--db-path <path>]
+aicb call <tool> [--sln <path>] [--arg name=value]... [--db-path <path>] [--batch-budget <tokens>]
 ```
 
 | Option | Meaning |
@@ -161,6 +162,7 @@ aicb call <tool> [--sln <path>] [--arg name=value]... [--db-path <path>]
 | `--sln <path>` | Absolute `.sln` path, bound to the tool's `sessionId` or `solutionPath` argument. Self-initializes and analyzes it once. Omit it for a tool that needs no session, such as `server_info`. |
 | `--arg name=value` | A tool argument. Repeat the option for each argument, for example `--arg symbol=OrderService --arg includeTests=true`. |
 | `--db-path <path>` | Optional config DB, the same one the GUI uses. DB-defaulting tools and self-init then apply its per-solution configuration. Without it the tool runs DB-free. |
+| `--batch-budget <tokens>` | For `call batch` only: the total token budget its answers share. The default is 9000, the MCP default. stdout has no inline limit, so a script may raise it to get large answers whole. |
 
 Examples:
 
@@ -214,14 +216,14 @@ In `batch` and `measure` this disclosure cannot ride on the call envelope, becau
 
 ## 5.7 Which tools write
 
-Twelve of the 82 tools change something; **70 are read-only**. Of the twelve, two only change the in-memory session state, and ten can write to your file system or a database. No writing tool modifies source code that Roslyn reads.
+Thirteen of the 82 tools change something; **69 are read-only**. Of the thirteen, three only change the in-memory session state, and ten can write to your file system or a database. No writing tool modifies source code that Roslyn reads.
 
 | Write target | Tools | Notes |
 |---|---|---|
-| **Session state only** (in memory) | `analyze_solution`, `refresh_session` | Nothing on disk changes. |
+| **Session state only** (in memory) | `analyze_solution`, `refresh_session`, `recall_codebase` | Nothing on disk changes. |
 | **File system, path named by the caller** | `export_markdown` | Writes the rendered Markdown only when `outputPath` is set; without it the render is returned instead. |
 | **File system, inside the project directory** | `apply_solution_config`, `install_agent_hooks` | The only two tools that write into your repository: `apply_solution_config` writes the git-tracked `<SolutionName>.aicb.json` sidecar next to the `.sln` (commit it so the configuration travels with the repo); `install_agent_hooks` writes the guard script plus the harness wiring (`.claude/settings.json`, `.codex/hooks.json` or `opencode.json`) - and only inside the directory of the analyzed solution. |
-| **aicb database** | `save_session`, `remember_codebase`, `refresh_remembered`, `import_constellation`, `apply_solution_config`, `solution_config_status`, `check_solution_config_drift`, `diff_review` (with `recordRegressions: true`) | The two status/drift tools ensure a solution record and can insert it when the solution is not known yet; otherwise they only read. See the `dbPath` note below. |
+| **aicb database** | `save_session`, `remember_codebase`, `refresh_remembered`, `import_constellation`, `apply_solution_config`, `diff_review` (with `recordRegressions: true`) | These tools write rows. See the `dbPath` note below. `solution_config_status` and `check_solution_config_drift` are listed separately: they only read, never insert a solution row, and upgrade an older database's schema when they open it. |
 
 Every writing tool discloses its write in its own `tools/list` description. `diff_review` writes only on explicit opt-in and says so: *"Read-only unless you pass recordRegressions."*
 

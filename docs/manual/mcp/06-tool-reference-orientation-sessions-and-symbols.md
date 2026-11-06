@@ -291,7 +291,7 @@ In the lean projection each index entry is a bare name; with `detail: "full"` ea
 - the DB's active test-detection profile (per-solution > global > default) is resolved for the session, so the test-aware tools honor it;
 - and - unless an explicit `layerProfile` is given - the DB's active layer-mapping profile drives the analysis (dependency-graph layers and the layer map), matching the insights/metrics/CLI-gate path.
 
-The layer and test profiles travel with the session, so downstream tools do not need `dbPath` again. Namespace exclusions travel only when they came from the DB-free sidecar path; exclusions supplied by a database affect the initial analysis but are not retained for a later full refresh. Omit `dbPath` to use the server's default config DB (the same one the GUI uses), if the server resolved one. On a DB-free server the defaults apply: no exclusions, the default test heuristic, role-based layers.
+The layer profile, the exclusions and the test profile travel with the session, so downstream tools do not need `dbPath` again, and a later refresh re-analyzes with the layer profile and the exclusions. Omit `dbPath` to use the server's default config DB (the same one the GUI uses), if the server resolved one. Without any database the sidecar applies per axis, and where it is silent the defaults: the built-in exclusion list, the default test heuristic, role-based layers.
 
 **Response.** JSON with these fields:
 
@@ -308,6 +308,7 @@ The layer and test profiles travel with the session, so downstream tools do not 
 | `lineNumbersAvailable` | Whether line numbers are available for this session. |
 | `configInit` | Present when a configuration axis (layer / exclusions / test) has not yet been initialized through the guided setup. |
 | `agentWiring` | Present only when there is something to say about the calling agent's symbol-guard installation. |
+| `designTimeBuildCache` | Present only when the design-time build of this load was not stored in the design-time-build cache: it gives the reason, and that the next load of this solution runs the design-time build again. |
 
 **`configInit`** carries `layerProfileNeedsInit`, `exclusionListNeedsInit`, `testProfileNeedsInit`, `anyUninitialized`, `hint`, the per-axis `autoInitLayer` / `autoInitExclusions` / `autoInitTest` flags (omitted while `false`), and a `directive` when at least one axis is both opted into auto-initialization and still uninitialized. Note the polarity: these flags mean *needs init*, while `solution_config_status` reports the same three axes as *initialized* - the opposite sense. The hint points to `solution_config_status`, then `init_solution_config` and `apply_solution_config`; the result is persisted to the DB and to the `.aicb.json` sidecar next to the `.sln`.
 
@@ -486,7 +487,7 @@ Also call it with `force: true` after a restore or build that was meant to repai
 | `sessionId` | `string` | yes | - | Session id or absolute solution path. |
 | `symbol` | `string` | yes | - | The exact (case-sensitive) type, method, property, field, event, enum-member or operator name. A member also takes `Type.Member` (that type's member only), a type a qualified name (`Ns.Type`, `Outer.Inner`). A user-defined operator matches by its metadata name (e.g. `op_Equality`). |
 
-**Response.** A capped envelope (`items`, `count`, `totalFound`, `truncated`), capped at 50, plus `nearest` when nothing matched and, where it applies, `generatedSourcesNote`. Each item carries `kind`, `name`, `declaringType`, `namespace`, `signature`, `summary`, `line` and `file`. One declaration compiled in two projects is two results, each with its `project`.
+**Response.** A capped envelope (`items`, `count`, `totalFound`, `truncated`), capped at 50, plus `nearest` when nothing matched and, where it applies, `generatedSourcesNote`. Each item carries `kind`, `name`, `declaringType`, `namespace`, `signature`, `summary`, `line` and `file`; a member of a nested type also carries `outerType`, the type it is declared in. One declaration compiled in two projects is two results, each with its `project`.
 
 **Notes and limits**
 

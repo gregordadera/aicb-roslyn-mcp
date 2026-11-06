@@ -265,7 +265,7 @@ Finds symbols whose resolved semantics match the given criteria. All provided fi
 
 At least one filter is required.
 
-**Response.** `criteria`, `note`, `minConfidence`, `matches`, `availableAxisValues` and `nearMisses`.
+**Response.** `criteria`, `note`, `minConfidence`, `matches`, `verifiedAbsentAxes`, `availableAxisValues` and `nearMisses`. `verifiedAbsentAxes` lists the axes the developer declared as none, so an axis that matches nothing there is a declared fact, not missing data.
 
 - `criteria` echoes the applied filters and their mode: `role=View` for an exact closed-vocabulary match, `domain~order` for a substring match.
 - Each hit carries the symbol's `kind`, `name`, `declaringType`, `namespace` and, per matched axis, the matched value together with its provenance: `fact`, `ai` or `inferred`.

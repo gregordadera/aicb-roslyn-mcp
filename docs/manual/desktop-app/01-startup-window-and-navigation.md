@@ -210,7 +210,7 @@ The sidebar is a tree with four groups and eight entries. Group rows are labels,
 | `Quick Access` | `Start` | The Start page: open actions, recent solutions and recent sessions. |
 | `Workspace` | `Context Builder` | The Context Builder, where solutions are loaded and worked on. |
 | `Workspace` | `Workspace` | The Workspace page, where all known solutions are managed. |
-| `Workspace` | `Run Templates` | The run templates, the working material of the Workspace. |
+| `Workspace` | `Run Templates` | The run templates, the working material of the `Workspace` group. |
 | `Configuration` | `Templates` | The context templates. |
 | `Configuration` | `Settings` | The application settings. |
 | `MCP` | `MCP Profiles` | The MCP profiles. |

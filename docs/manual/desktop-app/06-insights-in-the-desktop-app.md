@@ -117,7 +117,7 @@ As soon as at least one finding is loaded, a summary strip appears above the fil
 |---|---|---|
 | `Debt` pill with a colored dot | Coarse technical-debt grade from `A` (best) to `E` (worst), estimated from the summed remediation minutes of all loaded findings. The dot is green for A/B, amber for C, red for D/E | `Coarse technical-debt grade (A best ... E worst), estimated from summed remediation minutes.` |
 | `~... min` / `~... h` / `~... d` | Estimated total remediation effort, order of magnitude (never exact). Under one hour it is shown in minutes, under one working day in hours, above that in working days (one working day = 480 minutes) | `Estimated total remediation effort (order-of-magnitude).` |
-| Trend chip | Change in the debt of the two most recent snapshots that carry a debt measurement: an upward amber arrow for worse, a downward green arrow for better, a flat muted arrow for unchanged. The label is signed, for example `+45 min` or `-1.5 h`, or `no change`. The chip is hidden until at least two such snapshots exist | `Technical debt decreased since your previous analysis (lower is better).` / `Technical debt increased since your previous analysis.` / `Technical debt is unchanged since your previous analysis.` |
+| Trend chip | Change in the debt of the two most recent snapshots that carry a debt measurement: an upward amber arrow for worse, a downward green arrow for better, a flat muted arrow for unchanged. The label is signed, for example `+45 min` or `-1.5 h`, or `no change`. When the two snapshots carry different or unknown metric versions, the label reads `not comparable` with a muted info glyph, and the tooltip names the reason. The chip is hidden until at least two such snapshots exist | `Technical debt decreased since your previous analysis (lower is better).` / `Technical debt increased since your previous analysis.` / `Technical debt is unchanged since your previous analysis.` |
 | `N Critical` | Number of critical findings | `Critical-severity insights` |
 | `N Warning` | Number of warning findings | `Warning-severity insights` |
 | `N Info` | Number of info findings | `Info-severity insights` |
@@ -197,7 +197,7 @@ Please review the following items from the analysis:
 - <checked line 2>
 ```
 
-If no line is checked, nothing is sent and the status line reads `No detail lines selected.`
+If no line is checked, nothing is sent and the status line reads `No detail lines selected.` While an LLM request is running, the send buttons of the finding cards are disabled.
 
 ### Adopt selection
 
@@ -255,7 +255,7 @@ Dismissing is a triage decision, not a fix: it does not change your code. `Resto
 
 The crossed-out-eye icon on an affected item records a permanent suppression for that item's symbol and rule. The item disappears from the panel and from the MCP tools, but the quality gate (`--fail-on` / `solution_metrics`) still counts it.
 
-Suppressions are stored in the app's database for the current solution. To share the decision with your team, export the solution configuration - the `.aicb.json` file next to your solution - from the Solutions workspace. Suppressions declared in that committed file also apply, and they survive `Restore` (see below).
+Suppressions are stored in the app's database for the current solution. To share the decision with your team, export the solution configuration - the `.aicb.json` file next to your solution - from the Workspace page (`Overview` tab, `Export Config`). Suppressions declared in that committed file also apply, and they survive `Restore` (see below).
 
 The button appears only on items that resolve to a symbol; marker and relation lines cannot be marked.
 
@@ -289,6 +289,7 @@ You can record an affected item as something to fix, together with the run templ
 4. Click `Queue` to record the item, or `Cancel` to close without queueing (Escape also cancels). `Queue` is disabled while no template is selected.
 5. The item stays visible and now carries the badge `In progress`. Hover it to see the tooltip: `Queued as work to do, with the run template "...".`
 6. When you are done, click the checkmark icon on the line. The badge changes to `Done`, with the tooltip `Marked as done. It is your claim, not a re-scan - the line stays visible so a later run can contradict it.`
+7. If you decide not to do the work, click the undo-arrow icon on the line (tooltip: `Cancel the queued work. Nothing had been started, so nothing is undone; the line reports 'Cancelled' and can be queued again.`). The badge then reads `Cancelled`, and the line can be queued again.
 
 The line stays visible in both states on purpose: a line that vanished because somebody started work on it would hide the state it is supposed to report, and a later analysis can contradict your "Done" claim.
 

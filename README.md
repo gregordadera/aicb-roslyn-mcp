@@ -601,7 +601,7 @@ All tools with their parameters: [docs/TOOLS.md](https://github.com/gregordadera
 | Full Select profile | 72 tools | Default set plus the measured long tail |
 | Complete server surface | 82 tools | Full Select plus the opt-in session-memory, database and API-comparison tools |
 
-This README names 35 of the 54 default tools; the references below describe all of them.
+This README names 38 of the 54 default tools; the references below describe all of them.
 Start the Full Select profile with
 `aicb mcp --mcp-profile mcp-profile/full`. Set `AICB_MCP_TOOLS=all` to add
 the opt-in tools as well. The generated [tool reference](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/TOOLS.md) documents
@@ -676,8 +676,10 @@ Run `aicb <command> --help` for options.
 
 ## Local by default
 
-- The CLI and MCP server have no outbound network capability and do not modify
-  the source code they analyze.
+- The CLI and MCP server make no outbound network connection of their own and do
+  not modify the source code they analyze. The MSBuild logic and source generators
+  of the analyzed solution run in the same process, so they can reach the network
+  if that solution's own build does (see the last point).
 - There is no **outbound** telemetry, analytics, update check, account or license
   server. The MCP server records its tool calls locally for `usage_report` and the
   desktop app's **MCP Usage** page; that log never leaves the machine.

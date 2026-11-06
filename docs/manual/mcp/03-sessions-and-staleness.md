@@ -36,6 +36,7 @@ Sessions live in one cache per server process. Each session pins a warm workspac
 | Time to live | **90 minutes** | Sliding from the last access: every tool call that uses the session resets the clock. |
 | Maximum sessions | **8** | Hard memory bound. On overflow the least recently used session is evicted; the session just created is never the one evicted. |
 | Sweep interval | **5 minutes** | A background sweep releases expired sessions even when no tool call touches them. |
+| Idle release | **30 minutes**, allowed range 5 to 600 | A session that nobody has used for this long lets go of its Roslyn solution (the larger part of its memory) and keeps its analysis graph; the next call that needs Roslyn opens the solution again. It acts only below the time to live: a session unused for the whole time to live is removed whole first. Set on the General page of the GUI; a value in `aicb.mcp.json` or `AICB_MCP_SESSION` takes precedence over it. |
 
 Expiry or eviction releases the workspace behind the session. The next call with the same solution path (or a new `analyze_solution`) analyzes the solution again from scratch.
 
@@ -48,7 +49,7 @@ Two tools let you inspect the cache:
 
 ### Configuring the session cache
 
-The cache parameters can be changed without rebuilding, in two stages that are applied at server start. The cascade is **built-in defaults < `aicb.mcp.json` < environment variable**.
+The cache parameters can be changed without rebuilding, in stages that are applied at server start. The cascade is **built-in defaults < `aicb.mcp.json` < environment variable**. The idle release time also has a value in the configuration database (the GUI setting), which sits below the file.
 
 The central server configuration file is `aicb.mcp.json` in `<ApplicationData>/AIContextBuilder/` - on Windows `%APPDATA%\AIContextBuilder\aicb.mcp.json`. It is read-only for the server: you edit it by hand, and the server reads it at start. The file is hand-written JSON, so property names are case-insensitive and comments and trailing commas are tolerated. A missing file means "no override". A broken file is reported as a warning and the server starts on the defaults - so a file you believe is in effect can silently not be.
 
@@ -64,7 +65,7 @@ The central server configuration file is `aicb.mcp.json` in `<ApplicationData>/A
 
 Only the fields you set override anything; unset or non-positive values keep their default.
 
-The environment variable `AICB_MCP_SESSION` overrides the same three values for one server process. It takes a comma-separated `key=value` list:
+The environment variable `AICB_MCP_SESSION` overrides the same values for one server process. It takes a comma-separated `key=value` list:
 
 ```text
 AICB_MCP_SESSION=maxSessions=4,ttlMinutes=120
@@ -75,6 +76,7 @@ AICB_MCP_SESSION=maxSessions=4,ttlMinutes=120
 | `ttlMinutes` | session time to live | minutes |
 | `maxSessions` | maximum number of cached sessions | count |
 | `sweepMinutes` | interval of the background sweep | minutes |
+| `idleReleaseMinutes` | idle time after which a session releases its Roslyn solution (clamped to 5 to 600) | minutes |
 
 Keys you do not set keep their default; unrecognized keys and values that are not a positive integer are ignored.
 
@@ -172,6 +174,7 @@ The fields are:
 | `autoRefreshed` | Present and `true` when the server re-analyzed before answering. |
 | `mode` | Which path the re-analysis took: `incremental` (document texts replayed, or C# files added or removed in place, no workspace reload) or `full-reload`. Only present with `autoRefreshed`. |
 | `autoRefreshFailed` | The exception **type** that ended a failed automatic attempt (not a message). |
+| `autoRefreshRetry` | `after-source-change` while a failed automatic attempt holds: the automatic path does not retry until the source changes. `refresh_session` always tries again. |
 | `checkedAtUtc` | When the check last looked at the disk. Absent after a successful automatic re-analysis. |
 | `hint` | The same sentence as the Markdown comment: what happened and what to do. |
 
@@ -182,6 +185,7 @@ Notes:
 - `refresh_session` is not exempt: the check runs **after** the tool, so a successful refresh classifies as current and produces no note - while a file written *during* the re-analysis is still disclosed.
 - A result that is an error is not decorated; its age is irrelevant and a note would only crowd out the failure.
 - A recalled session gets a different remedy in the same place: the note points to `refresh_remembered` instead of `refresh_session`, because `refresh_session` rejects a recalled session.
+- A restore that rewrote a project's `project.assets.json` after the solution was loaded is reported as `restoredProject` with `stale: true`, and the hint names `refresh_session`. The report survives an idle release of the session.
 - `get_diagnostics` additionally leads its answer with `verdict: "stale"` and a `verdictReason` when it computed from a graph known to be behind the disk - including a project whose restore rewrote its `project.assets.json` after the session was loaded - placed before the counts so that `errorCount: 0` is not read as a clean bill.
 
 **Never infer freshness from which tool you called.** Read the disclosure that the response carries.
@@ -286,7 +290,7 @@ This matters most for the tools that **write**:
 - Without `dbPath`, a writing call targets the live database of the GUI. `save_session` writes a manual snapshot into it; `apply_solution_config` additionally writes a git-tracked `.aicb.json` sidecar next to the solution; `diff_review` writes a regression log only when you pass `recordRegressions: true`.
 - Every tool states its own write behavior in its description. Pass an explicit `dbPath` whenever you mean a different database.
 
-For `analyze_solution`, a resolved database also supplies the analysis settings: its active namespace-exclusion list, its test-detection profile and (unless you pass an explicit `layerProfile`) its layer-mapping profile. The layer and test profiles travel with the session. Namespace exclusions travel only on the DB-free sidecar path; exclusions supplied by a database are applied to the initial analysis but are not retained for a later full refresh, a known limitation.
+For `analyze_solution`, a resolved database also supplies the analysis settings: its active namespace-exclusion list, its test-detection profile and (unless you pass an explicit `layerProfile`) its layer-mapping profile. All three travel with the session. A later refresh re-analyzes with the same layer profile and exclusions, whichever source they came from; the test profile stays on the session, and the test-aware tools read it from there.
 
 ## 3.11 Timing constants via environment variables
 

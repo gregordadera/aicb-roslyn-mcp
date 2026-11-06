@@ -19,7 +19,7 @@ This chapter covers what the server is, how to start it, what a client has to be
 
 The verb describes itself as:
 
-> `Start the MCP server (Model Context Protocol, stdio JSON-RPC) - for Claude Code / Cursor / Cline. With --db-path profile-aware (render slots + tool set + skill from the active MCP profile); --mcp-profile pins which profile that is, for this process only.`
+> `Start the MCP server (Model Context Protocol, stdio JSON-RPC) - for Claude Code / Cursor / Cline. It follows the active MCP profile of its config DB (--db-path); --mcp-profile pins which profile that is, for this process only.`
 
 You normally do not start it yourself - your MCP client starts it from its configuration. The command has exactly two options:
 
@@ -223,7 +223,7 @@ Two limits are worth stating plainly:
 Two facts matter when a profile changes while a server is running:
 
 - A running server keeps the configuration it started with: the tool list, the instructions and the session auto-refresh mode are fixed at start. A profile edited in the GUI (or by another process writing the configuration database) reaches the server only after a restart or reconnect; until then `server_info` reports the pending change as CONFIG DRIFT.
-- `tools/list` carries caching hints: a time-to-live of **15 minutes** and a private cache scope (the list must not be shared between users). The server declares both `tools/list_changed` and `resources/list_changed` but sends neither notification, so a client may keep its cached tool list until that time-to-live expires. Restart the server after changing the active profile, and reconnect the client.
+- `tools/list` carries caching hints: a time-to-live of **15 minutes** and a private cache scope (the list must not be shared between users). The server sends no `tools/list_changed` notification and does not declare one, so a client may keep its cached tool list until that time-to-live expires. Restart the server after changing the active profile, and reconnect the client.
 
 ## 1.6 Server identity and handshake metadata
 
@@ -234,7 +234,7 @@ The server introduces itself to every client as:
 | Server name | `aicb` - deliberately the CLI tool name, not the internal assembly name. This is the name clients and directories display. |
 | Server version | The version of the installed binary, the same number `aicb --version` prints. It is protocol- and telemetry-bearing: it travels in the handshake and is recorded with every tool call. |
 | Instructions | The fixed text plus the active profile's working style - see below. |
-| Capabilities | `logging`, `resources` and `tools`; both `resources` and `tools` declare `listChanged` (the server sends neither list-changed notification). |
+| Capabilities | `logging`, `resources` and `tools`; neither `resources` nor `tools` declares `listChanged`, because the server sends neither list-changed notification. |
 
 The git commit the binary was built from is **not** part of the handshake. `server_info` reports it separately when the assembly's informational version carries one. Public installer, ZIP and dotnet-tool release builds deliberately omit it; development builds can include it. When present, it distinguishes binaries that share a version number; when absent, `server_info` does not guess.
 
@@ -287,6 +287,8 @@ The server **never truncates** the instructions - it sends the complete composed
 | Claude Code prompt prefix | first **2,048 characters** | The largest prefix of the instructions known to be delivered by a client, measured against Claude Code. |
 
 Both values are **characters**, not bytes, and both protocol revisions use the same budget - the newer revision does not deliver more. The 2,048-character figure is a measurement, not a preference, and it is not a maximum length for the text: a client with a larger budget receives all of it. That is why the fixed text is ordered by delivery priority rather than narrative flow, and why the profile's working style is placed before the reference material instead of appended at the end.
+
+The same client cut applies to tool descriptions: each description in `tools/list` is kept within the 2,048-character budget, so a client that cuts there still delivers the whole description.
 
 The MCP profile editor in the GUI previews the composed text under the label `Exactly what the MCP server sends for this profile, shown in two client-specific availability boundaries.` and draws a cut mark at the measured budget, so you can see whether a working style lands above or below the line.
 

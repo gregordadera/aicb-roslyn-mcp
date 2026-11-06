@@ -205,7 +205,7 @@ Three per-solution settings decide how aicb reads your code: the **layer profile
 | Parameter | Type | Required | Default | Meaning |
 |---|---|---|---|---|
 | `sessionId` | string | yes | - | Must be a live session. |
-| `dbPath` | string? | no | `null` | The aicb config/master database. If given, its active layer profile, exclusion list and test profile take precedence over the sidecar. Omit to fall back to the server's standard config DB, or - when the server has none - to the `.aicb.json` sidecar only. |
+| `dbPath` | string? | no | `null` | The aicb config/master database. If given, the layer profile, exclusion list and test profile it has configured take precedence over the sidecar; a built-in default it merely holds does not. Omit to fall back to the server's standard config DB, or - when the server has none - to the `.aicb.json` sidecar only. |
 
 **Response.** One axis object each for `layer`, `exclusion` and `test`, with:
 - `source` - where the checked configuration came from (`db`, `sidecar`, `built-in` or `none`).
@@ -420,7 +420,7 @@ Example:
 }
 ```
 
-**Response.** `{ results: [ { tool, ok, result | error, note } ], count, okCount }`.
+**Response.** `{ results: [ { tool, ok, result | error | omitted, note } ], count, okCount, omittedCount }`, with `omittedCount` present only when some answer was omitted by the response budget (see "`batch`: many read-only queries in one round-trip").
 - Each sub-query is isolated: a failing one reports `ok: false` plus an `error`, while the others still return normally. One bad query never fails the batch.
 - A JSON-returning tool's result is nested as a JSON object; a Markdown-returning tool's result (for example `get_context` or `explain_symbol`) is the Markdown string.
 - `note` carries the sub-query's ignored-arguments disclosure: an argument name the tool does not declare was dropped, and the note names it (up to eight names, then a count) and lists the tool's real parameters. The field is omitted when there is nothing to disclose.
