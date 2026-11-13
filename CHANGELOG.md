@@ -4,7 +4,7 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
-## 0.5.520.1 (unreleased) - Source-generated code and multi-targeted projects are understood, a Local MCP profile for small context windows, and agent skills follow the tools the server serves
+## 0.5.520.1 (2026-11-13) - Source-generated code and multi-targeted projects are understood, a Local MCP profile for small context windows, and agent skills follow the tools the server serves
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `get_diagnostics`, `find_dead_code`, `find_symbol`, `find_implementations`, `symbol_signature`, `impact_of_change`, `call_graph`, `explain_symbol`, `get_context`, `pack_for_task`, `prepare_task`, `find_binding_usages`, `find_unresolved_bindings`, `coverage_gaps` and `install_agent_hooks`. No tool was added or removed. New are the built-in MCP profile **Local**, compact tool descriptions as a profile setting, the command `aicb skills sync`, and an **MCP Server** section in the desktop app's settings.
 
