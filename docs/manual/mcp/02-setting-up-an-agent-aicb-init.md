@@ -15,9 +15,10 @@ The command only writes files. It opens no solution and starts no analysis: no R
 | Agent skills | `.claude/skills/<skill>/SKILL.md` | always; one skill by default, three with `--skills all` |
 | Agent skills for Codex / OpenCode | `.agents/skills/<skill>/SKILL.md` | for Codex or OpenCode when detected or named |
 | Symbol guard script(s) | `.claude/hooks/`, `.codex/hooks/` or `.opencode/plugins/` | for every harness that is detected or named |
-| Harness wiring | `.claude/settings.json`, `.codex/hooks.json` or `opencode.json` | for every harness that is detected or named |
+| Skill-sync hook script | `.claude/hooks/aicb-skill-sync.mjs` | for Claude Code when it is detected or named |
+| Harness wiring | `.claude/settings.json`, `.codex/hooks.json` or `opencode.json` | for every harness that is detected or named; for Claude Code it also wires the skill-sync hook under `SessionStart` |
 
-The run attempts the artifacts in a fixed order: `.mcp.json` first, then the Codex and OpenCode server entries, then the skills, then **all** guard scripts, then **all** wiring entries. Harness detection happens before the first write, so the run can never count a directory it created itself as evidence that a harness is in use. Each artifact reports its own result - one failure does not cost the others and does not hide them.
+The run attempts the artifacts in a fixed order: `.mcp.json` first, then the Codex and OpenCode server entries, then the skills, then **all** hook scripts, then **all** wiring entries. Harness detection happens before the first write, so the run can never count a directory it created itself as evidence that a harness is in use. Each artifact reports its own result - one failure does not cost the others and does not hide them.
 
 Every file is written atomically: a temporary file in the same directory is filled first and then moved over the target. An interrupted run therefore cannot leave a truncated `.mcp.json` (which would silently remove every other MCP server you had registered).
 
@@ -44,7 +45,7 @@ aicb init
 | Option | Default | What it does |
 |---|---|---|
 | `--path <dir>` | the current directory | The project directory to wire up. A directory that does not exist is an error: `error: directory not found: <dir>`, exit code `1`. |
-| `--force` | off | Overwrite artifacts that are already there. Without it, an existing aicb entry, skill file, guard script or wiring entry is left exactly as it is - which is what makes re-running the command safe. |
+| `--force` | off | Overwrite artifacts that are already there. Without it, an existing aicb entry, guard script or wiring entry is left exactly as it is - which is what makes re-running the command safe. For a skill file, `--force` takes over one aicb did not mark as its own, like `aicb skills sync --adopt`; a skill file aicb wrote is kept in step without it. |
 | `--skills <context\|all>` | `context` | `context` writes only `aicb-csharp-context`; `all` additionally writes the `aicb-code-review` / `aicb-code-simplifier` review pair and `aicb-usage-check`. |
 | `--hooks <auto\|none\|all\|claude-code\|codex\|opencode>` | `auto` | Which harnesses get the symbol guard and its wiring. `auto` installs for the harnesses already used in this project; `none` installs no enforcement at all; `all` installs for all three; the three ids name one harness each. |
 
@@ -55,6 +56,8 @@ error: --hooks '<value>' is not one of: auto, none, all, claude-code, codex, ope
 ```
 
 `--skills` accepts only its two values; anything else is rejected by the command-line parser before the command runs.
+
+Started in your home directory, or in a drive root without `.git`, the run writes only `.mcp.json`: the skills, hook scripts and harness wiring are refused there (`refused`, with `point it at the project directory instead`), because a harness file in that place is the user-wide one and would reach every project.
 
 ## 2.4 Step by step: the first setup
 
@@ -148,9 +151,34 @@ Skills are always written to `.claude/skills/`, where Claude Code reads them. Wh
 
 The skill is written per project. If you want it available in every project instead of one, copy the folder `.claude/skills/aicb-csharp-context/` to the same path under your home directory.
 
+### Keeping the skills in step: `aicb skills sync`
+
+The aicb skills are rendered for the tools the project's server actually serves. A paragraph or table row that names a tool the active profile withholds is left out, and a skill whose required tool is withheld is not written at all - `aicb-usage-check`, for example, needs `usage_report`, which the `Local` profile withholds. A skill therefore never sends the agent to a tool the server would refuse.
+
+A skill file aicb writes has two parts. Everything from the line `<!-- aicb:begin ... -->` to `<!-- aicb:end -->` is aicb's and is rewritten whenever the served tools change; everything after it, starting at the line `<!-- aicb:user ... -->`, is yours and is kept byte for byte. A file without aicb's marker - one you wrote yourself, or one an earlier `aicb init` wrote - is never touched without an explicit take-over.
+
+```sh
+aicb skills sync [--project <dir>] [--adopt]
+```
+
+| Option | Effect |
+|---|---|
+| `--project <dir>` | The project to sync. Default: the project holding the current directory - the nearest directory upwards that has `.git` or `.claude`, below your home directory. Without one, the command stops and asks for `--project`. |
+| `--adopt` | Take over skill files that are not in sync form: a hand-written copy (no aicb marker) is replaced, and an edit inside the aicb part is overwritten. Your part below the `aicb:user` line is kept. |
+| `--auto` | Run as an automatic caller - the mode the Claude Code session-start hook uses (see below). Cannot be combined with `--adopt`. |
+
+The command starts no server and opens no solution. It reads which tools the project's server serves from the project's `.mcp.json` aicb entry - the profile it pins with `--mcp-profile`, its `--db-path`, and `AICB_MCP_TOOLS` - and otherwise from the active profile of the configuration database. It prints one line per skill file (`in sync`, `created`, `rewritten`, `adopted`, `removed`, `kept` or `skipped`, each with the reason) and, when it changed a file, `The change takes effect at the next agent start.` An explicit `aicb skills sync` writes even when automatic skill sync is switched off in the desktop app's settings; a skill file aicb wrote and nobody edited is removed when the served tools no longer include one it requires.
+
+**Automatic skill sync.** Two automatic callers keep the files in step without you running the command, both on by default:
+
+- **The MCP server** rewrites the aicb-written skill files of the project it was started in, once per process, after its first session there - for Claude Code under `.claude/skills/`, for Codex and OpenCode under `.agents/skills/`. A solution opened by path from another project is left alone.
+- **The Claude Code session-start hook** that `aicb init` and `install_agent_hooks` install (`.claude/hooks/aicb-skill-sync.mjs`, wired under `SessionStart` for session start-up) runs `aicb skills sync --auto` before the first prompt and asks Claude Code to reload the skills. It does nothing when automatic sync is switched off, when the project's `.mcp.json` has no aicb entry, or when that entry starts another command than `aicb`. Codex and OpenCode get no such hook; for them the server's own sync applies.
+
+Both rewrite only files aicb wrote and only their aicb part; neither creates nor deletes a file. Switch both off with **Keep agent skill files in sync** in the **MCP Server** section of the desktop app's settings. A project set up by an earlier version gets the hook by running `aicb init` or `install_agent_hooks` once more. `server_info` shows whether a project's skills match what the server serves (the `SKILL` line, see `server_info`).
+
 ## 2.7 The symbol guard
 
-The guard is the enforcement half of the setup: the skills tell an agent what aicb is for, and the hook makes the switch happen whether or not the agent read them. aicb installs **only** this hook - no other hook or plugin of any kind.
+The guard is the enforcement half of the setup: the skills tell an agent what aicb is for, and the hook makes the switch happen whether or not the agent read them. Besides this guard, aicb installs exactly one other hook: the Claude Code session-start hook that keeps the skills in step (see "Keeping the skills in step: `aicb skills sync`"). No other hook or plugin of any kind is installed.
 
 It is a Node.js script that the harness runs before a tool call (`PreToolUse` in Claude Code and Codex, `tool.execute.before` in OpenCode). For Claude Code and Codex the wiring starts it with `node`, so Node.js has to be available on your `PATH`. The guard fails open: any error inside it results in "allow", so a broken hook can never break your tools.
 
@@ -247,17 +275,20 @@ Each artifact gets one line in the format `<label> <path> - <detail>`, with the 
 | Label | Meaning |
 |---|---|
 | `created` | The file did not exist and was written |
-| `updated` | An existing file was changed (an added or replaced entry, or a `--force` replacement) |
+| `updated` | An existing file was changed (an added or replaced entry, a rewritten aicb skill, or a `--force` replacement) |
 | `kept` | The file was already in the desired state and was left untouched |
 | `refused` | The file was not touched, because touching it could have destroyed something |
+| `removed` | An aicb-written skill file nobody edited was removed, because the served tools no longer include one it requires |
 
 A sample run in a Claude Code project:
 
 ```text
 created  C:\work\MyApp\.mcp.json - created with the aicb entry
-created  C:\work\MyApp\.claude\skills\aicb-csharp-context\SKILL.md - agent skill aicb-csharp-context written
+created  C:\work\MyApp\.claude\skills\aicb-csharp-context\SKILL.md - agent skill aicb-csharp-context written for mcp-profile/default
 created  C:\work\MyApp\.claude\hooks\aicb-symbol-guard.mjs - aicb symbol guard written
+created  C:\work\MyApp\.claude\hooks\aicb-skill-sync.mjs - aicb skill sync hook written
 created  C:\work\MyApp\.claude\settings.json - Claude Code: created with the aicb symbol guard wired
+updated  C:\work\MyApp\.claude\settings.json - Claude Code: aicb skill sync (SessionStart) wired, existing entries kept
 
 The symbol guard is installed and it BLOCKS: a C# symbol search is refused and redirected to the aicb tools, not merely discouraged. Worth knowing before it surprises you.
   Remove it for Claude Code: delete the aicb entry from C:\work\MyApp\.claude\settings.json
@@ -308,7 +339,8 @@ Exit codes: `0` on success, `1` if `--hooks` was invalid, the target directory d
 
 - **Install nothing next time**: `aicb init --hooks none`. This writes no enforcement, but it does not remove an installation that is already there.
 - **Remove an installed guard**: delete the aicb entry from your harness's own configuration file - `.claude/settings.json`, `.codex/hooks.json` or `opencode.json`. For Claude Code and Codex this is the `PreToolUse` entry whose command names `aicb-symbol-guard.mjs`; for OpenCode it is the plugin entry `./.opencode/plugins/aicb-symbol-guard.ts`. Every run that installs a guard prints the path of the file to edit.
-- **Remove the files as well** (optional): the guard script(s) under `.claude/hooks/`, `.codex/hooks/` or `.opencode/plugins/`, and the `cache/` marker directory.
+- **Remove the skill-sync hook** (Claude Code): delete the `SessionStart` entry whose command names `aicb-skill-sync.mjs` from `.claude/settings.json`. To keep the hook but stop it from writing, switch off **Keep agent skill files in sync** in the desktop app's settings instead.
+- **Remove the files as well** (optional): the guard script(s) under `.claude/hooks/`, `.codex/hooks/` or `.opencode/plugins/`, the skill-sync script `.claude/hooks/aicb-skill-sync.mjs`, and the `cache/` marker directory.
 - **Keep an edited guard**: an existing guard script is never overwritten without `--force`, exactly because a customized exemption list is the most likely thing to lose. The same holds for an existing wiring entry.
 
 ## 2.11 What this means for your agent workflow
@@ -321,6 +353,7 @@ After a default `aicb init` in a Claude Code project, the following changes for 
 4. `dotnet build` or `dotnet test` produces a one-time-per-session reminder about the faster diagnostics path.
 5. The project gains a `cache/` folder with marker files under the harness directory.
 6. The agent has the `aicb-csharp-context` skill available, whose description makes it load on any C# symbol question.
+7. At session start, the skill-sync hook brings the aicb skills in step with the tools the server serves before the first prompt.
 
 Only the first point prevents something. The others cost a little context and nothing else. The files land in your project, so you can commit them to share the setup with everyone working on the repository.
 
@@ -336,7 +369,7 @@ The hint travels as a JSON field `agentWiring` on the session information and as
 
 ### Installing from inside an agent: `install_agent_hooks`
 
-The MCP tool `install_agent_hooks` is the second entry point for the guard. It writes **only** the guard script and the wiring entry - no `.mcp.json` and no skills - and it is the one aicb tool that writes into your project's agent configuration on request.
+The MCP tool `install_agent_hooks` is the second entry point for the guard. It writes **only** the guard script and the wiring entry - for Claude Code also the session-start hook that keeps the aicb skills in step - and no `.mcp.json` and no skills; it is the one aicb tool that writes into your project's agent configuration on request.
 
 | Parameter | Required | Meaning |
 |---|---|---|

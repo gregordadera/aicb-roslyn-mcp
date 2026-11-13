@@ -72,7 +72,7 @@ When a change takes effect:
 |---|---|
 | **Immediately on Save** | Font family, font size (UI zoom), theme for the standard controls, tooltips switch and delay |
 | **On the next start of the app** | `Base path`, the LLM retry values, the theme in individual custom panels |
-| **On the next start of the MCP server** | MCP tool set, MCP instructions, automatic re-analysis mode |
+| **On the next start of the MCP server** | MCP tool set, MCP instructions, tool descriptions, automatic re-analysis mode, `Record MCP tool usage`, `Keep agent skill files in sync` |
 | **Live on every MCP call** | The context-template assignment of an MCP profile |
 | **The next time a tab is opened** | Default layer profile, default namespace-exclusion list, default graph layout |
 
@@ -240,6 +240,15 @@ Note on the font size: `Ctrl+Plus` and `Ctrl+Minus` zoom the current session wit
 | `Persist insights with session` | Checkbox | on | Analyzer insights are stored per solution and restored on the next load (no re-analysis needed). When off, insights stay transient - recomputed each time and never written to the database. |
 | `Auto-trigger insights on solution load` | Checkbox | off | When on, the analyzer insights run automatically after every solution load. When off, use the `Analyze Solution` button in the Insights tab. |
 
+### MCP Server
+
+Two settings that every MCP server reads when it starts. Both are on by default, and a running MCP server applies a change at its next start.
+
+| Field | Type | Default | Effect |
+|---|---|---|---|
+| `Record MCP tool usage` | Checkbox | on | Stores one record per MCP tool call (which tool, when, how long it took, how large the answer was, which client) in this database. When off, an MCP server or an `aicb call` started afterwards stores no record of its tool calls. The `MCP Usage` page and the `usage_report` tool then keep showing what was recorded before, and nothing new: `usage_report` answers with `recording: "off"`, and the `MCP Usage` page shows a notice (see "MCP Usage"). Records already stored stay until you clear them on the `MCP Usage` page. A server that was started while recording was on keeps recording until it restarts; its `server_info` shows a `SETTINGS DRIFT` line when the switch changed after it started. |
+| `Keep agent skill files in sync` | Checkbox | on | Keeps the aicb skill files of an AI agent in step with the tools of the active MCP profile. When on, the MCP server rewrites the aicb-written skill files of the project it was started in after its first session, and in a Claude Code project the session-start hook that `aicb init` installs does the same before the first prompt. Only skill files that aicb wrote are rewritten; nothing is created or deleted automatically. When off, nothing is rewritten by itself; the command `aicb skills sync` still updates the files when you run it. |
+
 ### UX
 
 | Field | Type | Default | Effect |
@@ -404,7 +413,7 @@ Row actions:
 - `Add Rule` appends an empty row (default match type `Contains`).
 - The delete icon removes the selected row.
 - `Suggest...` lets you pick a `.sln` file, reads its declared namespaces, and lets you select the ones you want. Each pick is added as a new rule with the match type `StartsWith` and an empty layer - assign the layer per row afterwards.
-- `LLM Wizard...` reads a solution's namespaces, asks you for a description of your architecture, and lets the **default model profile** propose layer rules (written into the grid, where you can fine-tune them) plus namespace exclusions (which you can optionally save as a new exclusion list). This needs a configured model profile; otherwise the wizard tells you to add one under `Settings > Model Profiles`.
+- `LLM Wizard...` reads a solution's namespaces, asks you for a description of your architecture, and lets the **default model profile** propose layer rules (written into the grid, where you can fine-tune them) plus namespace exclusions (which you can optionally save as a new exclusion list). This needs a configured model profile; otherwise the wizard tells you to add one under `Settings > Model Profiles`. The wizard keeps at most the first 80 layer rules and the first 80 exclusions of a model's answer; when the answer held more, this is the first warning the status line shows after the wizard ran, for example `The response held 95 layer rules; only the first 80 were kept.`
 
 Notes from the page:
 
@@ -497,7 +506,7 @@ Built-in profiles ship with the app:
 
 | Profile | Project name matches | Test attributes |
 |---|---|---|
-| `Default` | contains `Test`, `Tests`, `Spec`, `Specs` | `Fact`, `Theory`, `Test`, `TestMethod`, `TestCase` |
+| `Default` | contains `Test` or `Tests`; or `Spec` or `Specs` when the project contains test methods | `Fact`, `Theory`, `Test`, `TestMethod`, `TestCase` |
 | `xUnit` | contains `Test`, `Tests` | `Fact`, `Theory` |
 | `NUnit` | contains `Test`, `Tests` | `Test`, `TestCase`, `TestCaseSource`, `TestFixture` |
 | `MSTest` | contains `Test`, `Tests` | `TestMethod`, `DataTestMethod`, `TestClass` |
@@ -720,7 +729,7 @@ Supported entity types: `Prompt`, `MdProfile`, `TagSchema`, `DetailPreset`, `Tes
 Two more rules are worth knowing:
 
 - **Application settings are applied through a fixed whitelist.** A key outside the list is rejected, and the message names the allowed keys. The list covers the settings a round-trip needs - the active profile ids, the general settings, the default profile choices and the plain preferences. Settings that are tied to one machine (storage paths, the recent lists, splitter positions) are deliberately never imported.
-- **Built-ins are always skipped on import.** They come from the app, not from the file. An import is fault-tolerant by design: an unusable application-settings section does not abort the entity import.
+- **Built-ins are always skipped on import.** They come from the app, not from the file. An MCP profile entry that carries a built-in profile's id without being marked built-in is applied with `Replace` but keeps the profile a built-in, marked `Overridden`, so `Restore Built-In` on the `MCP Profiles` page can reset it. An import is fault-tolerant by design: an unusable application-settings section does not abort the entity import.
 
 Note: if a model profile was exported with `Include endpoints` off, the endpoint is missing from the file. On re-import on the same machine it is restored from the existing profile with the same ID; on a different machine it stays empty - exactly the intended "share without endpoints" behavior.
 

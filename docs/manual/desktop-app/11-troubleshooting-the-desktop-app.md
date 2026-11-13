@@ -360,6 +360,8 @@ If the recovery check itself fails, a warning dialog titled `Crash recovery` app
 
 Two further causes leave symbols out without a message in the app. A git submodule that was never initialized leaves an empty folder, so the sources a project compiles from it are missing: run `git submodule update --init` in the repository root and reload. A file that a pre-build step or a code generator writes is missing when that step has not run: build the solution once and reload. The MCP tool `get_diagnostics` names both cases (`uninitializedSubmodules`, `missingCompileItems`).
 
+`get_diagnostics` also names further causes of an incomplete load, among them a missing .NET, ASP.NET Core, Windows Desktop or netstandard2.1 targeting pack (named as the cause instead of thousands of compile errors) and a project the solution itself never builds, together with the exact `dotnet restore "<project file>"` command. Projects written in Visual Basic or F# are not analyzed: the MCP answers that reach them say NOT ANALYSED and name the projects.
+
 ### Working in the app
 
 #### The tab strip is locked while a run is active
@@ -472,9 +474,9 @@ Two further causes leave symbols out without a message in the app. A git submodu
 
 **Symptom.** In `MCP Usage`, the marking of tools that are in the active pool is missing, or the call log does not refresh.
 
-**Cause.** Reading the active MCP profile or the call log failed; the panel logs the error and keeps its previous state. The panel deliberately reloads on every activation because the MCP server writes into the same database while the app runs.
+**Cause.** Reading the active MCP profile or the call log failed; the panel logs the error and keeps its previous state. The panel deliberately reloads on every activation because the MCP server writes into the same database while the app runs. If no new calls arrive at all and a notice banner says that usage recording is switched off, the cause is the `Record MCP tool usage` setting, not a read error.
 
-**What to do.** Reopen the page; if it stays stale, check `aicb.log`.
+**What to do.** Reopen the page; if it stays stale, check `aicb.log`. For recording, switch `Record MCP tool usage` on again on the `General` settings page and restart the MCP server.
 
 #### Auto-compression and other settings quietly fall back to defaults
 

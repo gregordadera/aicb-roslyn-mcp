@@ -11,8 +11,8 @@ This chapter covers what the server is, how to start it, what a client has to be
 - **It is not a separate program.** `aicb mcp` is a verb of the same `aicb` command you use for everything else. There is nothing extra to install for the server itself.
 - **One server process per client, stdio transport.** The server speaks JSON-RPC on standard input/output. A client starts it as a child process and talks to it over that channel. When the client disconnects (stdin closes) or the process is cancelled, the server shuts down cleanly with exit code `0`.
 - **Session-bound.** The server keeps an analysis of your solution warm. Most tools take a `sessionId`; every tool that takes one also accepts the absolute path of a `.sln`, `.slnx` or `.slnf` file directly and analyzes it on first use, so calling `analyze_solution` first is optional. Answers come from that cached analysis graph; after you edit `.cs` files, `refresh_session` rebuilds it and `get_diagnostics` is the fast pre-build check.
-- **A curated tool pool.** The server registers its whole tool surface but exposes a curated pool. Without further configuration that is the built-in `Default` profile with **54 tools** covering all nine task facets. The built-in `Full Select` profile serves the unnarrowed **72**: start the server with `--mcp-profile mcp-profile/full` for it. The environment variable `AICB_MCP_TOOLS` overrides the pool for the process (`all`, `lean`, or a comma-separated list of tool class names) and wins over the active profile.
-- **Read-only with respect to your code.** Nothing any tool writes is anything Roslyn reads, so every answer is about the tree you wrote. Tools that persist something outside the analysis - `apply_solution_config`, `export_markdown`, `install_agent_hooks`, `save_session`, `remember_codebase`, `refresh_remembered`, `import_constellation` and `diff_review` with `recordRegressions: true` - say so in their own descriptions.
+- **A curated tool pool.** The server registers its whole tool surface but exposes a curated pool. Without further configuration that is the built-in `Default` profile with **54 tools** covering all nine task facets. The built-in `Full Select` profile serves the unnarrowed **72**: start the server with `--mcp-profile mcp-profile/full` for it. For a model with a small context window, the built-in `Local` profile serves **30** of the most-used tools with compact descriptions (`--mcp-profile mcp-profile/local`). The environment variable `AICB_MCP_TOOLS` overrides the pool for the process (`all`, `lean`, or a comma-separated list of tool class names) and wins over the active profile.
+- **Read-only with respect to your code.** Nothing any tool writes is anything Roslyn reads, so every answer is about the tree you wrote. Tools that persist something outside the analysis - `apply_solution_config`, `export_markdown`, `install_agent_hooks`, `save_session`, `remember_codebase`, `refresh_remembered`, `import_constellation` and `diff_review` with `recordRegressions: true` - say so in their own descriptions. Apart from the tools, the server itself keeps the aicb-written agent skill files of its own project in step with the tools it serves (see "Keeping the skills in step: `aicb skills sync`"); that rewrites no source file either.
 - **Nothing leaves your machine.** The server has no outbound network capability at all.
 
 ## 1.2 Starting the server: `aicb mcp`
@@ -66,7 +66,7 @@ Note: `aicb mcp --help` describes `--db-path` as optional with a DB-free fallbac
 
 ### `--mcp-profile`
 
-`--mcp-profile <id>` pins the active MCP profile for the lifetime of the process. The ids are the ones `list_mcp_profiles` reports (or the `MCP Profiles` panel in the GUI); the four built-in profiles are `mcp-profile/default`, `mcp-profile/full`, `mcp-profile/refactoring-focus` and `mcp-profile/debugging-focus`. On success the server says:
+`--mcp-profile <id>` pins the active MCP profile for the lifetime of the process. The ids are the ones `list_mcp_profiles` reports (or the `MCP Profiles` panel in the GUI); the five built-in profiles are `mcp-profile/default`, `mcp-profile/full`, `mcp-profile/refactoring-focus`, `mcp-profile/debugging-focus` and `mcp-profile/local`. On success the server says:
 
 ```text
 Pinning the MCP profile to '<id>' for this process (--mcp-profile); the profile persisted in the config DB is left unchanged.
@@ -74,14 +74,18 @@ Pinning the MCP profile to '<id>' for this process (--mcp-profile); the profile 
 
 Pinning at start also keeps `tools/list` stable for the lifetime of the process, which the newer protocol revision asks for. There is no runtime switch: changing the profile means restarting the server with a different id.
 
-A pin that cannot be applied is the one case in which the server refuses to start instead of degrading to the default profile. That covers every way it can fail - no configuration database, missing file, failed migration, unknown id, hidden profile:
+A pin that cannot be applied is the one case in which the server refuses to start instead of degrading to the default profile. That covers every way it can fail - no configuration database, missing file, failed migration, unknown id, hidden custom profile:
 
 ```text
 error: unknown MCP profile '<id>' (--mcp-profile). Available: <ids>.
 error: --mcp-profile '<id>' could not be applied (see above). Refusing to start on a different profile.
 ```
 
-The exit code is `1`. An unknown id lists the ids that would work, because over stdio you have no other way to discover them. Hidden profiles are rejected on the same grounds: they are not listed, so pinning one would be an invisible configuration.
+The exit code is `1`. An unknown id lists the ids that would work, because over stdio you have no other way to discover them. A hidden custom profile is rejected on the same grounds: it is not listed, so pinning one would be an invisible configuration. A hidden **built-in** profile is the exception: deleting a built-in in the GUI only hides it, and a project pinned to it keeps starting. The server runs it and says so:
+
+```text
+note: the pinned MCP profile '<Name>' (<id>) is a built-in that is hidden in the GUI (deleted there); the server runs it anyway. To list it again, open MCP Profiles in the GUI, tick 'Show hidden', select it and use 'Restore Built-In'.
+```
 
 ### What else the server announces at startup
 
@@ -90,7 +94,7 @@ All diagnostics go to stderr, never to the protocol channel. Whether you see the
 | Message | Meaning |
 |---|---|
 | `warning: MSBuild could not be registered (<reason>). analyze_solution/refresh_session will fail; the remaining tools stay usable.` | The MSBuild bootstrap failed. Analysis and session tools will not work; the rest of the tool surface does. |
-| `MCP tool curation: <tool set>; spec=<spec>; active MCP profile=<profile>; session auto-refresh=<mode>.` | Which pool is exposed right now (a static count under `AICB_MCP_TOOLS`, or the live profile count), the tool-set specification in effect, the profile, and the session auto-refresh mode (`off`, `reactive` or `proactive`). |
+| `MCP tool curation: <tool set>; spec=<spec>; active MCP profile=<profile>; session auto-refresh=<mode>; max response bytes=<n>; tool descriptions=<full\|compact>.` | Which pool is exposed right now (a static count under `AICB_MCP_TOOLS`, or the live profile count), the tool-set specification in effect, the profile, the session auto-refresh mode (`off`, `reactive` or `proactive`), the size ceiling of one answer, and whether the profile serves full or compact tool descriptions. |
 
 Exit codes of the verb:
 
@@ -114,7 +118,7 @@ Note: `Connection closed` is a channel problem, not a tool crash. Ordinary tool 
 
 ### The quick path: `aicb init`
 
-Run `aicb init` in your project directory. It writes the entry your client needs into `.mcp.json`, writes the agent skill into `.claude/skills/`, and installs the symbol guard for the agent harnesses in use. Codex and OpenCode do not read `.mcp.json`: for each of them that the project uses (or that `--hooks` names), the same run also registers the server in that client's own configuration - `.codex/config.toml` or `opencode.json` - and writes the skill to `.agents/skills/`, where both read skills. It never overwrites an existing file unless you pass `--force`, so re-running is safe.
+Run `aicb init` in your project directory. It writes the entry your client needs into `.mcp.json`, writes the agent skill into `.claude/skills/`, and installs the symbol guard for the agent harnesses in use - for Claude Code together with a session-start hook that keeps the aicb skills in step with the served tools. Codex and OpenCode do not read `.mcp.json`: for each of them that the project uses (or that `--hooks` names), the same run also registers the server in that client's own configuration - `.codex/config.toml` or `opencode.json` - and writes the skill to `.agents/skills/`, where both read skills. It never overwrites an existing file unless you pass `--force`, so re-running is safe. A skill file aicb wrote itself is the one exception: it is kept in step with the served tools, and your own notes below its aicb part survive.
 
 | Option | Effect | Default |
 |---|---|---|
@@ -123,7 +127,7 @@ Run `aicb init` in your project directory. It writes the entry your client needs
 | `--skills context\|all` | `context` writes the `aicb-csharp-context` skill; `all` adds the `aicb-code-review` / `aicb-code-simplifier` review pair and `aicb-usage-check`. | `context` |
 | `--hooks auto\|none\|all\|claude-code\|codex\|opencode` | Which agent harnesses to install the symbol guard for: the ones already used in this project, none, all, or one by name. Naming Codex or OpenCode also registers the server for it. | `auto` |
 
-The run reports each artifact with one of four labels - `created`, `updated`, `kept`, `refused` - and ends with:
+The run reports each artifact with one of five labels - `created`, `updated`, `kept`, `refused`, `removed` - and ends with:
 
 ```text
 Restart or reconnect your MCP client, then call server_info to confirm it took.
@@ -294,10 +298,10 @@ The MCP profile editor in the GUI previews the composed text under the label `Ex
 
 ### Omission under a narrowed profile
 
-A rule that names tools is an invitation to call them, and a call the server then refuses is indistinguishable from a wrong tool choice. When the exposed pool does not contain **any** of the tools a rule names, the server therefore leaves that whole rule out of the handshake. Consequences worth knowing:
+A rule that names tools is an invitation to call them, and a call the server then refuses is indistinguishable from a wrong tool choice. The instructions are therefore sized to the exposed pool: they do not mention a tool the active profile does not serve. Consequences worth knowing:
 
 - The identity line and the discovery rules are never omitted.
-- A rule is dropped only when **all** of the tools it names are unavailable; a rule that still names one reachable tool keeps its text, including the names it cannot reach.
+- A rule that consists of smaller units - a list item, or a clause naming a tool the rest of the sentence does not depend on - loses only the units that name a withheld tool, and keeps the rest. A rule without such units is sent only when every tool it names is served, and is left out otherwise. Under `Default` and `Full Select` nothing is left out; a narrowed profile such as `Local` gets shorter instructions that name no tool it withholds.
 - The block about the DB-entity tools is never omitted either, because its subject is precisely tools outside the pool; it keeps the phrase `outside the default profile's pool` **before** every name it mentions, so a client that cuts the text cannot receive a name without the reason not to call it.
 - The same exposed set drives listing, callability and the instructions, so "listed", "callable" and "named in the handshake" cannot drift apart - including under the `AICB_MCP_TOOLS` override.
 

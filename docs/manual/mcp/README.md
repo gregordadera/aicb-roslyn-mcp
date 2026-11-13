@@ -1,6 +1,6 @@
 # AICB - MCP Server
 
-The complete reference, one file per chapter. Describes AICB V0.5.515.1.
+The complete reference, one file per chapter. Describes AICB V0.5.520.1.
 
 The same text as one printable document: [AICB-MCP-Server.pdf](AICB-MCP-Server.pdf).
 
@@ -41,7 +41,7 @@ The same text as one printable document: [AICB-MCP-Server.pdf](AICB-MCP-Server.p
     - [3.11 Timing constants via environment variables](03-sessions-and-staleness.md#311-timing-constants-via-environment-variables)
 4. [Profiles, pools and facets](04-profiles-pools-and-facets.md)
     - [4.1 Pools: what the server registers and what it delivers](04-profiles-pools-and-facets.md#41-pools-what-the-server-registers-and-what-it-delivers)
-    - [4.2 The four built-in profiles](04-profiles-pools-and-facets.md#42-the-four-built-in-profiles)
+    - [4.2 The five built-in profiles](04-profiles-pools-and-facets.md#42-the-five-built-in-profiles)
     - [4.3 Selecting a profile](04-profiles-pools-and-facets.md#43-selecting-a-profile)
     - [4.4 Overriding the tool set](04-profiles-pools-and-facets.md#44-overriding-the-tool-set)
     - [4.5 The nine facets](04-profiles-pools-and-facets.md#45-the-nine-facets)

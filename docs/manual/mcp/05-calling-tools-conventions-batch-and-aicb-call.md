@@ -26,7 +26,7 @@ How many tools each path reaches, depending on how the server was started:
 
 Two properties of this table are easy to misread:
 
-- **Path 3 records usage data only with `--db-path`.** `aicb call` does not use the `tools/call` pipeline; given `--db-path`, it writes the same row under the client name `aicb-call`, and without one it records nothing.
+- **Path 3 records usage data only with `--db-path`.** `aicb call` does not use the `tools/call` pipeline; given `--db-path`, it writes the same row under the client name `aicb-call`, and without one it records nothing. With **Record MCP tool usage** switched off in the desktop app's settings, neither path 1 nor path 3 records anything (see "What the server records about tool calls").
 - **Path 2 records the parent call and a sub-query tally, but no row per sub-query.** The tally is described under "Counting sub-queries" below.
 
 The refusal on path 1 reads:
@@ -36,7 +36,9 @@ Tool '<name>' is not in the active profile - call list_mcp_profiles to see the p
 their tools, then restart the server with 'aicb mcp --mcp-profile <id>' to run under a different one.
 ```
 
-You cannot lock yourself out of the pool question: every profile includes the navigation core (the everyday tools plus `list_mcp_profiles`, `list_skills`, `docs`, `server_info` and `usage_report`), so `list_mcp_profiles` and `list_skills` are always callable and always tell you what the current pool contains. See "Profiles, pools and facets" for the profiles themselves and for `AICB_MCP_TOOLS`.
+Under a profile that withholds `list_mcp_profiles` (the built-in `Local` does), the refusal leaves that pointer out and names only the restart.
+
+Every profile starts from the navigation core (the everyday tools plus `list_mcp_profiles`, `list_skills`, `docs`, `server_info` and `usage_report`), but every core tool except `server_info` can be switched off: `Default`, `Full Select` and the two focus profiles keep `list_mcp_profiles` and `list_skills`, so there the current pool is always one call away; `Local` switches both off, and there `server_info` is the tool that is always callable. See "Profiles, pools and facets" for the profiles themselves and for `AICB_MCP_TOOLS`.
 
 ## 5.2 `batch`: many read-only queries in one round-trip
 
@@ -177,7 +179,7 @@ aicb call batch --sln C:/repo/App.sln --arg queries='[{"tool":"find_usages","arg
 
 **How a value is converted.** `string`, `bool`, `int`, `long`, `double`, `enum` (case-insensitive) and `string[]` (a JSON array or a comma-separated list) are read directly. Any other type is deserialized from JSON with the same options as `tools/call`, which is how a complex argument such as `batch`'s `queries` can be passed as `--arg queries='[...]'`. Numbers are read with the invariant culture: write `0.6`, not `0,6`. A decimal comma is rejected with a hint naming the cause, because on a German, French or Spanish desktop `0,6` looks perfectly well formed.
 
-**Output and exit codes.** A string result is printed unchanged; anything else is serialized as JSON. The result goes to **stdout**, so it can be piped or inspected. Diagnostics and warnings go to **stderr** - including the progress of `analyze_solution`, which has no client to notify here and therefore reports on stderr. Where a note would follow a JSON array - for example the built-in-profile note of `list_insights` without `--db-path` - it is written to stderr as well, so stdout stays one JSON document. Exit codes: `0` success, `1` user error (unknown tool, missing or invalid argument, the tool's own actionable error), `2` unexpected failure, `3` cancelled.
+**Output and exit codes.** A string result is printed unchanged; anything else is serialized as JSON. The result goes to **stdout**, so it can be piped or inspected. Diagnostics and warnings go to **stderr** - including the progress of `analyze_solution`, which has no client to notify here and therefore reports on stderr. Where a note would follow a JSON array - for example the built-in-profile note of `list_insights` without `--db-path` - it is written to stderr as well, so stdout stays one JSON document. The answer carries the same session-wide notes the MCP server adds: the staleness disclosure (see "The staleness disclosure"), `nothingToAnalyse` on a solution without any C# project, and the configuration-database note. Exit codes: `0` success, `1` user error (unknown tool, missing or invalid argument, the tool's own actionable error), `2` unexpected failure, `3` cancelled.
 
 An unknown tool answers `unknown tool 'X'. Available tools: ...` and lists the whole assembly - which is correct here, because this verb has no curation.
 
@@ -222,12 +224,14 @@ Thirteen of the 82 tools change something; **69 are read-only**. Of the thirteen
 |---|---|---|
 | **Session state only** (in memory) | `analyze_solution`, `refresh_session`, `recall_codebase` | Nothing on disk changes. |
 | **File system, path named by the caller** | `export_markdown` | Writes the rendered Markdown only when `outputPath` is set; without it the render is returned instead. |
-| **File system, inside the project directory** | `apply_solution_config`, `install_agent_hooks` | The only two tools that write into your repository: `apply_solution_config` writes the git-tracked `<SolutionName>.aicb.json` sidecar next to the `.sln` (commit it so the configuration travels with the repo); `install_agent_hooks` writes the guard script plus the harness wiring (`.claude/settings.json`, `.codex/hooks.json` or `opencode.json`) - and only inside the directory of the analyzed solution. |
+| **File system, inside the project directory** | `apply_solution_config`, `install_agent_hooks` | The only two tools that write into your repository: `apply_solution_config` writes the git-tracked `<SolutionName>.aicb.json` sidecar next to the `.sln` (commit it so the configuration travels with the repo); `install_agent_hooks` writes the guard script plus the harness wiring (`.claude/settings.json`, `.codex/hooks.json` or `opencode.json`; for Claude Code also the skill-sync hook) - and only inside the directory of the analyzed solution. |
 | **aicb database** | `save_session`, `remember_codebase`, `refresh_remembered`, `import_constellation`, `apply_solution_config`, `diff_review` (with `recordRegressions: true`) | These tools write rows. See the `dbPath` note below. `solution_config_status` and `check_solution_config_drift` are listed separately: they only read, never insert a solution row, and upgrade an older database's schema when they open it. |
 
 Every writing tool discloses its write in its own `tools/list` description. `diff_review` writes only on explicit opt-in and says so: *"Read-only unless you pass recordRegressions."*
 
 Note: for `save_session`, `apply_solution_config` and `diff_review(recordRegressions: true)`, an omitted `dbPath` resolves to the server's **standard config DB - the same database the GUI uses**. The caller then writes into the application's live data without the call looking like it. Pass an explicit `dbPath` if that is not what you want. The memory tools are the opposite: `remember_codebase`, `refresh_remembered` and `import_constellation` require an explicit `dbPath` and never fall back to the standard config DB. When no DB is configured at all, `diff_review(recordRegressions: true)` writes nothing, still succeeds, and reports the reason in `regressionLog.skippedReason`.
+
+Note: one write is not a tool's. With **Keep agent skill files in sync** on (the default), the server itself rewrites the aicb-written skill files of the project it was started in after its first session there - only their aicb part, creating and deleting nothing. `server_info` says so on that project's `SKILL` line. See "Keeping the skills in step: `aicb skills sync`".
 
 ## 5.8 Recurring conventions across the catalog
 
@@ -281,9 +285,26 @@ A leading `note` field qualifies an answer that would otherwise be misread - abo
 
 ### `incompleteProjects`
 
-If the analysis run could not resolve a project's references, a `note` leads **every** answer of the fan-in family, non-empty ones included: such a run is short by ordinary edges. The cross-check is `get_diagnostics`, which reports the affected projects as `incompleteProjects` together with their suppressed-diagnostic counts and their dependent projects.
+If the analysis run could not resolve a project's references, a `note` leads **every** answer of the fan-in family, non-empty ones included: such a run is short by ordinary edges. The cross-check is `get_diagnostics`, which reports the affected projects as `incompleteProjects` together with their suppressed-diagnostic counts, their dependent projects and, where it can tell, the `cause` with its remedy. The note names the same unrestored projects and the same restore command as `get_diagnostics`: where the solution itself does not build an affected project, it names the `dotnet restore "<project file>"` that works for it instead of a restore of the solution, which skips it. A project that declares no code of its own (a packaging project, for example) is not counted as incomplete.
 
 A narrower qualifier of the same kind is `generatedCodeNote`. It appears when a source generator or the WPF markup compiler did not run in the project that declares the answer's subject, or in a project depending on one, and it names the generators that did not run together with the repair `get_diagnostics` gives for its `generatedCodeGaps`. It rides on populated answers as well. It is carried by `find_usages`, `impact_of_change` (ahead of `risk`), `instantiation_sites`, `find_tests_for`, `find_implementations` (on an empty answer also when generated code is missing below the interface's project) and `get_type_hierarchy`. `find_dead_code` marks each candidate in such a project with `missingGeneratedCode: true` and counts them in its `generatedCodeNote` - treat them as unjudged, not as dead. `find_symbol` and `symbol_signature` add the sentence to `generatedSourcesNote` on a zero hit.
+
+### Source-generated code
+
+Code that a source generator writes in the analysis is part of the answers in two ways:
+
+- **Its uses count.** What generated code calls, reads or names is a use like any other, so a type or member used only from generated code has a user instead of looking unused. Such a user is labelled with the generated document and the suffix ` (generated)`, for example `<project>/<generator>/<file> (generated)`. Generated documents compiled from `.razor`, `.cshtml` or XAML markup are left to the markup readers and credited to the markup file, so a binding is not counted twice; an element with `x:Name` counts as one user, its view.
+- **Its declarations are found.** Types and members a generator declares are found by `find_symbol`, `symbol_signature`, `find_usages`, `impact_of_change`, `find_implementations`, `get_type_hierarchy`, `find_overrides`, `find_tests_for`, `call_graph` and `instantiation_sites`, and are marked: `find_symbol`, `symbol_signature`, `find_implementations` and `instantiation_sites` rows carry `generated`, the label of the generated document (a `symbol_signature` row's `file` is then that label, usually not a file on disk); `find_overrides` and `get_type_hierarchy` rows read ` (generated)`. A call that binds to a generated method is not credited to a handwritten namesake. `explain_symbol`, `get_context`, `pack_for_task` and `prepare_task` handle a type a generator writes whole; its code block says it has no source on disk.
+
+Dead code, metrics, insights and exports still consider handwritten code only: nothing a generator declares is judged. A declaration that only markup-compiled code holds (a `.razor` `@code` member, a field a XAML file names) is not indexed, and a zero answer says so with a count of those documents.
+
+### Multi-targeted projects
+
+A project with several target frameworks is analyzed in every one of them. A type's users include the references made in every target framework, not only the newest one, and a type or member that only an older target framework declares (inside `#if` blocks) is found by the lookup and fan-in tools instead of answering `not_found`, listed under that framework's project instance. `find_usages`, `impact_of_change` and `solution_metrics` count this way, and `explain_symbol`, `get_context`, `pack_for_task`, `prepare_task` and `architecture_overview` count the same, so their numbers match. Two different projects that share a name are not merged.
+
+### Visual Basic and F# projects
+
+aicb analyzes C# only. Where a solution also holds Visual Basic or F# projects, `analyze_solution` names them in `notAnalysed`, and where a symbol is reachable from such a project, `find_usages`, `impact_of_change`, `find_dead_code` and `architecture_overview` say `NOT ANALYSED` in their note and name the projects: a use there leaves no edge, so the counts cover the C# code alone. A zero lookup answer and the markup tools' zero result say the same where those projects are involved. A solution without any C# project carries `nothingToAnalyse` on every session-bound answer (`NOTHING TO ANALYSE: ...`; a Markdown answer gets a `<!-- nothing-to-analyse: ... -->` comment), so its empty results are not read as findings about the code.
 
 ### Recall safety
 

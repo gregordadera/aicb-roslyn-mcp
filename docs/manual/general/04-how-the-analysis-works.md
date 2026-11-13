@@ -14,14 +14,14 @@ The analysis takes an absolute path to a solution file. Three formats are accept
 |---|---|
 | `.sln` | Classic Visual Studio solution |
 | `.slnx` | The XML-based solution format |
-| `.slnf` | A solution filter - a `.sln` plus a subset of projects. Useful when a full solution is too large or too slow to analyze |
+| `.slnf` | A solution filter - a `.sln` plus a subset of projects. Useful when a full solution is too large or too slow to analyze. A filter stored in another folder than its solution behaves like the solution it names: it refreshes itself after edits and its markup is scanned |
 
 Two further inputs are read from the solution's own configuration, not from the call:
 
 - **The per-solution configuration** (`.aicb.json`, next to the `.sln`). It can carry layer rules, namespace exclusions, a test profile, the multi-targeting scope (`analyzePreferredTfmOnly`) and the platform of the design-time build (`designTimeBuildPlatform`). Headless CLI/MCP analysis uses its layer and exclusion axes as database-free fallbacks and reads the scope and the platform directly; the sidecar test profile is configuration/setup material rather than part of the headless analysis resolution chain. In the desktop app, layer, exclusion and test content must first be restored into the database through auto-initialization or `Initialize Now`, while the scope and platform keys are read directly. The file is plain JSON and git-tracked, so it travels with the repository.
 - **`<ai ...>` annotations** in the source. Authors can annotate a type with fields such as `layer`, `role`, `priority` or `responsibility`, and a member with `layer`, `role` or `priority`; `responsibility` is type-only. These values are treated as explicit author statements and outrank every heuristic. Sentinel values `none`, `null` and `empty` (any casing) suppress inference for a field and are never emitted as text; the old key `importance` remains a backward-compatible alias for `priority`.
 
-The analysis is a **read-only** operation with respect to your source. It does not edit files, and it does not run your solution's third-party Roslyn analyzers (`get_diagnostics` can run their DiagnosticSuppressors on request, see "The one caveat: MSBuild"). Source generators are different: when AICB builds a project's compilation, Roslyn runs the source generators the project references, inside the AICB process, as an IDE does. AICB does not index their output, with one exception: the code the Razor generator compiles from `.cshtml` views is read, so that what a view uses counts toward fan-in (see "Edges"). Where it reports source-generated members (for example `[ObservableProperty]` or `[RelayCommand]`), it re-derives their names from the attributes in the parsed syntax. A generator whose assembly is missing, for example an in-solution generator project that was never built, cannot run, and its generated code is then missing from the compilation. When that happens, the fan-in answers about a symbol in that project or in a project that depends on it (`find_usages`, `impact_of_change`, `instantiation_sites`, `find_tests_for`, `find_implementations`, `get_type_hierarchy`) carry a `generatedCodeNote` naming the generator and the repair, even when the list is not empty, and `find_dead_code` marks a candidate in such a project with `missingGeneratedCode: true` - treat it as unjudged, not as dead. The MCP server and the CLI have no outbound network capability at all.
+The analysis is a **read-only** operation with respect to your source. It does not edit files, and it does not run your solution's third-party Roslyn analyzers (`get_diagnostics` can run their DiagnosticSuppressors on request, see "The one caveat: MSBuild"). Source generators are different: when AICB builds a project's compilation, Roslyn runs the source generators the project references, inside the AICB process, as an IDE does. Their output is read in two ways. First, the generated code is read for the symbols it uses, so what it calls or names counts toward fan-in - including the code the Razor generator compiles from `.cshtml` views (see "Edges"). Second, the types and members a generator declares are found by `find_symbol`, `symbol_signature`, `find_usages`, `impact_of_change`, `find_implementations`, `get_type_hierarchy`, `find_overrides`, `find_tests_for`, `call_graph` and `instantiation_sites`, and they are marked as generated (a `generated` field naming the generated document, or a ` (generated)` mark); a `symbol_signature` row's `file` is then that label, usually not a file on disk. A call that binds to a generated method is not credited to a handwritten namesake, and a handwritten `partial void OnXChanged` hook that a generated setter calls shows that setter as its caller. `explain_symbol`, `get_context`, `pack_for_task` and `prepare_task` handle a type a generator writes whole, and its code block says it has no source on disk. Dead code, metrics, insights and exports still consider handwritten code only. A generator whose assembly is missing, for example an in-solution generator project that was never built, cannot run, and its generated code is then missing from the compilation. When that happens, the fan-in answers about a symbol in that project or in a project that depends on it (`find_usages`, `impact_of_change`, `instantiation_sites`, `find_tests_for`, `find_implementations`, `get_type_hierarchy`) carry a `generatedCodeNote` naming the generator and the repair, even when the list is not empty, and `find_dead_code` marks a candidate in such a project with `missingGeneratedCode: true` - treat it as unjudged, not as dead. The MCP server and the CLI have no outbound network capability at all.
 
 Generated C# that is committed to the repository - a `*.Designer.cs` or `*.g.cs` file outside build output - is read like any other source file: its references count toward fan-in, but its code is not judged by the quality rules, the dead-code tools or `coverage_gaps`. The same file names under the project's `bin` or `obj` folder are build output and stay out. A `bin`, `obj` or `.vs` folder that contains the project itself, such as a checkout under `~/bin/repo`, is not build output: such a checkout is analyzed normally.
 
@@ -89,6 +89,8 @@ One analysis run has a single entry point and takes the following inputs:
 
 The run walks every C# project and, per document, builds a syntax tree and a semantic model. A document whose syntax tree or semantic model cannot be obtained is skipped. The analyzable type nodes are `class`, `struct`, `interface`, `record` and `enum`.
 
+Visual Basic and F# projects in the solution are not analyzed, but they are not passed over silently either. `analyze_solution` names them in `notAnalysed`. Where a symbol is reachable from such a project, `find_usages`, `impact_of_change`, `find_dead_code` and `architecture_overview` say `NOT ANALYSED` and name the projects, because uses there are not counted. A solution without any C# project says `NOTHING TO ANALYSE` on every answer (a `nothingToAnalyse` member), instead of returning empty results.
+
 Beyond declared methods, the analysis treats accessors and constructors as additional **units** with a body:
 
 - **Accessors** - every property, indexer and event accessor with a body (`get { … }`, `set => ...`, `init`, `add`/`remove`) plus the getter of an expression-bodied property. An auto-property accessor (`get;`) has no body and produces no unit.
@@ -113,7 +115,9 @@ Two results are computed only for a live analysis and are not re-derived from a 
 
 ## 4.4 Incomplete projects
 
-A project is called **incomplete** (unresolved) when its compilation cannot bind its core references - concretely, when `System.Object` is an error type. Typical causes are an unrestored project (no `restore` has run) or a targeting pack the machine does not have.
+A project is called **incomplete** (unresolved) when its compilation cannot bind its core references - concretely, when `System.Object` is an error type, or when the targeting pack of a framework it references (.NET, ASP.NET Core, Windows Desktop or netstandard2.1) is missing. Typical causes are an unrestored project (no `restore` has run) or a targeting pack the machine does not have. A missing targeting pack is reported as that, with the pack named, instead of as thousands of ordinary compile errors, and the design-time build cache does not keep such a build.
+
+A project without code of its own (a packaging project, for example) does not count as incomplete; `get_diagnostics` lists it apart under `projectsWithoutCode`. An incomplete project that the solution itself never builds carries a `cause` in `get_diagnostics` with the exact `dotnet restore "<project file>"` command, because a restore of the solution skips it.
 
 An incomplete project is one of the most important states to understand, because it decides whether you can trust an answer. Such a project still yields syntax, so the analysis walks it and still produces facts - but the **semantic edges are missing**: an unresolved call site records no caller. Every fan-in answer that follows is short by an unknown number of ordinary references, and nothing about it looks wrong.
 
@@ -127,7 +131,7 @@ The run records its own completeness and reports one of three states:
 
 The unresolved projects are named, not merely counted, so that "restore `MyApp.Infrastructure`" is an actionable next step.
 
-> **Note:** "All resolved" does not mean "the project is restored". The check looks at `System.Object`, which a project gets from the base framework rather than from its own restore. A project without a `project.assets.json` typically loads, binds `System.Object` and counts as resolved, while every fact typed by its missing references is gone. What the flag really separates is a *wholly* unbuilt working tree from everything else. `get_diagnostics` lists such a project under `unrestoredProjects` when it has unresolved-name errors (`CS0246`, `CS0234`) in the answer, with a note naming the repair: `dotnet restore`, and on `NETSDK1147` `dotnet workload restore`.
+> **Note:** "All resolved" does not mean "the project is restored". The check looks at `System.Object`, which a project gets from the base framework rather than from its own restore. A project without a `project.assets.json` typically loads, binds `System.Object` and counts as resolved, while every fact typed by its missing references is gone. What the flag really separates is a *wholly* unbuilt working tree from everything else. `get_diagnostics` lists such a project under `unrestoredProjects` when it has unresolved-name errors (`CS0246`, `CS0234`) in the answer, with a note naming the repair: `dotnet restore`, and on `NETSDK1147` `dotnet workload restore`. An entry can carry `restoreCommand` (for a project the solution does not build, the restore of the project file itself) and `missingTarget` (the restore output holds no target for the framework the project builds). The incomplete-analysis warning on other answers names the same unrestored projects and the same restore command.
 
 The completeness record travels with the session and is stored with a remembered codebase; a missing value means "unknown", never "fine".
 
@@ -139,7 +143,11 @@ Practical consequence: **restore and build the solution before you rely on effec
 
 A project with several target frameworks (`<TargetFrameworks>net8.0;netstandard2.0</TargetFrameworks>`) is loaded by Roslyn **once per target framework**. The same source file is therefore analyzed as many times as there are frameworks. Whether that costs much is solution-specific: on some repositories the duplicates are the majority of all documents, on others they are negligible.
 
-By default AICB analyzes all instances. You can opt into analyzing only the preferred instance:
+By default AICB analyzes all instances, and the query surfaces still show one entry per type: the references every target framework makes count for it, and a type or member that only an older target framework declares (inside `#if` blocks, for example) is found by the lookup and usage tools instead of answering `not_found`. `explain_symbol`, `get_context`, `pack_for_task`, `prepare_task` and `architecture_overview` count the same way, so their numbers match `find_usages`. Two different projects that share a name are not merged.
+
+The `TargetFrameworks` list is read as a build reads it - also with spaces after the semicolons or a trailing semicolon, on Windows, Linux and macOS - and a file the build lists twice is compiled once, so it produces no false duplicate-definition errors. Project files that spell MSBuild names in another letter case are read as MSBuild reads them.
+
+You can opt into analyzing only the preferred instance:
 
 ```json
 {
@@ -151,8 +159,8 @@ in the solution's `.aicb.json`. The preferred instance is the one with the newes
 
 What the switch does and does not change:
 
-- **The type and method inventory is unchanged.** The query surfaces deduplicate to one logical project instance per name anyway, keeping the newest target framework's instance.
-- **Lost:** a fan-in edge whose only source is a non-preferred instance. This affects `find_usages`, `impact_of_change`, `call_graph`, the deprecated-API insight, PageRank and the trimming priorities.
+- **The symbols the preferred instance declares remain available.**
+- **Lost:** a type or a fan-in edge that exists only in another target framework. This affects `find_usages`, `impact_of_change`, `call_graph`, the deprecated-API insight, PageRank and the trimming priorities.
 - **Gained:** more complete transitive side-effect facts, because the narrower run avoids a last-write-wins effect in the shared method index.
 - `find_dead_code` stays safe either way: it requires an analyzed caller list and abstains where the edge went missing, instead of calling a live method dead.
 - The reported project count counts project *instances*, so a multi-targeted project contributes one entry per target framework.
@@ -166,7 +174,7 @@ There is no universal formula of the form "solution size → analysis duration";
 
 For everyday work on large solutions, prefer the bounded views - `architecture_overview` for orientation, `get_context`, `explain_symbol` or `prepare_task` for one symbol or one task - and reserve the whole-solution export for when you really need it.
 
-After an edit, a refresh does not necessarily re-walk everything: where the previous run's facts can be reused for documents the edit could not have reached, they are - also when a change to a project or other non-C# file makes the refresh reload the solution through MSBuild. A `refresh_session(force: true)` reuses nothing. The refresh answer reports which path it took (`mode: incremental` or a full reload) and how many documents it reused. Adding, renaming or removing a C# file usually does not reload the solution either: the file is added to the loaded solution directly, and only where AICB cannot tell which project compiles it does the refresh fall back to a full reload. An edit to a `.cshtml` or `.razor` file counts as a change of the solution too and takes the full reload, as does adding or removing a `.xaml`, `.razor`, `.cshtml` or project file.
+After an edit, a refresh does not necessarily re-walk everything: where the previous run's facts can be reused for documents the edit could not have reached, they are - also when a change to a project or other non-C# file makes the refresh reload the solution through MSBuild. A `refresh_session(force: true)` reuses nothing. The refresh answer reports which path it took (`mode: incremental` or a full reload) and how many documents it reused. Adding, renaming or removing a C# file usually does not reload the solution either: the file is added to the loaded solution directly, and only where AICB cannot tell which project compiles it does the refresh fall back to a full reload. An edit to a `.cshtml` or `.razor` file counts as a change of the solution too and takes the full reload, as does adding or removing a `.xaml`, `.razor`, `.cshtml` or project file. Adding a project to or removing one from a `.sln`, `.slnx` or `.slnf` is noticed without a forced refresh: with automatic refresh on, the next answer reloads, and an unforced `refresh_session` re-analyzes, with the reason that the project list changed. Saving the solution file without changing its project list reloads nothing. A first load does not report itself as stale because its own design-time build wrote generated C# files.
 
 ## 4.7 Side-effect classification
 
@@ -176,7 +184,7 @@ The analysis classifies every method by what it touches in the outside world. Th
 |---|---|
 | `io` | Filesystem and stream access |
 | `network` | HTTP, socket, mail and cloud-storage calls |
-| `database` | Database drivers and ORMs (for example ADO.NET/`System.Data`, EF Core, Dapper, `Microsoft.Data.Sqlite`, Npgsql, MongoDB, Cosmos) |
+| `database` | Database drivers and ORMs (for example ADO.NET/`System.Data`, EF Core, Dapper, `Microsoft.Data.Sqlite`, Npgsql, MongoDB, Cosmos), and the clients of hosted search engines (Elasticsearch, OpenSearch, Algolia, Azure AI Search) |
 | `serialization` | (De)serializer calls (for example `System.Text.Json`, Newtonsoft.Json, `XmlSerializer`, DataContract, MessagePack, protobuf, YamlDotNet) |
 | `logging` | Logger calls (for example `Microsoft.Extensions.Logging`, Serilog, NLog, log4net) |
 | `cache` | Calls into an **external** cache API (for example `Microsoft.Extensions.Caching`, StackExchange.Redis, EasyCaching, FusionCache) |
@@ -237,6 +245,8 @@ The rank decides the direction only; the reported violation line prints the prof
 
 The skipped types are named (the first few inline), so a clean result over a mostly skipped solution cannot be read as "mostly clean". The insight also suggests how to fix it: rename the unranked layer to one of the five names or to a name built from their vocabulary, or add namespace-to-layer rules for the unassigned types.
 
+**Same-named types.** A dependency is judged against the type the code actually refers to, not against the first type that happens to share its simple name. Where several candidate types would give different verdicts and the facts do not say which one is meant, the edge is not judged, and the insight names those edges as not judged.
+
 Two **deliberate false negatives** keep the check quiet rather than noisy:
 
 - **Generics:** dependency strings of generic types carry their type arguments (`IRepository<Order>`), while the index key is the bare identifier (`IRepository`) - such edges are not matched.
@@ -264,7 +274,7 @@ The same `.aicb.json` carries the **namespace exclusion list** (`exclusions`, sa
 1. It is **private**.
 2. It has an **analyzed caller list**.
 
-A private method that a framework may call is not judged either: `[RelayCommand]` or other framework attributes, partial methods, markup or designer event handlers, `static Main`, a record's `PrintMembers`, `ShouldSerialize`/`Reset` methods. A `nameof` in a method's attribute (`CanExecute`) counts as a call.
+A private method that a framework may call is not judged either: `[RelayCommand]` or other framework attributes, partial methods, markup or designer event handlers, `static Main`, a record's `PrintMembers`, `ShouldSerialize`/`Reset` methods. This covers any method that carries an attribute a framework may use to call it; the answer names the attributes that withheld verdicts in `frameworkInvokingAttributes`. A `nameof` in an attribute (`CanExecute`) and a reflection lookup by `nameof` (`GetMethod(nameof(M))`) count as a call, and so does a WinUI `{x:Bind}` that calls the method.
 
 The exclusions are counted separately and reported: `methodsIneligibleNotPrivate` (the deliberate policy - public and internal methods have framework escapes such as reflection, DI and event wiring that static analysis cannot see), `methodsIneligibleFrameworkInvoked` (the private methods a framework may call, as above) and `methodsIneligibleUnanalyzedCallers` (private methods whose caller list was not analyzed - the blind spot, for example after unresolved references or for an explicit interface implementation). Merged into one number, you could not tell which arm emptied your scope. Committed `*.Designer.cs` and `*.g.cs` files are read for references but never judged. Test projects are excluded by default (`includeTests` opts in), and `testMethodsFiltered` reports what the filter removed.
 
@@ -274,12 +284,14 @@ The exclusions are counted separately and reported: `methodsIneligibleNotPrivate
 |---|---|
 | Structural | Interfaces; static classes, including `*Extensions` containers |
 | Test scaffolding | Test and fixture types, test paths, runner-activated types |
-| Framework/reflection-activated | Types a framework instantiates by DI, reflection or convention - entry points, MVC controllers, middleware, EF migrations, Blazor pages, types with a non-`System` base or interface, routing/tool attributes, MEF parts (a type with an export attribute such as `[Export]` on itself or on a method, property or field) |
+| Framework/reflection-activated | Types a framework instantiates by DI, reflection or convention - entry points, MVC controllers, middleware, EF migrations, Blazor pages, types with a non-`System` base or interface, routing/tool attributes, MEF parts (a type with an export attribute such as `[Export]` on itself or on a method, property or field), a type with a `[ModuleInitializer]` method or with a method a framework may call through an attribute (named in `typeWithholdingAttributes`), and the polyfills the compiler needs where the project uses the feature (`IsExternalInit`, `RequiredMemberAttribute`, `CompilerFeatureRequiredAttribute`, `ExtensionAttribute`) |
 | Markup-referenced | Types referenced from XAML markup |
 
 The counts are `typesIneligibleStructural`, `typesIneligibleTestScaffolding`, `typesIneligibleFrameworkActivated`, `typesIneligibleMarkupReferenced`; `testTypesFiltered` reports what the test filter removed. When the method axis runs alone and finds nothing, the answer also reports `typesUnexamined` - how many types the type axis would have judged - so a bare "0 dead" is not read as an all-clear.
 
 A type of a project that builds a library and that is visible outside it stays listed but carries `publicApi: true`, and a leading `publicApiNote` explains why: a consumer outside the solution - a package user, another repository - records no edge here. Settle whether the library ships before you delete such a type.
+
+Types that a NuGet package compiles into every project as a content file are withheld from the list with a count (`deadTypesFromPackageContent`) and a note (`packageContentNote`) instead of one row per project. Three further notes say what to check before deleting, and none of them changes a verdict: `solutionAttributesNote` (a withholding attribute the solution declares itself, where AICB cannot tell whether a host reads it), `typeAttributesNote` (listed types that carry a type attribute a host may discover them by) and `conventionNamesNote` (listed types named like Handler, Endpoint or Consumer, which a framework may find by convention). A row names its project whenever another project compiles the same declaration, and rows that would otherwise read alike add `declaringTypeFullName`, `signature` or `fullName`.
 
 > **Note:** caller lists are statically resolved. Reflection, DI containers, serializers and external assemblies stay invisible. Absence of callers is not proof of dead code. Confirm a candidate before deleting it - the answer's leading note names the checks to run.
 
@@ -302,7 +314,7 @@ Both axes are capped at 200 entries; `scope` narrows the query to a namespace pr
 **What counts as a test project.** A project is classified as a test project when either signal holds:
 
 - An explicit `.csproj` marker: an `<IsTestProject>true</IsTestProject>` property or a `Microsoft.NET.Test.Sdk` package reference. This is name-independent and always wins.
-- A project-name rule from the active test profile. The default profile matches any project name containing `Test`, `Tests`, `Spec` or `Specs` (case-insensitive).
+- A project-name rule from the active test profile. The default profile matches any project name containing `Test` or `Tests` (case-insensitive); a name that matches only through `Spec` or `Specs` counts when the project contains test methods. Custom profiles, sidecar rules and an edited default are applied exactly as written.
 
 A multi-targeted instance is matched on its logical name too, so a suffix such as `(net8.0)` does not break a rule.
 
@@ -331,7 +343,7 @@ Attribute names are matched as substrings, case-insensitive, so a custom `[Windo
 | `dispatch-via` | The same, one hop away. |
 | `name` | The test's or its class's name mentions the target - a guess, not evidence of a call. |
 
-The first six tiers are "strong". The evidence reaches two hops at most: the test and one method or constructor it calls, or one property getter it reads. `invokesTotal` counts the strong rows and `dispatchTotal` the contract rows; the rest are name guesses. When a non-empty answer has no strong row at all, a `note` says so, so a full page of name guesses is not read as coverage. Stronger evidence sorts first, so the 50-entry cap can only ever drop the least load-bearing end.
+The first six tiers are "strong". The evidence reaches two hops at most: the test and one method or constructor it calls, or one property getter it reads. A getter read through an interface or base property is listed as a `dispatch-via` row, with a note. `invokesTotal` counts the strong rows and `dispatchTotal` the contract rows; the rest are name guesses. When a non-empty answer has no strong row at all, a `note` says so, so a full page of name guesses is not read as coverage. Stronger evidence sorts first, so the 50-entry cap can only ever drop the least load-bearing end.
 
 Three query targets can all produce the same empty list, and the answer distinguishes them:
 
@@ -339,7 +351,7 @@ Three query targets can all produce the same empty list, and the answer distingu
 - **Type, method, operator, property or field** - what the strong tiers can index (properties and fields through the `accesses` tiers).
 - **Event or enum member** - resolvable for `find_usages` and `impact_of_change`, but only the name tier can match it.
 
-**Coverage gaps.** `coverage_gaps` lists production code without strong test coverage, per scope, capped at 200 entries. It is a **one-hop list, not a coverage measurement**: a method that a test reaches through another method is still listed. Each entry therefore carries `testReachDepth` - the number of hops to the nearest directly tested method. An entry *without* a depth is one no test reaches at all; those are the real gaps to work first. A constructor is a hop of that walk: `new X(...)` reaches the constructor it binds and what that constructor calls, so a method only a constructor calls gets a depth too.
+**Coverage gaps.** `coverage_gaps` lists production code without strong test coverage, per scope, capped at 200 entries. It is a **one-hop list, not a coverage measurement**: a method that a test reaches through another method is still listed. Each entry therefore carries `testReachDepth` - the number of hops to the nearest directly tested method. An entry *without* a depth is one no test reaches at all; those are the real gaps to work first. A constructor is a hop of that walk: `new X(...)` reaches the constructor it binds and what that constructor calls, so a method only a constructor calls gets a depth too. So is a property read: a test that reads a property reaches what its getter calls, also through an interface or base property and through an indexer. An entry whose reach cannot be measured through an accessor is marked `unfollowedAccessor` instead of being counted as untested, and the answer counts such entries in `unfollowedAccessorCallers`. The same rule applies in `find_by_complexity_and_coverage` and the complex-untested insight.
 
 The population is disclosed, so a gap count can be read against its denominator: `judgedUnits` (the non-test, non-abstract methods the list is drawn from) out of `symbolsScanned`, plus `testProjectsExcluded` and `testFixtureTypesExcluded`. Abstract declarations (interface methods without a default implementation, abstract class methods) are excluded - a test covers the implementation, not the declaration. A type that declares a test-attributed method is treated as a test fixture, so its attribute-less `SetUp`, lifecycle and helper members - its constructors and its field and event initializers included - count as test code, not as uncovered production code; this also works for a fixture in a project whose name matches no test rule.
 
@@ -442,12 +454,12 @@ Metrics are computed per method, per type, per namespace and per solution.
 
 | Metric | Meaning |
 |---|---|
-| Efferent coupling (Ce) | Number of distinct referenced types. Framework types are included unless removed by the namespace exclusion list |
+| Efferent coupling (Ce) | Number of distinct referenced types. Framework types are included unless removed by the namespace exclusion list. An anonymous type counts by the types of its members, never by its member names |
 | Afferent coupling (Ca) | Number of types that use this type |
 | Member count | Methods + properties + fields, without constructors |
 | Method count | Number of methods |
 
-> **Note:** the stored afferent-coupling field is empty on live analyses. The live surfaces that show Ca - the quality-gate metric `ca-max`, the `QUALITY_HOTSPOTS` section and the `ca=""` tag attribute - compute the reverse fan-in from the dependency lists instead. The field remains valid for hand-built models and older snapshots.
+> **Note:** the stored afferent-coupling field is empty on live analyses. The live surfaces that show Ca - the quality-gate metric `ca-max`, the `QUALITY_HOTSPOTS` section and the `ca=""` tag attribute - compute the reverse fan-in from the dependency lists instead. The field remains valid for hand-built models and older snapshots. Ca and the exported `USED_BY` lists do not credit a type whose name the compiler bound to an external library type or that matches only in letter case; where several types share a name, a referencing type counts as a certain user wherever its code demonstrably uses one of them.
 
 **Per namespace** - Martin's package metrics, shown in the `QUALITY_HOTSPOTS` section of a context document:
 

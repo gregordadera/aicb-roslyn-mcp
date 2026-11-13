@@ -284,7 +284,7 @@ dotnet build
 2. Tell the session about it: call `refresh_session` (MCP), or load the solution again in the desktop application.
 3. Repeat the query. `get_diagnostics` is the fastest check that the run is now complete: `incompleteProjects` should be empty.
 
-Note: a freshly cloned repository is the most common case. If the solution cannot be built on your machine (a missing targeting pack, for example), the alarm stays - and the answers stay marked as incomplete, which is exactly what the marking is for.
+Note: a freshly cloned repository is the most common case. If the solution cannot be built on your machine (a missing targeting pack, for example), the alarm stays - and the answers stay marked as incomplete, which is exactly what the marking is for. A missing targeting pack is named as such in the project's `cause` in `incompleteProjects`, with the remedy: `dotnet restore`, then `refresh_session(force: true)`. A project the solution itself never builds needs the restore of its own project file; its `cause` names the exact `dotnet restore "<project file>"` command.
 
 Note: a solution that defines no `Any CPU` platform can stay incomplete after a build for another reason: the design-time build ran at a platform the build did not write. `get_diagnostics` names the platform used in its `designTimeBuildPlatform` field; set `designTimeBuildPlatform` in the solution's `.aicb.json` to the platform you build at, then call `refresh_session(force: true)` (see "The build platform").
 
@@ -292,6 +292,10 @@ Note: two further causes leave errors about names that do not exist, and `get_di
 
 - **A git submodule that was never initialized.** Its folder is empty, so the sources a project's build files name inside it are missing from the compilation, and neither a restore nor a build brings them. `uninitializedSubmodules` lists each such submodule in its `submodules` list (`path`, the `projects` that reach into it, their `unresolvedNameErrors`), and its `note` gives the repair: in the repository root run `git submodule update --init <paths>`, then `refresh_session(force: true)`.
 - **A compile item without a file.** A project lists a file that does not exist on disk - typically one a pre-build step or a code generator writes, which did not run before the analysis. `missingCompileItems` names the project file, the missing files and the errors in that project. Run the step that writes the files, then `refresh_session(force: true)`; if nothing writes them, the project lists a file that does not exist.
+
+Further error clusters `get_diagnostics` explains in their own blocks: errors that come only from projects the solution's default build configuration never builds (`notBuiltBySolution` on the items, `projectsNotBuiltBySolution` with the counts, so you can compare with what `dotnet build` of the solution reports), F# or Visual Basic and C++ project references that were never built (`unloadedProjectReferences`, with the build command), a `.resx` file without its generated class (`resourcesWithoutGeneratedClass`), a project that uses a C# version newer than the analyzer's compiler (`languageVersionGap`), and referenced projects that compiled empty (`referencedProjectsWithoutCode`).
+
+Note: a load refused because a `global.json` pins an SDK that is not installed names the pin, the installed SDKs of the dotnet the build uses, and the `rollForward` value that would admit one.
 
 ### What `incompleteProjects` means for a number
 

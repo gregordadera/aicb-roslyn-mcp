@@ -15,6 +15,7 @@ aicb <verb> [options]
 | Verb | Purpose |
 |---|---|
 | `init` | Wire `aicb` into a project for an MCP client: the `.mcp.json` server entry, the agent skills and the symbol guard. |
+| `skills sync` | Bring the project's aicb agent skill files in step with the tools its aicb server serves. |
 | `analyze` | Run the Roslyn analysis on a solution and write the context document. |
 | `export` | Re-render the context document from an existing session database, without a new analysis. |
 | `import` | Import a constellation JSON (templates, presets, profiles, app settings) into a database. |
@@ -45,6 +46,7 @@ The same convention applies to every verb, and it is the interface a script shou
 | Verb | Codes you can receive |
 |---|---|
 | `init` | `0`, `1` |
+| `skills sync` | `0`, `1` |
 | `analyze` | `0` - `6` |
 | `export` | `0`, `1`, `2`, `3`, `4` |
 | `import` | `0`, `1`, `2`, `3`, `4` |
@@ -56,13 +58,13 @@ The same convention applies to every verb, and it is the interface a script shou
 
 ## 9.3 `aicb init`
 
-Wires `aicb` into a project directory so that an MCP client can find it. It writes three kinds of artifact: the `.mcp.json` server entry, the agent skills under `.claude/skills/`, and the symbol guard together with the harness configuration that loads it. No database, no Roslyn and no MSBuild are involved - this is the step before any of that.
+Wires `aicb` into a project directory so that an MCP client can find it. It writes three kinds of artifact: the `.mcp.json` server entry, the agent skills under `.claude/skills/`, and the symbol guard together with the harness configuration that loads it - for Claude Code also a `SessionStart` hook that keeps the aicb skill files in step. No Roslyn and no MSBuild are involved - this is the step before any of that. The configuration database is only read, for the MCP profile the skills are written for; it is never created (resolving its path creates `app-settings.json` when there is none, as every `aicb` start does).
 
 | Option | Values | Default | Meaning |
 |---|---|---|---|
 | `--path <dir>` | directory | current directory | The project directory to wire up. |
-| `--force` | flag | off | Overwrite artifacts that are already there. Without it, an existing `aicb` entry or skill file is left untouched, which is what makes re-running safe. |
-| `--skills <context\|all>` | `context` or `all` | `context` | Which agent skills to write. `context` writes the aicb-csharp-context skill only; `all` adds the aicb-code-review and aicb-code-simplifier review pair plus aicb-usage-check. |
+| `--force` | flag | off | Overwrite artifacts that are already there. Without it, an existing `aicb` entry or skill file is left untouched, which is what makes re-running safe. For a skill file, `--force` takes over a hand-written copy the way `aicb skills sync --adopt` does. |
+| `--skills <context\|all>` | `context` or `all` | `context` | Which agent skills to write. `context` writes the aicb-csharp-context skill only; `all` adds the aicb-code-review and aicb-code-simplifier review pair plus aicb-usage-check and aicb-smoke-test. |
 | `--hooks <auto\|none\|all\|claude-code\|codex\|opencode>` | one of the listed values | `auto` | Which agent harnesses get the symbol guard. `auto` installs it for the harnesses already used in this project. |
 
 Example:
@@ -80,6 +82,9 @@ Behavior:
 - When `--hooks auto` finds no harness marker in the project, no guard is installed, the server is registered in `.mcp.json` only, and the command says so explicitly, together with the way to wire a harness anyway (`--hooks claude-code|codex|opencode`, or `--hooks all`).
 - Once a guard is installed it *blocks*: a C# symbol search is refused and redirected to the aicb tools. The output names, per harness, the wiring file whose `aicb` entry removes the guard again. `--hooks none` writes no enforcement on the next run; it does **not** remove an installation that is already there.
 - Skills are written to `.claude/skills/`. For Codex and OpenCode - detected, or named with `--hooks` - they are also written to `.agents/skills/`, and the server is registered in `.codex/config.toml` or `opencode.json`, because neither reads the shared `.mcp.json`. `--hooks none` skips only the guard; this registration still happens.
+- The skills are written through the same sync as `aicb skills sync`: for the tools the project's server would serve, with a paragraph or table row that names a withheld tool left out, and a skill whose required tool is withheld not written. When that profile cannot be determined (an unresolvable pin, an unreadable configuration database), a warning says so, a missing skill is written unfiltered, and skills aicb already wrote are kept.
+- Where the guard is installed for Claude Code, its harness wiring is joined by the hook file `.claude/hooks/aicb-skill-sync.mjs` and a `SessionStart` entry (matcher `startup`) in `.claude/settings.json`. At each session start it runs `aicb skills sync --auto` and asks Claude Code to reload the skills. Codex and OpenCode get no such hook. A project wired before this hook existed gets it by running `aicb init` (or `install_agent_hooks`) once more.
+- In your home directory, or in a drive root without `.git`, only `.mcp.json` is written. Every other artifact there would be the user-wide file of its harness (or would reach every project on the drive), so those rows are `refused` with the reason and `init` returns `1`. A drive root that holds `.git` is a repository and is written like any project.
 - After writing `.codex/config.toml` the output says that Codex reads it only in a project you have trusted in Codex.
 - The Codex entry carries `tool_timeout_sec = 300`: Codex gives up on a tool call after 60 seconds by default, and the first call on a large solution analyzes it, which can take longer. An `aicb` entry that is already there is left as it is; `aicb init --force` rewrites it with the line, or add the line by hand.
 - If more than one `aicb` installation is found, a warning lists them: every MCP client starts the *first* one on the search path, so updating another one changes nothing a client runs. The warning names how to remove the extra installation.
@@ -91,7 +96,37 @@ Note: the harness detection on `auto` is deliberately conservative. A `CLAUDE.md
 
 The concepts behind these artifacts - what the symbol guard does, how the MCP client is wired, and how to remove it - are described in the MCP manual.
 
-## 9.4 `aicb analyze`
+## 9.4 `aicb skills sync`
+
+Brings the aicb agent skill files of a project in step with the tools its aicb server serves. The served tools are read from the project's `.mcp.json` aicb entry (its `--mcp-profile` pin, its `--db-path` and `AICB_MCP_TOOLS`), otherwise from the active MCP profile. A skill paragraph or table row that names a tool the profile withholds is left out, and a skill whose required tool is withheld is not written. No server is started and no solution is opened.
+
+| Option | Values | Default | Meaning |
+|---|---|---|---|
+| `--project <dir>` | directory | the project holding the current directory | The project to sync. Without it, the project is the nearest directory upward that holds `.git` or `.claude`, below your home directory. |
+| `--adopt` | flag | off | Take over skill files that are not in sync form: a hand-written copy without the aicb marker (for example one an older `aicb init` wrote) is replaced, and an edit inside the aicb part is overwritten. Your notes below the `aicb:user` line are kept. |
+| `--auto` | flag | off | Run as an automatic caller - this is what the Claude Code `SessionStart` hook runs. Cannot be combined with `--adopt`. |
+
+Example:
+
+```sh
+cd C:\repo\MyApp
+aicb skills sync
+```
+
+Behavior:
+
+- An aicb-written skill file has two parts: the aicb part, between an `aicb:begin` and an `aicb:end` marker, and your part below the `aicb:user` line. A sync rewrites only the aicb part and keeps your part byte for byte.
+- A skill file without the aicb marker is yours: it is left alone and reported (`kept`), with the hint that `--adopt` takes it over. A file edited inside the aicb part is left alone and reported the same way; move the edit below the `aicb:user` line, or pass `--adopt`.
+- A missing default skill is created. An aicb-written skill file that nobody edited and that holds no notes of yours is removed when the served tools no longer include one the skill requires; a file with your own text is kept.
+- Each file is reported as one line: `in sync`, `created`, `rewritten`, `adopted`, `removed`, `outdated` (a change a sync would make but this one did not), `kept`, `skipped` or `failed`, followed by its path and a short detail. When something changed, the last line says that the change takes effect at the next agent start.
+- It writes even when automatic skill sync is switched off in the desktop app's settings (`Keep agent skill files in sync`); that switch governs only the automatic callers.
+- With `--auto`, only files aicb wrote under `.claude/skills/` are rewritten; nothing is created or removed. It writes nothing, and exits `0`, when automatic skill sync is off, the project's `.mcp.json` has no aicb entry, or that entry starts another command than this `aicb`.
+- Without a project root (no `.git` or `.claude` above the current directory), or in your home directory or a drive root without `.git`, nothing is written; name the project with `--project`.
+- When the configuration database cannot be read, nothing is written: the lines say what a sync against the default profile would do, and the command returns `1`. It also returns `1` when a pin names a profile the server would refuse, or when a file could not be written.
+
+`server_info` shows, per project of the analyzed sessions, whether the aicb skills match the served profile (a `SKILL:` line).
+
+## 9.5 `aicb analyze`
 
 Runs the Roslyn analysis on a solution and writes the context Markdown. Optionally it reuses a stored snapshot instead of analyzing again, writes a snapshot itself, renders through a run template, and enforces a quality gate.
 
@@ -203,7 +238,7 @@ quality gate failed: debt>500 (--fail-on "critical>0 AND warning>10 OR debt>500"
 
 The profiles the gate uses are resolved, not hard-coded: in the CLI/headless graph the active MCP profile's `TemplateId` is considered first, followed by that context template's quality-profile slot, the application setting, and the built-in default. The layer profile follows the precedence above, and the test profile is the one active in the database. Without a database, or on any failure to read one, the gate safely falls back to the built-in defaults and stays functional.
 
-## 9.5 `aicb export`
+## 9.6 `aicb export`
 
 Re-renders the context document from a persisted session database, **without** running Roslyn. No MSBuild bootstrap is involved, so exit code `5` is unreachable here.
 
@@ -236,7 +271,7 @@ Projects: 12
 Wrote context MD: C:\out\app-context.md
 ```
 
-## 9.6 `aicb import`
+## 9.7 `aicb import`
 
 Imports a constellation JSON - a bundle of templates, presets, profiles and app-settings keys - into a target SQLite database. Three phases: read, preview, apply. No Roslyn and no MSBuild.
 
@@ -266,7 +301,7 @@ Behavior:
 - A file whose preview finds a problem - a tag schema field whose source path is not allowed, an item without an id, an app-settings key that is not allowed or does not convert - is refused before anything is written: the error ends with `The preview found N problem(s) in the file, so nothing was imported. Fix them and import the file again.`
 - Past the preview the import is **not transactional**. An item that still fails when it is saved is named in a warning, the warnings end by saying how many items were written and stay written, and the exit code becomes `2` so that a script can detect a partial import. A fully successful import prints `Imported into <path>: applied=<n>, skipped=<n>, app-settings-keys=<n>.`
 
-## 9.7 `aicb list`
+## 9.8 `aicb list`
 
 Lists built-in and custom master data. This verb is read-only; there is no verb that creates, changes or deletes master data.
 
@@ -310,7 +345,7 @@ Behavior:
 - `--json` prints a JSON array of objects with the keys `Id`, `Name`, `IsBuiltIn`, `IsOverridden` and `IsHidden`.
 - An unknown kind is exit `1` and prints the full list of valid kinds.
 
-## 9.8 `aicb mcp`
+## 9.9 `aicb mcp`
 
 Starts the MCP server: Model Context Protocol over stdio JSON-RPC, for Claude Code, Cursor, Cline and other MCP clients. The server concepts - profiles, tool pools, sessions and the agent artifacts - are described in the MCP manual; this section covers the command's options and runtime behavior.
 
@@ -331,15 +366,16 @@ Behavior:
 - Without `--db-path`, the standard configuration database - the same one the desktop application uses, `%APPDATA%\AIContextBuilder\user-data\aicb.acb` - is resolved and, on first start, created and migrated. Which database is in effect is always announced on standard error, never silently. If that resolution fails, the server warns and starts without a profile.
 - An explicitly given `--db-path` that does not exist is a **warning**, not a silent creation: a typo must not produce a new database. An automatically resolved standard database *is* created on first start.
 - A failed schema migration is a warning, and the server starts without a profile.
-- `--mcp-profile` is the one rule of this verb that does not fail open. An unknown or hidden profile id, a missing configuration database or file, or a failed migration makes the server **refuse to start** with exit `1`, listing the valid ids on standard error. Serving a different profile than the operator asked for - silently, over stdio, where nobody reads a warning - is the failure this prevents. The pin is process-local and writes nothing back: a second server or the desktop application keeps its own active profile.
+- `--mcp-profile` is the one rule of this verb that does not fail open. An unknown id, a hidden custom profile, a missing configuration database or file, or a failed migration makes the server **refuse to start** with exit `1`, listing the valid ids on standard error. Serving a different profile than the operator asked for - silently, over stdio, where nobody reads a warning - is the failure this prevents. A built-in profile that was deleted (hidden) in the desktop app is the exception: the server starts on it and prints how to restore it (`Show hidden`, then `Restore Built-In` on the `MCP Profiles` page). The pin is process-local and writes nothing back: a second server or the desktop application keeps its own active profile.
 - On a successful profile resolution, the server reports on standard error which profile it serves, whether it was pinned, the effective tool set and whether a skill is attached.
 - A failure to register MSBuild is not fatal: a warning is printed, `analyze_solution` and `refresh_session` will fail, and the remaining tools stay usable.
 - The server watches two kinds of drift: a configuration drift (a profile edited in the desktop application while this server runs is detected and reported on `server_info`; restart or reconnect the server to load it) and a version drift (this binary compared against the database it read, reported on `server_info`).
-- Every MCP tool call is recorded in the `tool_calls` table of the configuration database, fail-open. A server started without a database records nothing.
+- Every MCP tool call is recorded in the `tool_calls` table of the configuration database, fail-open. A server started without a database records nothing, and neither does a server started while `Record MCP tool usage` is switched off in the desktop app's settings.
+- After the first session of the project the server was started in, it rewrites the aicb-marked skill files of that project for the tools it serves, once per process: only in the skill folder of the calling client's harness (`.claude/skills/` for Claude Code, `.agents/skills/` for Codex and OpenCode), only files aicb wrote, and it creates and removes none. A solution opened by path from another project is left alone, and with `Keep agent skill files in sync` switched off nothing is written.
 - The server has **no** `--solution` option: the solution comes with each tool call, and a `.sln` path passed to a session-taking tool initializes the session on first use.
 - One binary serves both current MCP protocol revisions over stdio: `2026-07-28` via `server/discover` (stateless) and `2025-11-25` via the `initialize` handshake. Only stdio is supported - there is no HTTP or SSE transport, so session headers, resumability and OAuth of the newer revision do not apply here.
 
-## 9.9 `aicb call`
+## 9.10 `aicb call`
 
 Invokes **one** MCP tool exactly once and prints its result. No server, no client, no JSON-RPC handshake. This is useful for validating a tool live after an update, and as a plain shell one-liner.
 
@@ -367,11 +403,12 @@ Behavior:
 - Numbers are read with the invariant culture: `.` is the decimal separator, not `,`. A value such as `0,6` is rejected with a message that names the cause and the fix.
 - Dispatch is generic over the registered MCP tools, so a tool that was just added is callable as soon as it ships, and **every** tool is reachable - including tools outside the default profile's pool and tools that write, such as `install_agent_hooks`. This is the one place where the profile's tool selection does not restrict you; use it deliberately.
 - `--db-path` applies the same configuration as `aicb mcp --db-path`, so database-defaulting tools and the self-init pick up the per-solution configuration of the desktop application.
+- The result carries the same session-wide notes as an MCP server answer: the staleness trailer, `NOTHING TO ANALYSE` (`nothingToAnalyse`) and the configuration-database note. A note that an answer cannot take goes to standard error.
 - Standard output carries the tool result, so it can be piped or redirected; diagnostics go to standard error.
 - An unknown tool or a missing or invalid argument is reported as the tool's own message, exit `1`. Any other unexpected failure is exit `2`.
 - A failure to register MSBuild is only a warning; tools that need no solution still run.
 
-## 9.10 Environment variables
+## 9.11 Environment variables
 
 The following variables are read by the shipped product. Set them for the process that starts the server; they do not persist anywhere.
 
@@ -414,7 +451,7 @@ All fields are optional; a field that is not set means "no override". Precedence
 - The file is read fail-open: if it is missing, unreadable or malformed, the server starts on the built-in defaults and logs a warning. That warning is the only thing that distinguishes a broken file from a missing one, so check the server's standard error if a setting appears to have no effect.
 - Parsing is case-insensitive and tolerates comments and trailing commas, because the file is written by hand.
 
-## 9.11 Typical headless workflows
+## 9.12 Typical headless workflows
 
 ### Analyze a solution
 

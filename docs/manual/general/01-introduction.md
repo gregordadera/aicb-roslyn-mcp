@@ -72,11 +72,12 @@ The desktop app is where you load a solution, browse it in a tree, and read the 
 dotnet tool install -g aicb-roslyn-mcp
 ```
 
-It has seven verbs:
+It has eight verbs:
 
 | Verb | What it does |
 |---|---|
-| `aicb init` | Wires AICB into this project for an MCP client: adds the `aicb` entry to `.mcp.json`, writes the agent skill to `.claude/skills/`, and installs the symbol guard for the agent harnesses the project uses. Existing files are kept unless you pass `--force`. |
+| `aicb init` | Wires AICB into this project for an MCP client: adds the `aicb` entry to `.mcp.json`, writes the agent skill to `.claude/skills/`, and installs the symbol guard for the agent harnesses the project uses (for Claude Code also a session-start hook that keeps the aicb skill files in step). Existing files are kept unless you pass `--force`. |
+| `aicb skills sync` | Rewrites the aicb part of the project's agent skill files for the tools its aicb server serves, and keeps your own notes below it. |
 | `aicb analyze` | Runs Roslyn analysis on a solution and emits context Markdown. |
 | `aicb export` | Re-renders Markdown from an existing session database, without a Roslyn re-run. |
 | `aicb import` | Imports a constellation JSON into a target database (templates, presets, constellations). |
@@ -90,7 +91,7 @@ Run `aicb <command> --help` for the options of a verb.
 
 `aicb mcp` starts an MCP (Model Context Protocol) server over stdio JSON-RPC. It is a verb of the same `aicb` command, not a separate program: installing the CLI installs the server.
 
-By default the server exposes a lean pool of 54 tools covering all nine task facets - General, Exploration, Refactoring, Debugging, Review, Testing, Documentation, Architecture and Performance. The unnarrowed pool of 72 tools is one profile switch away: `--mcp-profile mcp-profile/full` at the command line, or the "Full Select" profile in the desktop app. The environment variable `AICB_MCP_TOOLS` is an operator override; `AICB_MCP_TOOLS=all` exposes every tool the assembly registers, including the opt-in infrastructure tools. One binary serves both current MCP protocol revisions over stdio - the `2025-11-25` handshake and the `2026-07-28` stateless entry point - so clients on either revision connect.
+By default the server exposes a lean pool of 54 tools covering all nine task facets - General, Exploration, Refactoring, Debugging, Review, Testing, Documentation, Architecture and Performance. The unnarrowed pool of 72 tools is one profile switch away: `--mcp-profile mcp-profile/full` at the command line, or the "Full Select" profile in the desktop app. For a model whose context window makes every tool definition expensive, the built-in profile "Local" serves 30 of the most-used tools with compact descriptions (`--mcp-profile mcp-profile/local`). The environment variable `AICB_MCP_TOOLS` is an operator override; `AICB_MCP_TOOLS=all` exposes every tool the assembly registers, including the opt-in infrastructure tools. One binary serves both current MCP protocol revisions over stdio - the `2025-11-25` handshake and the `2026-07-28` stateless entry point - so clients on either revision connect.
 
 Most tools need an analyzed solution. Every tool that takes a session also accepts the absolute path to a `.sln`, `.slnx` or `.slnf` file directly and analyzes it on first use, so a client can start asking without a preparation step.
 
@@ -101,7 +102,7 @@ With `--db-path` the server reads the per-solution configuration and the active 
 - **One engine.** The desktop app, the command line and the MCP server share the same Roslyn analysis and the same render path. A run template you create in the desktop app can drive a headless export with `aicb analyze --run-template` or `aicb export --run-template`.
 - **The MCP server is a verb of the CLI.** There is no separate server executable, and no separate server installation.
 - **The desktop app and the MCP server share one configuration database by default** - on Windows `%APPDATA%\AIContextBuilder\user-data\aicb.acb`, elsewhere under the platform's application-data folder. MCP profiles, per-solution namespace exclusions, the test-detection profile and the layer profile are edited in the desktop app and read by the server. The sharing is per machine, not per team.
-- **`aicb init` wires a project for a client.** It adds the `aicb` entry to `.mcp.json`, writes the agent skill to `.claude/skills/`, and installs the symbol guard into the agent harness the project uses. For Codex and OpenCode, which do not read `.mcp.json`, it also registers the server in `.codex/config.toml` or `opencode.json` and writes the skill to `.agents/skills/`. It never overwrites an existing file unless you pass `--force`, so re-running is safe; `aicb init --hooks none` installs no guard, and `--hooks` also accepts `auto` (the default), `all`, or one of `claude-code`, `codex` and `opencode`. The guard is not a hint: it refuses a C# symbol search aimed at a type or member name and points at the AICB tool that answers it. One step stays with you, and `aicb init` names it in its output: Codex reads a project's `.codex/config.toml` only once you have trusted that project in Codex.
+- **`aicb init` wires a project for a client.** It adds the `aicb` entry to `.mcp.json`, writes the agent skill to `.claude/skills/`, and installs the symbol guard into the agent harness the project uses. For Codex and OpenCode, which do not read `.mcp.json`, it also registers the server in `.codex/config.toml` or `opencode.json` and writes the skill to `.agents/skills/`. It never overwrites an existing file unless you pass `--force`, so re-running is safe. The skills are written for the tools the project's server serves, the same way `aicb skills sync` writes them. Run in your home directory or in a drive root without `.git`, it writes only `.mcp.json` and refuses the rest, because a skill, setting or hook file there would reach every project. `aicb init --hooks none` installs no guard, and `--hooks` also accepts `auto` (the default), `all`, or one of `claude-code`, `codex` and `opencode`. The guard is not a hint: it refuses a C# symbol search aimed at a type or member name and points at the AICB tool that answers it. One step stays with you, and `aicb init` names it in its output: Codex reads a project's `.codex/config.toml` only once you have trusted that project in Codex.
 - **`aicb call` invokes exactly one MCP tool** - in-process, without a server or a client - and prints the result. It applies no profile filter: it can reach any registered tool, including tools outside the active pool and tools that write configuration. Use it deliberately.
 
 ## 1.5 How AICB differs from text search
@@ -147,7 +148,7 @@ AICB is deliberately narrow. Knowing the limits saves time:
 
 | Limit | What it means |
 |---|---|
-| C#/.NET only | Roslyn is the foundation. C# and .NET projects are understood; XAML/AXAML markup is read for bindings and resources. Other languages are out of scope. |
+| C#/.NET only | Roslyn is the foundation. C# and .NET projects are understood; XAML/AXAML markup is read for bindings and resources. Other languages are out of scope: Visual Basic and F# projects in a solution are not analyzed, and the answers say so (`NOT ANALYSED`, or `NOTHING TO ANALYSE` for a solution without any C# project). |
 | Windows-only desktop app | The `aicb` command line and the MCP server run on Windows, Linux and macOS. The desktop app runs on Windows only. |
 | stdio only | The MCP server speaks stdio JSON-RPC. There is no HTTP/SSE transport. |
 | No multi-user state | The configuration database is a local SQLite file on your machine. Apart from client-wiring files created by `aicb init` (such as `.mcp.json` and agent-specific hook or settings files), the only AICB analysis/configuration artifact intended to travel with your repository is the git-tracked `<Solution>.aicb.json` sidecar next to the `.sln`; it carries configuration, not results. |
@@ -157,7 +158,7 @@ AICB is deliberately narrow. Knowing the limits saves time:
 | No fuzzy search | `find_symbol` matches case-insensitively by substring. A typo returns no hits; a `nearest` suggestion names the closest declared symbol. |
 | Diagnostics are not cached | `get_diagnostics` compiles on every call. Its `scope` parameter makes the answer smaller, not the work. |
 | No outbound network in headless surfaces | The CLI and the MCP server have no outbound network capability at all. The desktop app can contact only an LLM endpoint you configure: for a run, a model-profile connection test, or the first-load Layer Profile / Exclude Namespaces proposal when those auto-init flags are armed. |
-| A local call log | The MCP server records the tool calls it handles in your configuration database - that is what `usage_report` and the desktop app's usage panel read. The log stays on your machine and nothing is transmitted. |
+| A local call log | The MCP server records the tool calls it handles in your configuration database - that is what `usage_report` and the desktop app's usage panel read. The log stays on your machine and nothing is transmitted. It can be switched off with `Record MCP tool usage` in the desktop app's settings. |
 
 Note: opening a solution runs its MSBuild build logic to resolve references, and building its compilation runs the source generators its projects reference - exactly as Visual Studio or `dotnet build` does. Analyze only solutions you trust.
 

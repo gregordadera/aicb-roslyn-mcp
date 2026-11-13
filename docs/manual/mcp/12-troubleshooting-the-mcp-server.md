@@ -69,7 +69,9 @@ Two limits are worth knowing:
 Tool '<name>' is not in the active profile - call list_mcp_profiles to see the profiles and their tools, then restart the server with 'aicb mcp --mcp-profile <id>' to run under a different one.
 ```
 
-**Cause.** The exposed tool set is decided by an MCP profile. The Default profile serves 54 of the 82 registered tools, while `Full Select` serves the 72-tool lean core. The remaining routes are explicit: `compare_public_api` needs the `api-surface` bundle (or an override), and nine uncatalogued session/memory/database tools are reachable only through `AICB_MCP_TOOLS`.
+Under a profile that does not serve `list_mcp_profiles` (the built-in `Local`, for example), the message leaves that pointer out: `Tool '<name>' is not in the active profile - restart the server with 'aicb mcp --mcp-profile <id>' to run under a different one.`
+
+**Cause.** The exposed tool set is decided by an MCP profile. The Default profile serves 54 of the 82 registered tools, `Full Select` serves the 72-tool lean core, and `Local` serves 30. The remaining routes are explicit: `compare_public_api` needs the `api-surface` bundle (or an override), and nine uncatalogued session/memory/database tools are reachable only through `AICB_MCP_TOOLS`.
 
 **Solution.**
 
@@ -90,6 +92,8 @@ MCP profiles require a config DB. Start the server with: aicb mcp --db-path <db>
 ```
 '<tool>' IS read-only and dispatchable, but it is NOT in the active profile: <batch|measure> sub-queries follow the same active pool as tools/call, so a narrowed profile is narrowed here too (a direct call is refused by the same rule). Run list_mcp_profiles to see the profiles and their tools, then restart the server with 'aicb mcp --mcp-profile <id>' - or widen AICB_MCP_TOOLS - to expose it.
 ```
+
+As in the direct refusal, the `list_mcp_profiles` sentence appears only where the profile serves that tool, and the `batch` hint that suggests sizing an answer with `measure` first appears only where `measure` is served.
 
 **Note.** A blocked call attempt is still recorded in the usage telemetry, so `usage_report` can show that an agent reached for a tool the profile did not expose.
 
@@ -210,7 +214,10 @@ At most 5 project names are spelled out; the rest is summarized as `and <k> more
 Nothing was scanned - the scope matched no unit: a mistyped or too-deep namespace prefix, or a scope holding only test projects while includeTests is false. This zero is not a finding about any code.
 ```
 
-**What to do.** Restore and build the solution, then call `refresh_session` with `force: true` and re-run the query. `get_diagnostics` shows which projects are incomplete and how many diagnostics they took with them.
+**What to do.** Restore and build the solution, then call `refresh_session` with `force: true` and re-run the query. `get_diagnostics` shows which projects are incomplete, how many diagnostics they took with them and, where it can tell, the cause. Two causes are worth knowing:
+
+- **A project the solution itself does not build.** A restore of the solution skips it, so the alarm and `get_diagnostics` name the restore that works instead - `dotnet restore "<project file>"` - and the alarm names the same unrestored projects as `get_diagnostics`.
+- **A missing targeting pack.** A project whose .NET, ASP.NET Core, Windows Desktop or netstandard2.1 targeting pack is missing is reported as incomplete with the pack named, not with thousands of ordinary compile errors. The remedy is `dotnet restore`, then `refresh_session(force: true)`; the build cache does not keep such a build, so the repair takes effect.
 
 ## 12.8 "Unknown session" and other session-resolution failures
 
@@ -323,6 +330,8 @@ There are four further outcomes, and none of them is a warning:
 
 The analyzer drift line is silent without an analyzed session, on a repository that does not know this commit (any foreign solution), and whenever the binary has no commit id. It therefore stays silent in the public release builds that deliberately omit the commit.
 
+Two further lines can follow the drift signals. `SETTINGS DRIFT` says that **Record MCP tool usage** was switched in the desktop app's settings after this server started; restart or reconnect the server to apply it. `SKILL:` lines say, per analyzed project that holds aicb skill files, whether those skills match the tools this server serves, and name `aicb skills sync` (or `--adopt`) where they do not. Both are described under "Telling whether the server still matches your configuration".
+
 ### `get_diagnostics` - the fast pre-build check
 
 `get_diagnostics` reports the compiler errors, warnings and info messages of the session's solution - the real Roslyn build output, in seconds instead of a full `dotnet build`. It is the tool to run after `refresh_session` when you want to know whether an edit broke the build.
@@ -333,7 +342,8 @@ The analyzer drift line is silent without an analyzed session, on a repository t
 - **Read the counts with their rules.** `incompleteRatio` and `suppressedDiagnosticsTotal` appear whenever even one project is incomplete. `suppressedDiagnosticsTotal` spans every severity and is not deduplicated, while `errorCount` counts errors only and is deduplicated across target frameworks - a total that dwarfs the visible counts means this measured a fraction of the solution.
 - **Cascade diagnostics.** A project that resolves its own references but depends on an incomplete project can list `CS0012`, `CS0234`, `CS0246` or `CS0518` although it compiles fine on a real build. Such entries stay listed but are marked `cascadeFromIncomplete: true`, the response counts them as `cascadeClassifiedCount`, and each incomplete project names its `affectedDependents`. Do not read `errorCount` as "N real errors" without this.
 - **Reference-binding advisories.** `CS1701`/`CS1702` ("assuming assembly reference X v1 matches X v2") are filtered out on core-resolved projects and disclosed as `referenceBindingAdvisoriesSuppressed`.
-- **Restore and platform.** `unrestoredProjects` lists projects whose unresolved-name errors come with no restore output (`project.assets.json`), and its note names `dotnet restore` (or `dotnet workload restore`). `uninitializedSubmodules` names git submodules that were never initialized although the build files of a project with unresolved type or namespace names point into them - no restore or build brings those sources. `missingCompileItems` names compile items a project with errors in the answer lists without a file on disk, typically the output of a build step that did not run. `generatedCodeGaps` names code a generator or the WPF markup compiler did not write. `designTimeBuildPlatform` reports the platform decision where there is one: the platform a solution was loaded at, or why no single platform could be chosen, and a refused sidecar value.
+- **Causes named apart.** An incomplete project's `cause` names its remedy (a missing targeting pack, or the `dotnet restore "<project file>"` for a project the solution never builds). `projectsWithoutCode` lists projects without code of their own, which no longer count as incomplete; `projectsNotBuiltBySolution` (with `notBuiltBySolution: true` on the items) the errors a build of the solution never reports; `referencedProjectsWithoutCode` referenced projects that compiled empty; `unloadedProjectReferences` unbuilt F# or Visual Basic and C++ project references; `resourcesWithoutGeneratedClass` errors on a `.resx` class that was never generated; and `languageVersionGap` code that uses a C# version newer than the analyzer's compiler.
+- **Restore and platform.** `unrestoredProjects` lists projects whose unresolved-name errors come with no restore output (`project.assets.json`), or with one that lacks the project's target framework (`missingTarget`), and its note names `dotnet restore` (or `dotnet workload restore`); `restoreCommand` names the restore that works for a project the solution does not build. `uninitializedSubmodules` names git submodules that were never initialized although the build files of a project with unresolved type or namespace names point into them - no restore or build brings those sources. `missingCompileItems` names compile items a project with errors in the answer lists without a file on disk, typically the output of a build step that did not run. `generatedCodeGaps` names code a generator or the WPF markup compiler did not write. `designTimeBuildPlatform` reports the platform decision where there is one: the platform a solution was loaded at, or why no single platform could be chosen, and a refused sidecar value.
 - **Live only.** Diagnostics are not persisted, so this needs a live session. A recalled session is rejected; use `refresh_remembered` for a live one. The list is capped at 200; the counts reflect the full set.
 - **Compiler diagnostics only.** Third-party Roslyn analyzer diagnostics are out of scope; `suppressors` names the analyzer references whose DiagnosticSuppressors did not run where the answer counts a diagnostic, and `runSuppressors: true` runs them.
 
@@ -363,6 +373,8 @@ Several fields answer specific questions:
 - `facets` - how often each task facet was addressed. It is omitted until a call has addressed one.
 - `poolCoverage` - `poolSize`, `poolToolsFired`, `poolToolsNeverCalled`, `outOfPoolCallsIncluded` and `outOfPoolTools`. Read coverage here, **not** from `distinctTools`: that figure counts every tool ever called, including tools outside the current pool and tools from earlier pools, so holding it against the pool size overstates coverage. And a name in `poolToolsNeverCalled` was never called **top-level**, which is not the same as never called.
 
+**When recording is switched off** in the desktop app's settings (`Record MCP tool usage`), the answer carries `recording: "off"` and its note says that the figures stop at the last recorded call.
+
 **When telemetry is unavailable**, the answer is `available=false` with the note:
 
 ```
@@ -376,7 +388,7 @@ No telemetry available - the server is running DB-free, or the tool_calls table 
 - `list_skills` is the capability map: every tool appears once in the pool groups (`inPool` or `outOfPool`). `uncatalogued` is a separate name-based section, not a third pool group; its tools can still be in either pool under an override. No profile menu names them, so only `AICB_MCP_TOOLS` can expose them.
 - `list_mcp_profiles` lists the profiles, their ids, their tool selections and which one is active. It needs a config DB (see above).
 - `docs()` is the server's built-in operating manual, with pages for installation, first context, tool navigation, solution configuration and the glossary.
-- `aicb call <tool>` invokes one MCP tool once from a terminal, without a client - useful to reproduce what an agent reported. Example: `aicb call server_info`. It writes to the usage telemetry only when it is given `--db-path` (under the client name `aicb-call`); without one it records nothing. Long analyses print progress to stderr as `progress: ...`, so stdout stays clean for the result.
+- `aicb call <tool>` invokes one MCP tool once from a terminal, without a client - useful to reproduce what an agent reported. Example: `aicb call server_info`. It writes to the usage telemetry only when it is given `--db-path` (under the client name `aicb-call`) and recording is not switched off; without one it records nothing. Its answers carry the same session-wide notes as the server's: the staleness disclosure, `nothingToAnalyse` and the configuration-database note. Long analyses print progress to stderr as `progress: ...`, so stdout stays clean for the result.
 
 ## 12.12 What the server writes to stderr at startup
 
@@ -391,8 +403,9 @@ These lines land in your MCP client's stderr log. The server also prints a tool-
 | `warning: --db-path schema migration failed (<reason>); starting without a profile.` | The database exists but cannot be migrated. |
 | `warning: MCP profile resolution failed (<reason>); starting without a profile.` | The profile could not be read. |
 | `warning: ... aicb.mcp.json ...` | The optional config file was unreadable or invalid; defaults remain in effect. |
-| `MCP tool curation: ... active MCP profile=...; session auto-refresh=...` | The resolved tool pool/profile and auto-refresh mode for this process. |
+| `MCP tool curation: ... active MCP profile=...; session auto-refresh=...; max response bytes=...; tool descriptions=full\|compact.` | The resolved tool pool/profile, auto-refresh mode, answer size ceiling and tool description mode for this process. |
 | `error: unknown MCP profile '<id>' (--mcp-profile). Available: <list>.` followed by `error: --mcp-profile '<id>' could not be applied (see above). Refusing to start on a different profile.` | **The only case in which the server does not start** (exit code 1). An explicitly pinned profile is never silently replaced by a different one. |
+| `note: the pinned MCP profile '<Name>' (<id>) is a built-in that is hidden in the GUI (deleted there); the server runs it anyway. ...` | The pin names a built-in profile you deleted in the GUI. The server starts on it; the note says how to restore it (`Show hidden`, `Restore Built-In`). |
 | `Pinning the MCP profile to '<id>' for this process (--mcp-profile); the profile persisted in the config DB is left unchanged.` | Confirmation, not a warning. |
 | `Active MCP profile: '<name>' (<id>)[ pinned via --mcp-profile; not persisted]; tool set: <spec or (lean)>; skill: <set or (none)>.` | Confirmation of what this process serves. |
 
@@ -413,7 +426,7 @@ Numeric limits you may meet in practice:
 
 | Limit | Value |
 |---|---|
-| Registered tools / default profile / `Full Select` | 82 / 54 / 72 tools |
+| Registered tools / default profile / `Full Select` / `Local` | 82 / 54 / 72 / 30 tools |
 | `batch` and `measure` sub-queries per call | 16 |
 | `batch` response budget | ~9,000 tokens |
 | Read-only tools dispatchable through `batch` and `measure` | 48 |

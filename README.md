@@ -519,19 +519,23 @@ aicb init
 ```
 
 It writes `.mcp.json`, the MCP configuration Claude Code reads, and the
-`aicb-csharp-context` agent skill under `.claude/skills/`, without overwriting
-existing files. If the project uses Codex or OpenCode (a `.codex/` or `.opencode/`
+`aicb-csharp-context` agent skill under `.claude/skills/`. Files you wrote
+yourself are not overwritten; a skill file aicb wrote earlier is brought in step
+with the tools the server serves. If the project uses Codex or OpenCode (a `.codex/` or `.opencode/`
 folder), it also registers the server in that client's own configuration and
 writes the skill to `.agents/skills/`, where both read skills. If it detects
 Claude Code, Codex or OpenCode project configuration, it also installs a
 **symbol guard** that blocks C# symbol searches by grep and redirects the agent
-to the semantic tool. This intentionally changes agent behavior. Opt out with:
+to the semantic tool. This intentionally changes agent behavior. For Claude Code
+it also adds a session-start hook that keeps the aicb skill files in step with
+the served tools (`aicb skills sync`). Opt out of both with:
 
 ```sh
 aicb init --hooks none
 ```
 
-`--hooks none` skips only the guard; the server is still registered. To wire a
+`--hooks none` skips only the guard and the session-start hook; the server and
+the skill are still set up. To wire a
 client whose folder does not exist yet, name it: `aicb init --hooks codex` or
 `aicb init --hooks opencode`.
 

@@ -8,7 +8,7 @@ This chapter covers the three pages that belong to the MCP feature and to contex
 
 **Where:** sidebar, group `MCP`, entry `MCP Profiles`.
 
-An MCP profile bundles a complete MCP working environment: the task facets (per facet a tool menu and a context template), the guidance blocks, the opt-in tool bundles, the output notation, the token budget, and how the server keeps its analysis in step with your edits. Exactly one profile is active and drives the MCP server; the active one carries the `Active` pill in the list.
+An MCP profile bundles a complete MCP working environment: the task facets (per facet a tool menu and a context template), the guidance blocks, the opt-in tool bundles, the output notation, the token budget, the length of the tool descriptions, and how the server keeps its analysis in step with your edits. Exactly one profile is active and drives the MCP server; the active one carries the `Active` pill in the list.
 
 The page follows the master/detail layout used throughout the app: the list on the left, the editor on the right. Header tooltip:
 
@@ -34,27 +34,28 @@ Header actions: `Add` (creates a new custom profile), `Show hidden`, `Export...`
 
 Keyboard shortcuts: `Ctrl+S` saves, `Ctrl+N` creates a new profile, `Ctrl+D` duplicates the selected one, `F5` reloads from the database.
 
-### The four built-in profiles
+### The five built-in profiles
 
 | Name | What it is | Auto-refresh |
 |---|---|---|
 | `Default` | The everyday tool set across all nine task facets, with 18 long-tail tools withheld from the facet menus. Its shipped description says `24 core + 30 extras = 54 tools`. | `Reactive` |
 | `Full Select` | The complete tool set: all nine facets enabled without any menu narrowing. Its shipped description says `24 core + 48 extras = 72 tools`. The infrastructure and DB-entity tools stay opt-in via `AICB_MCP_TOOLS`. | `Reactive` |
+| `Local` | A small pool for a local model with a limited context window: navigation, change impact, tests, diagnostics, insights, metrics, dependency injection, side effects, the agent-hook installer and the XAML/AXAML markup fan-in. Its shipped description says `17 core + 13 extras = 30 tools`. Seven navigation-core tools are switched off (`usage_report`, `export_markdown`, `pack_for_task`, `measure`, `list_mcp_profiles`, `list_skills`, `docs`); they stay registered and one profile switch away. It is the only built-in that serves compact tool descriptions (see "Tools tab"). To use it, apply it as active here, or start the server with `aicb mcp --mcp-profile mcp-profile/local`. | `Reactive` |
 | `Refactoring Focus` | `Geared towards refactoring work: emphasizes structure, dependencies and change impact.` Enables the `Refactoring` facet - tool menu and working style. | `Reactive` |
 | `Debugging Focus` | `Geared towards debugging: emphasizes control flow, error handling and reproduction.` Enables the `Debugging` facet - tool menu and working style. | `Reactive` |
 
-All four render every facet through the profile-wide `AI Optimized` context template in YAML notation and start with the auto-refresh mode `Reactive`.
+All five render every facet through the profile-wide `AI Optimized` context template in YAML notation and start with the auto-refresh mode `Reactive`.
 
 The 18 tools that `Default` withholds from its menus stay registered. All nine facets are already enabled in `Default`; to restore one of the withheld tools, expand its facet and check the tool (marked with the `recommended` badge), or switch to `Full Select`.
 
-Note: the tool counts in the two descriptions are literal text shipped with the profiles and age with the tool catalog. The reliable count for the profile you have selected is the `Effective tools/list` readout on the `Tools` tab; the reliable list of everything the server knows is the `list_skills` tool, which groups tools into `inPool` and `outOfPool`.
+Note: the tool counts in these descriptions are literal text shipped with the profiles and age with the tool catalog. The reliable count for the profile you have selected is the `Effective tools/list` readout on the `Tools` tab; the reliable list of everything the server knows is the `list_skills` tool, which groups tools into `inPool` and `outOfPool`.
 
 ### The five editor tabs
 
 | Tab | What it configures |
 |---|---|
 | `Facets` | The nine kinds of work: per facet its tool menu, its working style and its context template. |
-| `Tools` | Everything outside the facet menus - the navigation core, the opt-in bundles - plus the effective tool list they add up to. |
+| `Tools` | Everything outside the facet menus - the navigation core, the opt-in bundles - plus the effective tool list they add up to, and whether the server lists full or compact tool descriptions. |
 | `Output` | Notation and token budget of this profile's MCP render. |
 | `Session` | How the MCP server keeps its analysis current, and who pays for that. |
 | `Instructions` | What the server sends the LLM on connect: guidance styles, free text, and a live preview of both. |
@@ -162,6 +163,19 @@ Each bundle has a switch and a pill naming the number of tools it adds. The curr
 
 It shows a summary (`N tools`) and the exact tool functions the server will list for this profile, one per line. The preview is computed from the navigation core minus the tools you switched off, plus the union of the enabled facets' menus, plus any enabled bundle tools. Note: it cannot show the effect of `AICB_MCP_TOOLS`, because that variable belongs to the server process and is not readable here.
 
+**`Tool Descriptions`** - which text the server lists for each tool:
+
+> `Which text the server lists for each tool. Compact is for an agent that loads every tool definition into its prompt; the tools and their parameters stay the same, only the descriptions get shorter.`
+
+| Option | Meaning |
+|---|---|
+| `Full (default)` | `The complete descriptions: every caveat, every parameter detail and the pointers to related tools.` |
+| `Compact` | `A short curated text per tool that keeps its most important caveat, and the first sentence of each parameter text. It names no other tool, because this profile may not expose it.` |
+
+`Full` is the shipped value of every built-in profile except `Local`, which ships with `Compact`. Compact pays off for an agent that puts every tool definition into each prompt; an agent that loads tool definitions on demand, such as Claude Code, gains almost nothing from it. Like the tool set, the choice is applied at server start: a change needs a server restart, and `server_info` reports the pending change until then.
+
+Below the switch, a line estimates what the effective tools/list costs in tokens in both modes, the selected one first: `About N tokens with compact descriptions (full: about M). An estimate.` or `About N tokens with full descriptions (compact: about M). An estimate.` Its tooltip explains the basis: the estimate is summed from recorded per-tool sizes of the effective tools/list at about 4.2 characters per token, as measured with one model; another model counts differently, and the server instructions come on top. The line follows every switch on the `Facets` and `Tools` tabs, because both change the effective tool list.
+
 ### Output tab - notation and budget
 
 **`Notation`** - the inner notation of the MCP render output (`export_markdown`, `prepare_task`):
@@ -196,7 +210,7 @@ The overshoot setting applies to the `export_markdown` / `prepare_task` template
 | `Reactive` | `Repair when asked: the drift is noticed as a tool is about to answer, the re-analysis runs first, and the answer comes from the current graph. The caller waits for it - about 9 seconds on a solution this size.` | `Delays the first call after an editing phase by roughly 9 seconds. Re-analyses once per QUESTION, so the total work stays small.` |
 | `Proactive` | `Repair ahead of the question: a file watcher starts the re-analysis once saving has gone quiet, so the next call usually finds a current graph and waits for nothing. The work does not disappear - it moves into the background, and there is measurably more of it.` | `Removes almost all of that wait, but re-analyses once per editing PAUSE - measured about ten times as often, since an agent edits far more often than it asks. Roughly a third of those runs are never asked about. Choose it on a machine with CPU to spare, not on one already busy building and testing.` |
 
-`Reactive` is the shipped default: all four built-in profiles carry it, and every newly created profile starts with it. `Off` is what an absent value means - a profile that was written by a very old version or imported from one.
+`Reactive` is the shipped default: all five built-in profiles carry it, and every newly created profile starts with it. `Off` is what an absent value means - a profile that was written by a very old version or imported from one.
 
 The panel lists all three costs at once on purpose: the choice is a trade-off between caller latency and background CPU, and you can only make it by comparing.
 
@@ -212,7 +226,9 @@ The tab carries a warning banner:
 
 ![The Instructions tab with the preview of the server instructions](img/aicb-mcp-instructions.png)
 
-> `A running MCP server keeps serving what it read at startup - a changed active profile applies only after a restart.`
+> `A running MCP server keeps serving what it read at startup - a changed active profile applies only after a restart, and the project's agent skills follow at the next agent start.`
+
+Its tooltip adds how the skills follow: the project's aicb skill files are written for what the server serves, so the server rewrites them after its first session and the Claude Code session-start hook before the first prompt - unless `Keep agent skill files in sync` is off on the `General` settings page, in which case `aicb skills sync` does it when you run it.
 
 **`Guidance Styles`** - working styles that cut across every kind of work:
 
@@ -243,7 +259,7 @@ Below the zones, `Working style - this profile (facet guidance + styles + free t
 Two automatic notes belong to this tab:
 
 1. **Is the working style being cut?** If part of the profile's working style falls below the line, the panel says so: `Part of this profile's working style falls below the line and is dropped by such a client. Exactly one guidance switch is guaranteed to arrive whole; beyond that it depends on their combined length, which the cut mark above shows.` Which blocks arrive is decided by composition order: facets first (in catalog order), then the cross-cutting styles, then the free text.
-2. **Does the text name tools this profile does not offer?** Always shown, including the zero case: `Of the N tools named in the text above, this profile exposes M.` If names are withheld, the panel adds: `Not exposed here: <names>. An agent that follows these rules calls them and is refused, without being able to tell an unavailable tool from a wrong one.` Not necessarily a defect: a focus profile drops tools on purpose, and the rules describe the server in general. A block whose tools are *all* withheld is omitted from the sent text; a block backed by some exposed tools keeps its unreachable names.
+2. **Does the text name tools this profile does not offer?** Always shown, including the zero case: `Of the N tools named in the text above, this profile exposes M.` If names are withheld, the panel adds: `Not exposed here: <names>. An agent that follows these rules calls them and is refused, without being able to tell an unavailable tool from a wrong one.` The sent text leaves out every block, list item or sentence that names a tool this profile withholds, so for the built-in profiles the two numbers match and no name is listed. Only the example tool names in the short `Codex discovery zone` at the start are always sent, so a narrowed custom profile that withholds one of them sees that name in this note.
 
 The preview cannot mirror one thing: `AICB_MCP_TOOLS`. That is an override of the server process, which the GUI cannot read.
 
@@ -253,12 +269,12 @@ The preview cannot mirror one thing: `AICB_MCP_TOOLS`. That is an override of th
 |---|---|
 | `Save` (`Ctrl+S`) | Persists the editor changes to the database. Editing a built-in sets its `Overridden` flag. |
 | `Duplicate` (`Ctrl+D`) | Creates a custom copy of the selected profile (`<Name> (Copy)`) as a starting point for tweaks. |
-| `Delete` | Built-ins are soft-hidden and recoverable via `Show hidden` + `Restore Built-In`; custom profiles are removed permanently. |
+| `Delete` | Built-ins are soft-hidden and recoverable via `Show hidden` + `Restore Built-In`; custom profiles are removed permanently. A server pinned to a hidden built-in with `--mcp-profile` still starts and prints how to bring the profile back (`Show hidden`, select it, `Restore Built-In`). |
 | `Restore Built-In` | Resets a built-in to its code defaults and clears the override and hidden flags. |
 | `Export as Built-In` | Shows the entry as a C# snippet. Intended for the product's own development; it has no effect on your installation. |
 | `Apply as Active` | Makes this profile the active MCP profile. The MCP server (render templates, guidance blocks, tool set) is driven by the active profile. A running server picks up the new tool set and instructions only after a restart. |
 | `Add` (`Ctrl+N`) | Creates a new custom profile named `New MCP Profile`. |
-| `Export...` / `Import...` | Writes or reads a JSON master-data file. Import skips built-ins contained in the file and asks how to resolve conflicts; the status line summarizes it as `Imported: n new, n replaced, n skipped.` |
+| `Export...` / `Import...` | Writes or reads a JSON master-data file. Import skips built-ins contained in the file and asks how to resolve conflicts; the status line summarizes it as `Imported: n new, n replaced, n skipped.` A file entry that carries a built-in profile's id without being marked built-in (an edited or foreign file) never turns that built-in into a custom profile: with `Replace conflicts` it takes over the entry's settings, stays a built-in and carries the `Overridden` pill, and `Restore Built-In` brings the code defaults back. |
 | `Reload` (`F5`) | Discards unsaved edits and reloads all profiles from the database. |
 
 Note: saving a built-in profile freezes its current facet menus into the stored row. For the `Default` profile this means the tool names it has today are pinned - a tool cataloged into a facet later no longer joins it by itself. If you want the `Default` profile to keep following the catalog, leave it untouched (or use `Restore Built-In`). Saving also marks the row `Overridden`, and the built-in seed then leaves it alone.
@@ -272,6 +288,8 @@ The page shows the telemetry the MCP server records for every handled call, read
 If nothing has been recorded yet, the page shows:
 
 > `No tool calls recorded yet. The MCP server records every handled call into this database; connect a client and this page fills up.`
+
+If `Record MCP tool usage` is switched off on the `General` settings page, a notice banner appears below the header. It says that an MCP server or `aicb call` started with recording off writes no records, that the figures stop at the last call recorded while it was on and say nothing about use since then, that the records already stored stay and are shown, and that a server started while recording was on keeps recording until it restarts. An `Export` made while recording is off is marked the same way (`recording: "off"`), so the file does not pass for a report that is still growing.
 
 ![MCP Usage page with the statistics strip and the Tools tab](img/aicb-mcp-usage.png)
 
@@ -545,7 +563,7 @@ Storage is hybrid, and the boundary is not arbitrary: whatever is needed *before
 
 The base path defaults to `%APPDATA%\AIContextBuilder`, and the database defaults to `{BasePath}\user-data\aicb.acb`.
 
-Settings keys stored in the database include `general/settings` (the complete general-settings block), `general/active-context-template-id`, `general/default-layer-profile-name`, `general/default-exclusion-list-name`, `general/default-expansion-strategy-id`, `general/default-graph-layout-enabled`, `general/active-mcp-profile-id`, `general/active-pipeline-profile-id`, `general/active-quality-profile-id`, `general/active-compression-rules-profile-id`, `general/active-test-profile-id`, `general/tooltips-enabled`, `general/tooltip-show-delay`, `general/persist-insights-with-session`, `general/auto-trigger-insights-on-load`, `general/enable-load-perf-logging`, `general/has-run-first-analyze-once`, `general/last-selected-settings-sub-tab`, and `layout/settings` for the splitter positions.
+Settings keys stored in the database include `general/settings` (the complete general-settings block), `general/active-context-template-id`, `general/default-layer-profile-name`, `general/default-exclusion-list-name`, `general/default-expansion-strategy-id`, `general/default-graph-layout-enabled`, `general/active-mcp-profile-id`, `general/active-pipeline-profile-id`, `general/active-quality-profile-id`, `general/active-compression-rules-profile-id`, `general/active-test-profile-id`, `general/tooltips-enabled`, `general/tooltip-show-delay`, `general/persist-insights-with-session`, `general/auto-trigger-insights-on-load`, `general/enable-load-perf-logging`, `general/mcp-usage-recording-enabled`, `general/auto-sync-agent-skills`, `general/has-run-first-analyze-once`, `general/last-selected-settings-sub-tab`, and `layout/settings` for the splitter positions.
 
 When a change takes effect:
 
@@ -553,7 +571,7 @@ When a change takes effect:
 |---|---|
 | Immediately on save | Font family, font size/zoom, theme, the tooltip switch and the tooltip delay. |
 | At the next start of the app | Base path, LLM retry values, the theme in some individual panels. |
-| At the next start of the MCP server | The MCP tool set, the MCP instructions, the auto-refresh mode. |
+| At the next start of the MCP server | The MCP tool set, the MCP instructions, the tool descriptions, the auto-refresh mode, usage recording and automatic skill sync. |
 | Live per MCP call | A profile's context-template assignment. |
 | The next time a tab is opened | Default layer profile, default exclusion list, default graph layout. |
 

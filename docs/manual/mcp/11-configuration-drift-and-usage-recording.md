@@ -133,7 +133,9 @@ The design-time build platform is the one exception, because it is a property of
 | Setting | Stored in | When the MCP server reads it |
 |---|---|---|
 | Per-solution configuration (layer, exclusions, test detection) | config DB and the git-tracked `.aicb.json` sidecar | at analysis time, according to the per-axis matrix above; the sidecar fallback needs no `dbPath` on any of the three axes |
-| Active MCP profile (tools, instructions, token budget) | config DB | once at server start: tool list, callability, instructions and auto-refresh mode |
+| Active MCP profile (tools, instructions, token budget) | config DB | once at server start: tool list, callability, tool description mode, instructions and auto-refresh mode |
+| `Record MCP tool usage` (Settings, section `MCP Server`; on by default) | config DB | at server start (and at every `aicb call`); a change after the start is reported as SETTINGS DRIFT |
+| `Keep agent skill files in sync` (Settings, section `MCP Server`; on by default) | config DB | when the server's automatic skill sync and the Claude Code session-start hook run |
 | Session cache (TTL, max sessions, sweep) | `aicb.mcp.json` / `AICB_MCP_SESSION` only - there is no editor in the desktop application | at server start |
 | Tool-set spec (`lean` / `all` / list) | `aicb.mcp.json` / `AICB_MCP_TOOLS` only | at server start (static once set) |
 | Token budget of the active profile | config DB | per call, by every tool that renders a document |
@@ -145,7 +147,7 @@ Worth knowing: an edit to the active profile in the desktop application does not
 
 `server_info` is more than a reachability check. It answers the question an MCP client otherwise cannot ask: *does this answer describe my current state?* It needs no session, so it is safe to call at any time.
 
-The answer is assembled from four parts:
+The answer is assembled from these parts:
 
 ```text
 aicb MCP server (AIContextBuilder) v<version> (commit <sha>) - Roslyn-based .NET context generator. (c) Gregor Dadera - free for private, hobby and educational use and qualifying organizations; see LICENSE.txt.
@@ -155,16 +157,21 @@ Config DB schema: user_version=<n> (<path to the config DB>).
 <version drift block>
 
 ⚠️ CONFIG DRIFT: <message>
+
+⚠️ SETTINGS DRIFT: <message>
+
+SKILL: <state> (<project root>).
 ```
 
 - The **version** is followed immediately by the **build commit**. That placement is deliberate: the failure it exists for is a version number that reads correctly while the binary is not the one you think. A version number can be identical across two different builds - a parallel build that packed the same number first wins, and a package update then skips the newer one as "already installed". The commit is the only field that shows this; compare it with `git rev-parse HEAD` of your checkout. A build without a resolvable revision omits the commit rather than guessing.
 - The **Config DB schema** line is the `user_version` of the resolved configuration database, read directly. It is omitted when no database is resolved or the database is unreadable.
 - The **analyzer drift** line follows immediately, because it qualifies the commit printed above.
-- The **version drift block** and the **CONFIG DRIFT** line are only present when something is wrong.
+- The **version drift block**, the **CONFIG DRIFT** line and the **SETTINGS DRIFT** line are only present when something is wrong.
+- The **SKILL** lines report the agent skill files of the analyzed projects; they appear only once a solution was analyzed and a project holds aicb skill files.
 
 ### CONFIG DRIFT
 
-The probe compares a fingerprint of what the server hands your harness - the composed instruction suffix, the effective tool-set spec, and the session auto-refresh mode - as captured at server start against a fresh read of the active profile. A change that does not alter what the harness receives (a profile name, or switching to a profile that composes an identical configuration) does not fire.
+The probe compares a fingerprint of what the server hands your harness - the composed instruction suffix, the effective tool-set spec, the tool description mode, and the session auto-refresh mode - as captured at server start against a fresh read of the active profile. A change that does not alter what the harness receives (a profile name, or switching to a profile that composes an identical configuration) does not fire.
 
 When it fires, the message is:
 
@@ -202,7 +209,21 @@ If the distance cannot be characterized - for example the second measurement fai
 
 The measurement is a local, read-only `git rev-list --count` query in the solution's directory, with a two-second ceiling; a timeout is reported as `drift UNKNOWN`, any other error stays silent. It probes at most four distinct solution directories and stops at the first repository that can resolve the commit.
 
-Besides these three drift signals, every session-bound answer carries a **staleness** note when source files changed after the analysis - that is a different signal with a different remedy; see "Sessions and staleness".
+### SETTINGS DRIFT
+
+The server reads the **Record MCP tool usage** switch of the desktop app's settings once, at start. When the stored switch differs from the value the server started with, `server_info` says so:
+
+```text
+⚠️ SETTINGS DRIFT: usage recording was switched off in the main settings after this server started, and this server still records every tool call. Restart or reconnect the aicb MCP server to apply it.
+```
+
+The mirrored line reads `switched on ... and this server still records no tool call`. **What to do:** restart or reconnect the server.
+
+### SKILL
+
+One line per project root of the analyzed sessions that holds aicb skill files (up to four, then a count of the rest), saying whether the project's aicb skills match the tools this server serves - `in sync with <profile>`, `out of date for <profile>` (run `aicb skills sync` in the project), `hand-written, not synced` (`aicb skills sync --adopt` takes it over) or `edited inside aicb region`. The line of the server's own project starts with `auto sync on (...)` while automatic skill sync is on, because the server rewrites that project's aicb-written skill files after its first session; with automatic sync switched off, every line starts with `sync off (main settings)`. The probe only reads. See "Keeping the skills in step: `aicb skills sync`".
+
+Besides these drift signals, every session-bound answer carries a **staleness** note when source files changed after the analysis - that is a different signal with a different remedy; see "Sessions and staleness".
 
 ## 11.3 What the server records about tool calls
 
@@ -246,6 +267,8 @@ For ad-hoc queries, the columns are: `id`, `ts`, `tool_name`, `session_hash`, `o
 
 A server **without** a usable database records nothing at all: it gets a no-op sink, no file is created, and `usage_report` answers `available: false` with a note.
 
+**Switching the recording off.** The `MCP Server` section of the desktop app's settings has `Record MCP tool usage`, on by default. With it off, an MCP server or `aicb call` started afterwards stores no tool-call records. The rows already in the table stay and are still reported; `usage_report` then says `recording: "off"` and explains that its figures stop at the last call recorded while recording was on (when it was switched off is not recorded), and the `MCP Usage` page shows the same notice. A running server applies a change only at its next start - `server_info` reports the difference as SETTINGS DRIFT until then. There is no environment variable or command-line switch for it.
+
 ### Reading the record: `usage_report`
 
 `usage_report` reports the server-side telemetry of every `tools/call` invocation - cross-client, not just this client's transcript.
@@ -285,7 +308,7 @@ So **every count is a lower bound**, and a tool reported at 0 was "not called th
 
 `usage_report` is **not available inside `batch` or `measure`**. It is a read-only tool, but it is deliberately not part of the dispatch registry those two serve.
 
-When there is nothing to report, the answer says which case applies: `available: false` with a note when the server is running without a database or the table is not readable; `available: true` with "No tool calls recorded yet." when the table is empty.
+When there is nothing to report, the answer says which case applies: `available: false` with a note when the server is running without a database or the table is not readable; `available: true` with "No tool calls recorded yet." when the table is empty. With recording switched off, the answer adds `recording: "off"` and leads its `note` with that fact, so a report that stopped growing is not mistaken for one whose clients went quiet.
 
 ### The MCP Usage panel in the desktop application
 
@@ -307,7 +330,7 @@ The `Errors` tab separates guided refusals from suspected defects. It has three 
 
 ![The Snapshots tab: an imported usage report beside the live numbers](img/mcp-usage-snapshots.png)
 
-`Export` writes the current report as JSON. The file carries exactly what the `usage_report` tool returns - the same serializer produces both, only the file form is indented because a person opens it - so a report can travel between machines and be imported again. `Import` adds an exported report as a named snapshot beside the live data; imported sets are never merged into the live numbers. `Refresh` (or `F5`) reloads from the database.
+With `Record MCP tool usage` switched off, the panel shows a notice that the figures stop at the last recorded call. `Export` writes the current report as JSON. The file carries exactly what the `usage_report` tool returns - the same serializer produces both, only the file form is indented because a person opens it - so a report can travel between machines and be imported again. `Import` adds an exported report as a named snapshot beside the live data; imported sets are never merged into the live numbers. `Refresh` (or `F5`) reloads from the database.
 
 ### Deleting recorded data
 
@@ -339,12 +362,13 @@ The recording is built to be safe even if the database is shared or public:
 | Only the outermost exception message | Never an inner one; an aggregated chain would blow past any cap and bury the actionable sentence |
 | `AICB_MCP_ERROR_TEXT=off` | Records only the exception **type** - the pre-message contract, intended for a database that is shared rather than local. Case-insensitive, and read per call, so it can be flipped without restarting the server |
 | No sink without a database | A server without a usable configuration database writes nothing |
+| `Record MCP tool usage` off | A server or `aicb call` started with the setting off writes no row |
 
 The child-call tally is not capped; its bound is the 16 sub-queries a `batch` call may carry.
 
-**There is no environment variable and no setting that turns the recording off.** The only state in which nothing is recorded is a server running without a usable configuration database - which also costs you the profile-aware behavior, the stored per-solution configuration and the report itself. `AICB_MCP_TELEMETRY` is not read by the MCP server and has no effect on this recording.
+**The recording is switched off in the desktop app's settings, and only there.** `Record MCP tool usage` in the `MCP Server` section is the switch (see "Switching the recording off" above); there is no environment variable for it. Without that, the only state in which nothing is recorded is a server running without a usable configuration database - which also costs you the profile-aware behavior, the stored per-solution configuration and the report itself. `AICB_MCP_TELEMETRY` is not read by the MCP server and has no effect on this recording.
 
-What leaves your machine: **nothing**. The server registers the stdio transport only - there is no HTTP or SSE transport - and it references no analytics, crash-reporting or HTTP package. Its four outputs are the stdio JSON-RPC channel back to the client that made the call, diagnostics on the error stream, local SQLite writes, and a local read-only `git` query for the analyzer drift probe (see above). There is no telemetry upload, no analytics endpoint, and no configuration that could enable one: the capability is not in the assembly.
+What leaves your machine: **nothing**. The server registers the stdio transport only - there is no HTTP or SSE transport - and it references no analytics, crash-reporting or HTTP package. Its outputs are the stdio JSON-RPC channel back to the client that made the call, diagnostics on the error stream, local SQLite writes, a local read-only `git` query for the analyzer drift probe (see above), and - with automatic skill sync on - the aicb-written skill files of its own project. There is no telemetry upload, no analytics endpoint, and no configuration that could enable one: the capability is not in the assembly.
 
 Note: this describes the aicb server itself, as shipped. The Model Context Protocol package it uses is a third-party dependency and is not audited here.
 
@@ -366,7 +390,7 @@ What is installed per harness:
 
 | Harness | Files written | Wiring file | Merge |
 |---|---|---|---|
-| `claude-code` | `.claude/hooks/aicb-symbol-guard.mjs` | `.claude/settings.json` | Hook list entry with matcher `Grep\|Bash\|Edit\|Write\|MultiEdit\|Read`; the command uses `$CLAUDE_PROJECT_DIR` |
+| `claude-code` | `.claude/hooks/aicb-symbol-guard.mjs`, `.claude/hooks/aicb-skill-sync.mjs` | `.claude/settings.json` | Hook list entry with matcher `Grep\|Bash\|Edit\|Write\|MultiEdit\|Read`, plus a `SessionStart` entry with matcher `startup` for the skill sync; both commands use `$CLAUDE_PROJECT_DIR` |
 | `codex` | `.codex/hooks/aicb-symbol-guard.mjs` | `.codex/hooks.json` | Hook list entry with matcher `Bash\|apply_patch`; the command uses an **absolute** path (Codex has no project-directory variable, so it becomes invalid if the checkout moves) |
 | `opencode` | `.opencode/plugins/aicb-symbol-guard.ts`, `.opencode/plugins/guard-wiring.mjs`, `.opencode/plugins/aicb-symbol-guard.mjs` | `opencode.json` in the project root | Plugin list entry |
 
@@ -374,7 +398,7 @@ Behavior worth knowing:
 
 - **The harness is resolved before the session.** A bad `harness` name is answered without loading a solution. If you omit `harness` and the client announced no name, or a name aicb has no wiring for, the tool **refuses** rather than guessing - a default would write a working-looking configuration into a harness that never reads it.
 - **It is idempotent by default.** An existing guard script or wiring entry is kept (`Unchanged`, "already there - left untouched") unless `force=true`. Your edited exemption list is the obvious thing to lose here, which is why the default is conservative.
-- **It writes only inside the directory of the session's solution.** There is no path parameter, and the segments come from fixed lists. Because a `sessionId` may itself be a solution path, the reachable set is "any directory holding a loadable solution" - not only the project the caller was already working in.
+- **It writes only inside the directory of the session's solution.** There is no path parameter, and the segments come from fixed lists. A solution in your home directory, or in a drive root without `.git`, gets nothing: every artifact is refused there, because a harness file in that place is the user-wide one. Because a `sessionId` may itself be a solution path, the reachable set is "any directory holding a loadable solution" - not only the project the caller was already working in.
 - **It never writes `.mcp.json`** (that is the file the server is currently being served from) and never writes the agent skills (that is `aicb init`'s decision).
 - **Order and atomicity.** All hook scripts are written first, then all wiring entries, so a configuration can never point at a file that did not appear. Files are written atomically (temporary file, then move). An I/O error on one artifact degrades to a `Refused` line instead of aborting the whole run.
 - **Consent is structural.** The tool asks no question: you (or your agent) must call it explicitly, an existing guard or wiring is preserved without `force=true`, and the write surface is fixed.

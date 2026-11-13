@@ -258,7 +258,7 @@ A session can be exported as a JSON file from the Sessions tab (`Export` → `As
 | `%LOCALAPPDATA%\AIContextBuilder\design-time-build-cache\` | Cached design-time build results, one file per solution, so a later load can skip MSBuild (see "How the analysis works"). Written by the desktop app, the CLI and the MCP server; `AICB_DESIGN_TIME_BUILD_CACHE` relocates or disables it. | yes | yes - the next load runs MSBuild and writes it again |
 | Windows Credential Manager, entries `AIContextBuilder.ApiKey:<profile id>` | Your API keys. | yes (operating-system store, per user) | yes, if you want to enter the keys again |
 | `<solution folder>\<Name>.aicb.json` | Per-solution configuration: layer rules, namespace exclusions, test detection, layering policy, suppressed findings, analysis scope. | - (lives with your source code; usually committed) | yes - `Export Config` writes it again from the database |
-| Files written by `aicb init` in your project | The `.mcp.json` entry, `.claude/skills/...`, the hook file `.claude/hooks/aicb-symbol-guard.mjs` (or the Codex/OpenCode equivalent) and the guard entry in the harness configuration. | - | they must be **edited**, not simply deleted |
+| Files written by `aicb init` in your project | The `.mcp.json` entry, `.claude/skills/...` (and `.agents/skills/...` for Codex and OpenCode), the hook file `.claude/hooks/aicb-symbol-guard.mjs` (or the Codex/OpenCode equivalent) and the guard entry in the harness configuration; for Claude Code also `.claude/hooks/aicb-skill-sync.mjs` and its `SessionStart` entry in `.claude/settings.json`. The aicb part of the skill files is later rewritten by `aicb skills sync`, by that hook and by the MCP server (see "Agent skill files"). | - | they must be **edited**, not simply deleted |
 
 Two notes on this table:
 
@@ -292,7 +292,7 @@ The product offers exactly **two** delete functions, both in the desktop applica
 
 What does **not** exist:
 
-- **No CLI verb deletes anything.** The complete verb list is `init`, `analyze`, `export`, `import`, `list`, `mcp`, `call`. There is no `clean`, `reset`, `uninstall` or `purge`.
+- **No CLI verb deletes recorded data.** The complete verb list is `init`, `skills`, `analyze`, `export`, `import`, `list`, `mcp`, `call`. There is no `clean`, `reset`, `uninstall` or `purge`. The one file a verb removes is an unedited aicb-written skill file without notes of yours, which `aicb skills sync` removes when the served tools no longer include one the skill requires.
 - **No MCP tool deletes the usage recording.** `usage_report` is read-only.
 - **No global "delete all my data" button.**
 - **No automatic undo of `aicb init`.** The command merges its entries into files that are yours; removing them is a manual edit.
@@ -303,7 +303,7 @@ A complete manual removal therefore means:
 2. Remove all entries whose target starts with `AIContextBuilder.` from the Windows Credential Manager. The API keys live **outside** the directory and are not removed with it.
 3. If you changed `BasePath` or `DatabasePath`, delete the second location as well.
 4. For every analyzed solution, delete `<solution folder>\<Name>.aicb.json` - and a possibly orphaned `<Name>.aicb.json.tmp`.
-5. In every project where `aicb init` ran, edit the harness files by hand: remove the aicb entry from `.mcp.json` (and from `.codex/config.toml` or the `mcp` section of `opencode.json`), delete `.claude/skills/...` and `.agents/skills/...` and the guard file `.claude/hooks/aicb-symbol-guard.mjs` (or the Codex/OpenCode equivalents) and remove the aicb hook entry from `.claude/settings.json`, `.codex/hooks.json` or `opencode.json`.
+5. In every project where `aicb init` ran, edit the harness files by hand: remove the aicb entry from `.mcp.json` (and from `.codex/config.toml` or the `mcp` section of `opencode.json`), delete `.claude/skills/...` and `.agents/skills/...`, the guard file `.claude/hooks/aicb-symbol-guard.mjs` (or the Codex/OpenCode equivalents) and the skill-sync hook `.claude/hooks/aicb-skill-sync.mjs`, and remove the aicb hook entries (the guard, and for Claude Code the `SessionStart` entry) from `.claude/settings.json`, `.codex/hooks.json` or `opencode.json`.
 6. Delete any exports you created yourself: context documents (`--output`), copied source files, usage reports, run templates, session exports, master-data exports and constellations.
 
 If you work only with the CLI or the MCP server, you have **no** built-in way to delete the usage recording. Your only option would be to delete the `.acb` file - which also carries every session, every snapshot and every profile.
@@ -344,7 +344,7 @@ The CLI and MCP process launches build argument lists without a shell and withou
 
 Opening a solution runs its MSBuild build logic to resolve references and determine what to compile - exactly like Visual Studio or `dotnet build`. Building the compilation also runs the source generators the projects reference (generator packages, the .NET SDK's own generators and generator projects in the solution), inside the AICB process, again as an IDE does. A deliberately malicious project could therefore run code at solution-open time. This is inherent to every MSBuild-based tool; the trust boundary is the same as "clone this repository and run `dotnet build`". **Only analyze solutions you trust.**
 
-One thing the product does *not* do: run your solution's third-party Roslyn analyzers - with one opt-in exception for DiagnosticSuppressors, described below. The `get_diagnostics` tool returns compiler diagnostics only; diagnostics that an analyzer or a source generator reports itself are not part of it. To say where a real build would suppress some of them, it reads the analyzer assemblies' metadata only, which runs none of their code. The one exception is the opt-in argument `runSuppressors: true`: it loads exactly the analyzer assemblies that declare a DiagnosticSuppressor and runs those suppressors, as a real build does. Loading such an assembly also runs the constructors of every analyzer type it declares, inside the AICB process - the same trust boundary as the source generators above. AICB also does not index generated code: generated documents are not walked, and source-generated members such as `[ObservableProperty]` properties are re-derived from the attributes in the parsed syntax.
+One thing the product does *not* do: run your solution's third-party Roslyn analyzers - with one opt-in exception for DiagnosticSuppressors, described below. The `get_diagnostics` tool returns compiler diagnostics only; diagnostics that an analyzer or a source generator reports itself are not part of it. To say where a real build would suppress some of them, it reads the analyzer assemblies' metadata only, which runs none of their code. The one exception is the opt-in argument `runSuppressors: true`: it loads exactly the analyzer assemblies that declare a DiagnosticSuppressor and runs those suppressors, as a real build does. Loading such an assembly also runs the constructors of every analyzer type it declares, inside the AICB process - the same trust boundary as the source generators above. The code the source generators write is analyzed, not executed: AICB reads the generated documents for the symbols they use and indexes the types and members they declare, marked as generated (see "What goes in").
 
 ## 10.9 API keys
 
@@ -361,7 +361,7 @@ Consequences you should know:
 
 The MCP server records every tool call it handles into the table `tool_calls` of the **same database the GUI uses**. There is no separate telemetry database and nothing is transmitted: the only writer is the local database, and the only readers are the `usage_report` tool and the `MCP Usage` panel of the desktop application.
 
-The recording is **on by default** as soon as the server starts with a usable configuration database - which is the standard case. The server names the database it uses on its error output at start-up: `No --db-path given; using the standard config DB (same as the GUI): <path>`.
+The recording is **on by default** as soon as the server starts with a usable configuration database - which is the standard case. The server names the database it uses on its error output at start-up: `No --db-path given; using the standard config DB (same as the GUI): <path>`. The switch `Record MCP tool usage` (`Settings > General`, section `MCP Server`) turns it off; see "Turning it off" below.
 
 What one row contains:
 
@@ -392,15 +392,28 @@ Reading it:
 - The MCP tool `usage_report` returns the aggregate: total calls, error count and rate, distinct tools and sessions, client connections, first and last timestamp, the clients and server versions seen, and a per-tool breakdown with error classes, latency and result-size percentiles. Note that its counts are a **lower bound**: a sub-query inside `batch` or `measure` is recorded on the parent row only, and a one-shot `aicb call` writes the same row under the client name `aicb-call` only when it is given `--db-path` - without one it records nothing.
 - The `MCP Usage` panel shows the same data in the desktop application: `Refresh`, `Export`, `Import` and `Clear` at the top, and the regions `Tools`, `Calls`, `Notes`, `Errors`, `Clients & protocol` and `Snapshots`. In the `Calls` region you can attach a free-text note to an individual call; notes cascade with the call they belong to.
 
-Turning it off, in three steps:
+Turning it off:
 
-1. **Completely off** - if the server starts without a usable configuration database, nothing is recorded at all. Note that this also costs the stored MCP profiles, so it is not a convenient switch.
-2. **Free text off, shapes remain** - set the environment variable `AICB_MCP_ERROR_TEXT=off`. The error message is then not recorded; only the exception type name remains. This is meant for a configuration database that is shared rather than local.
-3. **Delete afterwards** - the `Clear` button (dialog `Clear Usage Data`) on the `MCP Usage` page (desktop application only), as described under "Removing your data".
+1. **Completely off** - untick `Record MCP tool usage` in the desktop app (`Settings > General`, section `MCP Server`). An MCP server or `aicb call` started with it off stores no tool-call record. A server that was already running keeps recording until it restarts, and `server_info` shows a `SETTINGS DRIFT` line meanwhile. `usage_report` then answers with `recording: "off"` and a note that its figures stop at the last call recorded while the switch was on; the `MCP Usage` page shows the same notice. Records already stored stay until you clear them. There is no environment variable or command-line switch for it.
+2. **Without a database** - if the server starts without a usable configuration database, nothing is recorded either. This also costs the stored MCP profiles, so it is not a convenient switch.
+3. **Free text off, shapes remain** - set the environment variable `AICB_MCP_ERROR_TEXT=off`. The error message is then not recorded; only the exception type name remains. This is meant for a configuration database that is shared rather than local.
+4. **Delete afterwards** - the `Clear` button (dialog `Clear Usage Data`) on the `MCP Usage` page (desktop application only), as described under "Removing your data".
 
 There is no opt-out per tool and none per MCP session.
 
-## 10.11 Third-party components and licenses
+## 10.11 Agent skill files
+
+Besides `aicb init`, three callers write the aicb agent skill files in a project (`.claude/skills/<name>/SKILL.md`, and `.agents/skills/` for Codex and OpenCode). All three rewrite only the aicb part of a file aicb wrote and keep your notes below its `aicb:user` line; a skill file without the aicb marker is never touched without `--adopt`:
+
+| Caller | When | What it may write |
+|---|---|---|
+| `aicb skills sync` | when you run it | Rewrites aicb-written files, creates a missing default skill, and removes an unedited aicb-written file without notes of yours whose required tool the served profile withholds. Writes even with automatic sync switched off. |
+| The MCP server | once per process, after the first session of the project it was started in | Rewrites aicb-written files in the skill folder of the calling client's harness. Creates and removes nothing; leaves other projects alone. |
+| The Claude Code `SessionStart` hook (`.claude/hooks/aicb-skill-sync.mjs`, installed by `aicb init` and `install_agent_hooks`) | at each Claude Code session start | Runs `aicb skills sync --auto`: rewrites aicb-written files under `.claude/skills/`, creates and removes nothing. |
+
+The two automatic callers write nothing when `Keep agent skill files in sync` (`Settings > General`, section `MCP Server`, on by default) is switched off. None of them writes in your home directory or in a drive root without `.git`.
+
+## 10.12 Third-party components and licenses
 
 AIContextBuilder is closed source and ships third-party libraries as compiled binaries. The product is distributed in three forms - as a `dotnet tool` NuGet package, as a Windows installer, and as a portable ZIP - and all three carry the file `THIRD-PARTY-NOTICES.txt`, which is the attribution those libraries require.
 
@@ -420,7 +433,7 @@ The largest parts of that surface are the Roslyn compiler and workspace assembli
 
 The product's own license is separate and sits beside the notices file as the full bilingual `EULA.md`, with the non-binding orientation summary in `LICENSE.txt`.
 
-## 10.12 What the product promises and requires
+## 10.13 What the product promises and requires
 
 The license terms (the three thresholds, the always-free cases, the restrictions and the liability rules) are described in "License, installation and updates"; the prerequisites and the one-installation-per-machine rule are described there as well.
 

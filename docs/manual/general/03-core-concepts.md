@@ -21,7 +21,7 @@ Note: the application also stores an entry per solution that carries the profile
 
 A **project** is a `.csproj` inside the solution. An analysis walks every project of the solution.
 
-A project that targets several frameworks (multi-targeting) appears **once per target framework** in the analysis. Several tools present a deduplicated view instead and keep only the preferred (normally newest) target-framework instance. This view is not lossless: a symbol or fan-in edge that exists only in an older target-framework instance is not reported by those deduplicated tools.
+A project that targets several frameworks (multi-targeting) appears **once per target framework** in the analysis. Most tools present a deduplicated view instead: each type is one entry, and the references made in every target framework count for it. A type or member that only an older target framework declares is found as well, listed under that target framework's project instance. The opt-in `analyzePreferredTfmOnly` narrows this (see "Multi-targeting").
 
 You meet projects as the second level of the `Solution Tree`, in the `PROJECT` section of a context document, and in the `project` field of tool answers.
 
@@ -209,7 +209,11 @@ The analysis records the relationships between symbols as **edges**. These are t
 
 An MVC or Razor Pages view (`.cshtml`) counts where the Razor source generator compiled it in the analysis: what the view calls, reads or names - an `@attribute [X]` included - is a use, credited to the view file. A type injected with `@inject` in a `_ViewImports.cshtml` is credited to that file once, not to every view below it. A view the generator did not compile - a view compiled only at run time, or one the generator did not run for - is not read; a zero fan-in answer and a dead-code candidate list then name those views (`VIEWS NOT READ: ...`), so a missing user there is not read as "unused".
 
-An attribute is a type reference wherever it is applied: on a type, a member, a return value, a parameter, a type parameter, or a local function or lambda.
+In a WinUI view, each member an `{x:Bind}` path names - looked up on the page's `x:Class` or on a template's `x:DataType` - has the view as a user. In ASP.NET Web Forms, a page, master page, user control or `Global.asax` credits the class its `Inherits=` directive names, and an `.ashx` handler or `.asmx` service the class its `Class=` directive names (labeled, for example, `About.aspx (webforms)`).
+
+Code that source generators write is read for the symbols it uses, so a type or member used only from generated code has a user, labeled `<project>/<generator>/<file> (generated)`. Generated documents compiled from XAML are left to the markup readers, so a binding is not counted twice, and an element with `x:Name` counts as one user: its view.
+
+An attribute is a type reference wherever it is applied: on a type, a member, a return value, a parameter, a type parameter, or a local function or lambda. A method named by `nameof(...)` in an attribute, or fetched by reflection with `nameof` (for example `GetMethod(nameof(M))`), counts as used; a method that fetches it this way shows up as its user.
 
 The type dependency list is the union of the injection dependencies and the usage dependencies of a type, deduplicated, sorted and with self-references removed. Which member types it names is described under `DEPENDENCIES` in the chapter on the context document.
 
@@ -221,11 +225,13 @@ Note: the type dependency list is built from short type names, so two types with
 
 **Impact** is the transitive closure of the fan-in: everything that would be affected indirectly by a change to the symbol, including consumers that a compiler does not check.
 
-`find_usages` lists the direct mentions, one level, each with the file and the line its declaration starts on. `impact_of_change` returns the closure together with a `risk` level. The risk is calibrated on the production fan-in; callers in test projects are excluded, because exercising a symbol from tests is its designed fan-in and updating those tests is mechanical. On an interface or abstract member or type, the production types that implement it count toward the risk as well, because a signature change breaks them too.
+`find_usages` lists the direct mentions, one level, each with the file and the line its declaration starts on. `impact_of_change` returns the closure together with a `risk` level. The risk is calibrated on the production fan-in; callers in test projects are excluded, because exercising a symbol from tests is its designed fan-in and updating those tests is mechanical. On an interface or abstract member or type, the production types that implement it count toward the risk as well, because a signature change breaks them too. When a high-risk closure runs through a dependency cycle, `impact_of_change` lists the cycle's members in `saturation.cycleMembers` (up to 200, with the true count). `impact_of_change` and `call_graph` say when a walk reaches generated documents and stops there (`generatedStops`), and `impact_of_change` says when a source generator writes every declaration of the symbol (`generatedSubject`); these notes change no count and no risk.
 
 Users that share a name - two types called `Startup` in different projects, for example - are listed by `find_usages` as separate items, one per declaration, and the items that would otherwise read alike add `fullName` (for a type) and `project`. A type of the same simple name but another arity or namespace that derives from, holds or creates the queried type is one of its users (a generic `Identity<T1, T2> : Identity`, for example); a reference that names only the type itself is not. `impact_of_change` walks its closure over declarations in the same way, so `transitiveCount` counts one entry per declaration.
 
 User-defined operators and conversions have a fan-in of their own: `a == b`, a cast and an implicit conversion are uses of the declared operator. The fan-in tools take an operator by its metadata name, such as `op_Equality` or the qualified `Money.op_Implicit`.
+
+Indexers and extension members are uses too. Reading or writing an indexer of your own type counts as calling its getter or setter, and `find_usages` on a `Count` or `Length` property lists code that reads it implicitly through `x[^1]`, a range or a list pattern. `find_usages` on a static class that declares C# 14 `extension` blocks lists the types that call those extension members, and files the callers that reach them through a receiver under `viaExtensionMember` in `textualBindingKinds`.
 
 Note: the `risk` level measures the fan-in, not the semantics of your concrete change. A `high` on a purely additive change is expected and is not a stop signal.
 

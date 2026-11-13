@@ -15,7 +15,7 @@ Most tools that need a session declare a `sessionId` parameter, and that paramet
 | A session ID | the string `analyze_solution` returned | Uses that cached session. |
 | An absolute solution path | `C:\work\MyApp\MyApp.sln` | **Self-init**: the server analyzes the solution on first access and caches it. |
 
-Self-init means `analyze_solution` is **optional**: you can pass the solution path to any session-bound tool directly, and the first call performs the analysis. The recognized extensions are `.sln`, `.slnx` and `.slnf` (a solution filter is opened like a solution). A session ID has no such extension, so the two forms can never be confused.
+Self-init means `analyze_solution` is **optional**: you can pass the solution path to any session-bound tool directly, and the first call performs the analysis. The recognized extensions are `.sln`, `.slnx` and `.slnf` (a solution filter is opened like a solution; one stored in another folder than its solution behaves like the solution it names - it refreshes itself after edits, and its markup is scanned). A session ID has no such extension, so the two forms can never be confused.
 
 Concurrent tool calls that pass the **same** solution path are serialized: the solution is analyzed once, and the other callers wait for that one analysis instead of starting their own. A waiter is not left hanging indefinitely. If the wait exceeds the load-gate limit (default 45 seconds, see "Timing constants via environment variables"), the call is refused with an error that names which analysis is running and how long it has been running, states that the call never started because it was queued, and suggests waiting for the running analysis or using a smaller solution or a `.slnf` filter.
 
@@ -186,6 +186,8 @@ Notes:
 - A result that is an error is not decorated; its age is irrelevant and a note would only crowd out the failure.
 - A recalled session gets a different remedy in the same place: the note points to `refresh_remembered` instead of `refresh_session`, because `refresh_session` rejects a recalled session.
 - A restore that rewrote a project's `project.assets.json` after the solution was loaded is reported as `restoredProject` with `stale: true`, and the hint names `refresh_session`. The report survives an idle release of the session.
+- Adding a project to or removing one from the `.sln`, `.slnx` or `.slnf` counts as a change too, without a forced refresh: under `reactive` the next answer reloads automatically (`autoRefreshed: true`, `mode: "full-reload"`), and an unforced `refresh_session` re-analyzes with the reason that the project list changed. Saving the solution file without changing its project list reloads nothing.
+- A first load does not report itself as stale because its own design-time build wrote generated C# files.
 - `get_diagnostics` additionally leads its answer with `verdict: "stale"` and a `verdictReason` when it computed from a graph known to be behind the disk - including a project whose restore rewrote its `project.assets.json` after the session was loaded - placed before the counts so that `errorCount: 0` is not read as a clean bill.
 
 **Never infer freshness from which tool you called.** Read the disclosure that the response carries.

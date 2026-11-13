@@ -1,6 +1,6 @@
 # AICB - General Documentation
 
-The complete reference, one file per chapter. Describes AICB V0.5.515.1.
+The complete reference, one file per chapter. Describes AICB V0.5.520.1.
 
 The same text as one printable document: [AICB-General.pdf](AICB-General.pdf).
 
@@ -107,14 +107,15 @@ The same text as one printable document: [AICB-General.pdf](AICB-General.pdf).
     - [9.1 Invocation, help and version](09-command-line-reference.md#91-invocation-help-and-version)
     - [9.2 Exit codes](09-command-line-reference.md#92-exit-codes)
     - [9.3 `aicb init`](09-command-line-reference.md#93-aicb-init)
-    - [9.4 `aicb analyze`](09-command-line-reference.md#94-aicb-analyze)
-    - [9.5 `aicb export`](09-command-line-reference.md#95-aicb-export)
-    - [9.6 `aicb import`](09-command-line-reference.md#96-aicb-import)
-    - [9.7 `aicb list`](09-command-line-reference.md#97-aicb-list)
-    - [9.8 `aicb mcp`](09-command-line-reference.md#98-aicb-mcp)
-    - [9.9 `aicb call`](09-command-line-reference.md#99-aicb-call)
-    - [9.10 Environment variables](09-command-line-reference.md#910-environment-variables)
-    - [9.11 Typical headless workflows](09-command-line-reference.md#911-typical-headless-workflows)
+    - [9.4 `aicb skills sync`](09-command-line-reference.md#94-aicb-skills-sync)
+    - [9.5 `aicb analyze`](09-command-line-reference.md#95-aicb-analyze)
+    - [9.6 `aicb export`](09-command-line-reference.md#96-aicb-export)
+    - [9.7 `aicb import`](09-command-line-reference.md#97-aicb-import)
+    - [9.8 `aicb list`](09-command-line-reference.md#98-aicb-list)
+    - [9.9 `aicb mcp`](09-command-line-reference.md#99-aicb-mcp)
+    - [9.10 `aicb call`](09-command-line-reference.md#910-aicb-call)
+    - [9.11 Environment variables](09-command-line-reference.md#911-environment-variables)
+    - [9.12 Typical headless workflows](09-command-line-reference.md#912-typical-headless-workflows)
 10. [Data, storage and privacy](10-data-storage-and-privacy.md)
     - [10.1 Sessions and snapshots](10-data-storage-and-privacy.md#101-sessions-and-snapshots)
     - [10.2 The database file](10-data-storage-and-privacy.md#102-the-database-file)
@@ -126,8 +127,9 @@ The same text as one printable document: [AICB-General.pdf](AICB-General.pdf).
     - [10.8 What the product does with your data](10-data-storage-and-privacy.md#108-what-the-product-does-with-your-data)
     - [10.9 API keys](10-data-storage-and-privacy.md#109-api-keys)
     - [10.10 Local MCP usage recording](10-data-storage-and-privacy.md#1010-local-mcp-usage-recording)
-    - [10.11 Third-party components and licenses](10-data-storage-and-privacy.md#1011-third-party-components-and-licenses)
-    - [10.12 What the product promises and requires](10-data-storage-and-privacy.md#1012-what-the-product-promises-and-requires)
+    - [10.11 Agent skill files](10-data-storage-and-privacy.md#1011-agent-skill-files)
+    - [10.12 Third-party components and licenses](10-data-storage-and-privacy.md#1012-third-party-components-and-licenses)
+    - [10.13 What the product promises and requires](10-data-storage-and-privacy.md#1013-what-the-product-promises-and-requires)
 11. [Troubleshooting](11-troubleshooting.md)
     - [11.1 Startup and installation](11-troubleshooting.md#111-startup-and-installation)
     - [11.2 Analyzing a solution](11-troubleshooting.md#112-analyzing-a-solution)

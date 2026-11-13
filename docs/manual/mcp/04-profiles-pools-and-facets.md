@@ -11,9 +11,11 @@ An MCP profile is one self-contained MCP working environment. It decides four th
 | Rendering | the context template per kind of work, plus output notation, token budget and overshoot tolerance | template pickers on the `Facets` tab, `Output` tab |
 | Session freshness | whether and when the server re-analyzes after your edits | `Session` tab |
 
+Besides these four axes a profile also chooses how long the tool descriptions are that `tools/list` serves - full or compact (`Tool Descriptions` on the `Tools` tab); the tools and their parameters stay the same either way.
+
 Exactly one profile is active, and only the active profile drives the server. The active profile is fixed for the lifetime of a server process - there is no runtime switch tool, and `list_mcp_profiles` is read-only. All profiles live in the config DB, by default `%APPDATA%\AIContextBuilder\user-data\aicb.acb`, which is the same database the GUI uses. A normal `aicb mcp` start resolves that database automatically, so the profile you activated in the GUI applies without any argument; pass `--db-path <db>` to work against a different database.
 
-Four profiles ship with the product; everything else is a custom profile you create, duplicate or fine-tune in the GUI.
+Five profiles ship with the product; everything else is a custom profile you create, duplicate or fine-tune in the GUI.
 
 ## 4.1 Pools: what the server registers and what it delivers
 
@@ -27,6 +29,8 @@ Tool '<name>' is not in the active profile - call list_mcp_profiles to see the p
 their tools, then restart the server with 'aicb mcp --mcp-profile <id>' to run under a
 different one.
 ```
+
+The pointer to `list_mcp_profiles` appears only where the active profile serves that tool; under a profile that withholds it, such as `Local`, the message reads `... - restart the server with 'aicb mcp --mcp-profile <id>' to run under a different one.` A refusal never sends the agent to a second tool it would also be refused.
 
 `batch` and `measure` apply the same check per sub-query, so a sub-query naming a tool outside the active pool is refused item by item rather than silently executed.
 
@@ -81,7 +85,7 @@ A withheld tool is not a denial. It stays registered, `list_skills` reports it u
 - `list_skills` (or `detail: "lean"`, the default) returns the tool index as bare names in their pool groups, plus the `core`, `facets`, `styles`, `bundles` and `uncatalogued` sections.
 - `list_skills(detail: "full")` adds each tool's one-line description. An unknown `detail` value is rejected with the two valid spellings.
 
-## 4.2 The four built-in profiles
+## 4.2 The five built-in profiles
 
 | Id | Name | Tools | Shape |
 |---|---|---|---|
@@ -89,8 +93,9 @@ A withheld tool is not a denial. It stays registered, `list_skills` reports it u
 | `mcp-profile/full` | `Full Select` | 72 | all nine facets enabled with their complete menus - the whole lean core |
 | `mcp-profile/refactoring-focus` | `Refactoring Focus` | 47 | only the `Refactoring` facet, with a curated menu and its working style switched on |
 | `mcp-profile/debugging-focus` | `Debugging Focus` | 43 | only the `Debugging` facet, with a curated menu and its working style switched on |
+| `mcp-profile/local` | `Local` | 30 | 17 of the 24 core tools plus 13 extras on the `General` facet; compact tool descriptions |
 
-All four render every facet through the profile-wide `ai-optimized` context template in `YAML` notation, and none of them carries free-text instructions of its own. The two focus profiles send their facet's guidance as standing instructions; `Default` and `Full Select` stay instructions-neutral, so they add nothing to what the server already sends.
+All five render every facet through the profile-wide `ai-optimized` context template in `YAML` notation, and none of them carries free-text instructions of its own. The two focus profiles send their facet's guidance as standing instructions; `Default`, `Full Select` and `Local` stay instructions-neutral, so they add nothing to what the server already sends. Only `Local` serves compact tool descriptions; the other four serve the full texts.
 
 `Default` is the everyday pool: 24 core tools plus 30 from the nine facet menus, so every kind of work has its tools available without configuration. It is what an unconfigured server delivers.
 
@@ -105,6 +110,14 @@ All four render every facet through the profile-wide `ai-optimized` context temp
 - `calls_external` - external-API audit
 
 `Debugging Focus` enables the `Debugging` facet only, curated to 19 non-core tools (plus the core = 43), and sends that facet's guidance as the working style. It keeps the fault-tracing set, among them `trace_flow`, `type_dependency_path`, `lifecycle_of`, `verify_claim`, `review_context`, `find_by_code_traits`, `find_by_side_effects`, `find_by_concurrency_risk`, `find_by_resource_leak`, `describe_api_surface` and `find_by_event_subscription`. It drops the meta catalog, the generic name searches (`find_by_attribute`, `find_by_returns_semantic`), the audit and refactor lists (`find_dead_code`, `find_production_dead`, `find_god_objects`, `find_by_complexity_and_coverage`, `solution_metrics`, `detect_circular_dependencies`, `calls_external`) and the three database/history-bound snapshot tools (`save_session`, `compare_with_previous`, `diff_public_contract`).
+
+`Local` is for a model whose context window makes every tool definition expensive - typically a local model, or an agent that loads every tool definition into each prompt. It serves 30 of the tools agents call most: navigation, change impact, tests, diagnostics, insights, metrics, dependency injection, side effects and markup fan-in.
+
+- **From the core (17):** `server_info`, `analyze_solution`, `refresh_session`, `get_diagnostics`, `find_symbol`, `symbol_signature`, `find_usages`, `find_implementations`, `find_overrides`, `get_type_hierarchy`, `impact_of_change`, `get_context`, `explain_symbol`, `find_tests_for`, `call_graph`, `batch`, `install_agent_hooks`.
+- **Extras (13):** `find_by_side_effects`, `calls_external`, `symbol_metrics`, `find_dead_code`, `instantiation_sites`, `resolve_injection`, `coverage_gaps`, `list_insights`, `get_insight`, `find_unresolved_bindings`, `find_resource_usages`, `find_binding_usages`, `solution_metrics`.
+- **Switched off (7 core tools):** `usage_report`, `export_markdown`, `pack_for_task`, `measure`, `list_mcp_profiles`, `list_skills`, `docs`. They stay registered and one profile switch away.
+
+It serves compact tool descriptions (see "The `Tools` tab"), so its tool list is under a fifth of the size of the default profile's: measured on the release build, 29,019 characters against 157,966 for `Default` and 200,875 for `Full Select`. Its server instructions and the agent skills leave out every tool it withholds. Pick it on the `MCP Profiles` page, or pin it with `aicb mcp --mcp-profile mcp-profile/local`.
 
 ## 4.3 Selecting a profile
 
@@ -125,7 +138,7 @@ aicb mcp --mcp-profile mcp-profile/full
 `--mcp-profile <id>` pins the active profile for this server process. The pin is process-local and writes nothing back: a second server process, and the GUI, keep their own active profile. Without the option, the persisted active profile applies. Get the ids from `list_mcp_profiles` or from the profile list in the GUI.
 
 - An unknown id aborts the start, with the valid ids listed on stderr - a typo never silently serves a different profile.
-- Hidden profiles are rejected as pin targets. They are not listed, so pinning one would be an invisible configuration.
+- Hidden custom profiles are rejected as pin targets. They are not listed, so pinning one would be an invisible configuration. A hidden built-in profile still starts: the server runs it and prints a note on how to bring it back with `Show hidden` and `Restore Built-In`, and `list_mcp_profiles` lists it as the active one.
 - The pin needs a config DB. The standard database is used automatically unless you pass `--db-path`.
 
 `list_mcp_profiles` still shows the whole catalog, with the pinned profile flagged `isActive` - not the one persisted in the database.
@@ -136,7 +149,8 @@ aicb mcp --mcp-profile mcp-profile/full
 |---|---|
 | A facet's template assignment | live, per call |
 | Active profile changed in the GUI | at the next server start; until then `server_info` reports it as config drift and asks for a restart |
-| Tool set and server instructions of the active profile | at server start - a running server keeps what it read at startup |
+| Tool set, tool description mode and server instructions of the active profile | at server start - a running server keeps what it read at startup |
+| The project's aicb skill files | at the next agent start: the server rewrites them after its first session, the Claude Code session-start hook before the first prompt (see "Keeping the skills in step: `aicb skills sync`") |
 | `AICB_MCP_TOOLS` | at server start, resolved once |
 
 Note: the server does not send `tools/list_changed` notifications. A profile change therefore reaches a client's tool list only when the client re-reads it; the server marks its tool list cacheable for 15 minutes with a private cache scope, and that expiry is the only invalidation it offers.
@@ -179,7 +193,7 @@ AICB_MCP_TOOLS  >  aicb.mcp.json  >  the active profile  >  the Default profile'
 
 When neither the variable nor the file is set, the active profile decides. It is fixed at server start, so an edit in the GUI reaches the server only after a restart (`server_info` reports it as config drift until then). If reading the profile fails (a locked database, for example), the server falls back to the `Default` profile's pool instead of exposing nothing.
 
-A profile begins with the navigation core, but every core tool except `server_info` can be switched off on the `Tools` tab. A heavily narrowed profile can therefore omit `list_mcp_profiles` and `list_skills`; `server_info` is the one core tool that cannot be switched off and carries a lock instead of a checkbox.
+A profile begins with the navigation core, but every core tool except `server_info` can be switched off on the `Tools` tab. A heavily narrowed profile can therefore omit `list_mcp_profiles` and `list_skills` - the built-in `Local` does; `server_info` is the one core tool that cannot be switched off and carries a lock instead of a checkbox.
 
 ## 4.5 The nine facets
 
@@ -230,7 +244,7 @@ Each facet resolves its context template through this chain:
 populated facet slot  >  the profile-wide template  >  the globally active context template
 ```
 
-In all four built-in profiles the profile-wide template is `ai-optimized` and every other slot is unset, which the editor shows as `(use profile template)`. On the `general` row the unset sentinel reads `(use active context template)`. A template id that no longer resolves falls back gracefully to the `default` context template instead of failing the render.
+In all five built-in profiles the profile-wide template is `ai-optimized` and every other slot is unset, which the editor shows as `(use profile template)`. On the `general` row the unset sentinel reads `(use active context template)`. A template id that no longer resolves falls back gracefully to the `default` context template instead of failing the render.
 
 Note: because every facet inherits the profile-wide template, structural facets such as `Architecture` and `Review` render without the full dependency graphs that a dedicated structural template would carry. If you want those graphs, assign `refactoring` to the `Architecture` and `Review` rows as a slot override.
 
@@ -279,6 +293,15 @@ At five or fewer effective tools the panel shows a warning naming the actual cou
 
 `Opt-in Tool Bundles` follows, then `Effective tools/list`: the exact tool functions this profile exposes to the server on connect, as a read-only list. It is what the two sections above add up to.
 
+`Tool Descriptions` decides which text the server lists for each tool:
+
+| Setting | What the server serves |
+|---|---|
+| `Full (default)` | The complete descriptions: every caveat, every parameter detail and the pointers to related tools. |
+| `Compact` | A short curated text per tool that keeps its most important caveat, and the first sentence of each parameter text. It names no other tool, because the profile may not expose it. |
+
+The tools and their parameters stay the same in both modes; only the descriptions get shorter. Compact is for an agent that loads every tool definition into its prompt; an agent that loads tool definitions on demand, such as Claude Code, gains little from it. Below the switch, a line estimates what the effective tool list costs in tokens in both modes (`About N tokens with compact descriptions (full: about M). An estimate.`). The setting is applied at server start: a change needs a restart, and `server_info` reports the pending change as config drift. Of the built-in profiles only `Local` serves compact descriptions.
+
 ![The Tools tab: the navigation core in four groups, the opt-in bundles and the effective tools/list](img/mcp-profiles-core.png)
 
 ### The `Output` tab
@@ -303,7 +326,7 @@ The token budget and the overshoot tolerance affect the MCP render path only; GU
 | `Reactive` | repair when asked: the drift is noticed as a tool is about to answer, the re-analysis runs first, and the answer comes from the current graph | the caller waits for the re-analysis |
 | `Proactive` | repair ahead of the question: a file watcher starts the re-analysis once saving has gone quiet, so the next call usually finds a current graph | the work moves into the background and there is measurably more of it - roughly ten times as many runs, about a third of them never asked about; choose it on a machine with CPU to spare |
 
-All four built-in profiles, and every newly created custom profile, start on `Reactive`. The setting is read once at server start; a change takes effect after restarting the server, and `server_info` reports the pending change. The `AICB_MCP_AUTO_REFRESH` environment variable overrides the mode for a single process. It accepts `off` (also `0`, `false`, `no`), `reactive`, and `proactive` (also `1`, `on`, `true`, `yes`); an unrecognized value is ignored, so a typo cannot switch a mode on.
+All five built-in profiles, and every newly created custom profile, start on `Reactive`. The setting is read once at server start; a change takes effect after restarting the server, and `server_info` reports the pending change. The `AICB_MCP_AUTO_REFRESH` environment variable overrides the mode for a single process. It accepts `off` (also `0`, `false`, `no`), `reactive`, and `proactive` (also `1`, `on`, `true`, `yes`); an unrecognized value is ignored, so a typo cannot switch a mode on.
 
 The `Scope` note on the tab summarizes this: the setting applies to the server started with this profile active, and the environment variable overrides it for one session. See "Sessions and staleness" for the full behavior of the freshness modes.
 
@@ -327,7 +350,7 @@ A delivery cut mark appears when the text runs past the prefix, and the working 
 
 `Save` (`Ctrl+S`) persists the editor's state to the database. Saving a built-in profile marks its row as overridden, and from that moment the built-in seed leaves the row alone.
 
-Note: this has a lasting effect on `Default`. Its nine facet menus are stored as explicit lists derived from the 18-tool drop list, so the moment you press `Save` on `Default`, today's 54 tool names are frozen into that row and a tool cataloged into a facet by a later version no longer joins it. If you want the shipped default to keep growing with the product, do not save it. `Restore Built-In` clears the override and writes the current code default back; `Duplicate` leaves the built-in untouched and creates a custom copy you can edit freely.
+Note: this has a lasting effect on `Default`. Its nine facet menus are stored as explicit lists derived from the 18-tool drop list, so the moment you press `Save` on `Default`, today's 54 tool names are frozen into that row and a tool cataloged into a facet by a later version no longer joins it. If you want the shipped default to keep growing with the product, do not save it. `Restore Built-In` clears the override and writes the current code default back; `Duplicate` leaves the built-in untouched and creates a custom copy you can edit freely. Importing a profile file that carries a built-in profile keeps it a built-in: it is stored as an edited built-in, which `Restore Built-In` can reset, not as a custom profile.
 
 ## 4.8 Step-by-step
 

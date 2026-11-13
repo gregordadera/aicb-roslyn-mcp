@@ -12,7 +12,7 @@ The default MCP profile exposes a curated tool set. Where a tool below is not pa
 
 ## 9.1 Markup: XAML/AXAML bindings and resource keys
 
-Markup connects views to view-models and to resources by string. Resource keys have no C# symbol edge, while a resolved view-model's root `{Binding}` member is represented in the symbol graph as a low-confidence `(xaml)` edge; the graph does not retain the markup site's binding form. `find_resource_usages` and `find_binding_usages` scan current files on disk and therefore do not need `refresh_session`. `find_unresolved_bindings` instead reads the live analysis result: refresh after markup or view-model edits, and expect no findings from a recalled snapshot.
+Markup connects views to view-models and to resources by string. Resource keys have no C# symbol edge, while a resolved view-model's root `{Binding}` member is represented in the symbol graph as a low-confidence `(xaml)` edge; the graph does not retain the markup site's binding form. `find_resource_usages` and `find_binding_usages` scan current files on disk and therefore do not need `refresh_session`. `find_unresolved_bindings` instead reads the live analysis result: refresh after markup or view-model edits, and expect no findings from a recalled snapshot. Through a solution filter (`.slnf`) stored in another folder than its solution, the markup tools scan the projects of the solution the filter names, and an answer says when project directories were missing from the scan. Markup files in Visual Basic or F# projects are not scanned; a zero result counts them and says so.
 
 ### `find_unresolved_bindings`
 
@@ -29,6 +29,7 @@ Markup connects views to view-models and to resources by string. Resource keys h
 - WPF/WinUI `.xaml`: the view-model is resolved through `d:DesignInstance` or through a unique `FooView` -> `FooViewModel` naming convention.
 - Avalonia `.axaml`: `{Binding}` and `{CompiledBinding}`; the view-model is resolved only through `x:DataType` at scope level, so no naming convention applies.
 - A nested type written `prefix:Outer+Inner` in a `DataType`/`x:DataType`, written as `{x:Type ...}` or in the bare form, scopes its bindings to the nested type, not to its outer type.
+- WinUI `{x:Bind}` is judged apart from `{Binding}`: each path segment is looked up on the page's `x:Class` or the template's `x:DataType`, and a segment absent on a type that is not partial is listed with `form: "xBind"` (`viewModel` is then the type it was looked up on).
 
 **What is deliberately skipped.** A binding whose DataContext scope cannot be typed with certainty is never flagged: `ControlTemplate`/`Style`, a runtime DataContext, keyed resources, and a template without a `DataType`. WPF alone recovers an item template's type from the host's pinned `ItemsSource`; on Avalonia, a template without `x:DataType` - `TreeDataTemplate` included - is always skipped. Only view-models resolved with certainty and with a verifiable member surface are checked; source-generated members (`[ObservableProperty]`, `[RelayCommand]`) and inherited members count as resolved. The trade-off is a recall miss, never a false report.
 
@@ -45,6 +46,7 @@ Markup connects views to view-models and to resources by string. Resource keys h
 | `sitesSkippedByView` | The skipped sites of each view, by reason, with their lines (capped at 100 views; `sitesSkippedByViewTruncated` names the views the cap left out). A site listed here was never judged, so a renamed site listed there is not one the tool checked. |
 | `judgementNote` | Present only when the judged population differs from `bindingSitesInMarkup`, naming each part of the difference with its number: element-syntax `<Binding Path="X"/>` sites (counted as judged or skipped, but not in `bindingSitesInMarkup`, which lists the `{Binding}` form only), markup edited since the analysis (call `refresh_session`), and sites that could not be attributed, with how many of them are element-syntax sites. On a recalled session it says why both counts are `null`. |
 | `note` | Present when the zero needs qualification: a session without a live binding verdict (a recalled snapshot), an incomplete analysis run, or a solution with no markup at all. |
+| `xBindSitesInMarkup`, `xBindSitesJudged`, `xBindSitesSkipped`, `xBindSitesSkippedBy`, `xBindJudgementNote` | The `{x:Bind}` counterparts of the binding-site counts above. Present only where `{x:Bind}` sites exist; every `{Binding}` field is unchanged by them. |
 
 Note: `bindingSitesInMarkup` is the live scan total, not the denominator of `count` - it includes the scopes this tool conservatively skips. `sitesJudged` and `sitesSkipped` are the decisions of the same analysis pass that produces the findings, so a zero has a denominator. Read a hit as high-confidence evidence that you verify at its `file:line`, not as proof.
 
@@ -128,7 +130,7 @@ Availability: in the default tool set; usable as a sub-query of `batch`.
 | `sessionId` | string | yes | - | The session id returned by `analyze_solution`. |
 | `path` | string | no | `null` | The exact, case-sensitive bound member path, e.g. `GestureLabel` or `Foo.Bar`. Omit it for the inventory view. |
 | `scope` | string | no | `"solution"` | `solution`, or a view-path substring (e.g. `AIContextBuilder.UI/Views/Dialogs`) to narrow which markup files are reported. |
-| `form` | string | no | `null` | Form filter: `dataContext`, `elementName`, `relativeSource` or `source`. Omit it for all forms. Applies to both views. |
+| `form` | string | no | `null` | Form filter: `dataContext`, `elementName`, `relativeSource`, `source` or `xBind`. Omit it for all forms. Applies to both views. |
 
 **With a path.**
 
@@ -136,7 +138,7 @@ Availability: in the default tool set; usable as a sub-query of `batch`.
 |---|---|
 | `sites` | Every binding site: `view`, `line`, `path`, `form`. |
 | `siteCount` | True number of sites (the list is capped at 200). |
-| `byForm` | Site counts per form: `dataContext`, `elementName`, `relativeSource`, `source`. |
+| `byForm` | Site counts per form: `dataContext`, `elementName`, `relativeSource`, `source`, and `xBind` when it is not zero. |
 | `deeperSegmentSites`, `deeperSegmentSiteCount` | Sites that name the path only as a deeper segment of another member's path (see below). |
 | `pathlessBindingCount` | Bindings that name no member at all - solution-wide, not narrowed by `scope` or `form`. |
 | `sitesTruncated` | `true` when the site list was capped at 200. |
@@ -148,6 +150,7 @@ The `form` of a site tells you what it resolves against:
 - `elementName` - another named element in the same scope.
 - `relativeSource` - an ancestor, the templated parent, or self.
 - `source` - an explicit object (a static, a resource).
+- `xBind` - a WinUI `{x:Bind}` site, resolved against the page or the template's `x:DataType`.
 
 **Matching rule.** A path matches as the whole path or as its root segment. `Foo` finds `{Binding Foo}` and `{Binding Foo.Bar}` - both consume `Foo`. The `Bar` in `{Binding Foo.Bar}` does not match: it is a member of `Foo`'s type. Such sites are reported separately under `deeperSegmentSites` with their own count, because a rename of the same-named member on the nested type goes through exactly them. When there are deeper-segment sites, the `note` names up to two of them and points at the list.
 
@@ -167,7 +170,7 @@ The `form` of a site tells you what it resolves against:
 
 Note: an unrecognized `form` value matches nothing rather than everything - widening a typo to "all forms" would answer a question nobody asked. The `note` names the typo and the valid values, so the zero is not read as a finding.
 
-Note: this is markup-only fan-in. It sees the `{Binding}` markup-extension form in the solution's own `.xaml`/`.axaml` files. A binding built in code-behind (`SetBinding`, `BindingOperations`), the element syntax `<Binding Path="..."/>`, a WinUI `{x:Bind}`, a `{TemplateBinding}` and any path assembled at runtime are invisible here - zero sites means "verify before renaming or deleting", not proof. This scan also does not resolve the path against a DataContext; `find_unresolved_bindings` is the tool that checks whether a bound member actually exists on its view-model.
+Note: this is markup-only fan-in. It sees the `{Binding}` markup-extension form (`{CompiledBinding}` too in `.axaml`) and WinUI `{x:Bind}` in the solution's own `.xaml`/`.axaml` files. A binding built in code-behind (`SetBinding`, `BindingOperations`), the element syntax `<Binding Path="..."/>`, a `{TemplateBinding}` and any path assembled at runtime are invisible here - zero sites means "verify before renaming or deleting", not proof. This scan also does not resolve the path against a DataContext; `find_unresolved_bindings` is the tool that checks whether a bound member actually exists on its view-model.
 
 The tool reads the current files on disk, so it is never stale after an edit, needs no `refresh_session`, and works on recalled sessions.
 
@@ -196,7 +199,7 @@ Note: `pack_for_task` always renders the lean bundle - its render deliberately s
 
 **Response.** The Markdown bundle. If the goal names no known symbol, the answer is an HTML comment that says so (`pack_for_task: goal mentions no known symbol - try naming a type or method`) rather than an empty document.
 
-Note: on a multi-targeted solution, the bundle is deduplicated to one logical project per name, using the newest target framework's instance - the same view `find_symbol` uses.
+Note: on a multi-targeted solution, the bundle is deduplicated to one declaration per type, the newest target framework's where it has one - the same view `find_symbol` uses. A type only an older target framework declares is included, callers from every target framework count, and a type a source generator writes whole can be bundled; its code block says it has no source on disk.
 
 Note: when several types share a name the goal names, every one of them renders. A same-named type that the ranking left out is not added.
 
@@ -233,7 +236,7 @@ Each bundled test carries its evidence tier, the `matchReason` that `find_tests_
 
 When the template the render runs through sets `Expansion around the MCP start point`, the manifest adds `| seed expansion: <Name> (<id>)`; a strategy id that does not resolve adds `| seed expansion: '<id>' not found, the default ran`, and one that cannot be read `| seed expansion: '<id>' could not be read, the default ran`. Without the setting, both render paths grow the neighborhood around the seeds the same way. A running server reads a template change only after a restart.
 
-Note: on a multi-targeted solution, the bundle is deduplicated to one logical project per name, using the newest target framework's instance.
+Note: on a multi-targeted solution, the bundle is deduplicated to one declaration per type, the newest target framework's where it has one; a type only an older target framework declares is included, and a type a source generator writes whole can be bundled.
 
 Note: when several types share a name the goal names, every one of them renders. A same-named type that the ranking left out is not added.
 
@@ -474,10 +477,10 @@ Availability: not in the default tool set. Expose it by enabling the `api-surfac
 | `title` | The producer's headline. |
 | `severity` | `critical`, `warning`, `info` or `ok`. |
 | `persistent` | `true` for reminder findings that are not removed by a dismissal. |
-| `detailsCount` | Number of detail lines after filtering. |
+| `detailsCount` | Number of detail lines after filtering - all of them; `get_insight` lists the first 20. |
 | `remediationCostMinutes` | The producer's cost estimate, when it has one. |
 | `suggestion` | A short, concrete fix sentence, when the producer has one. |
-| `suppressed` | How many detail lines were removed by triage; `null` when nothing was filtered. |
+| `suppressed` | How many detail lines were removed by triage, also beyond the first 20 findings; `null` when nothing was filtered. |
 
 **With `files`.** The answer is an object `{files, notInSolution, insights}`. `files` lists the given files the solution holds, solution-relative; `notInSolution` the ones it does not (a deleted or non-C# file, a typo), as given - a path is never silently dropped. Each insight carries the fields above plus `details` and `detailLocators` (`{typeName, memberName}` per line): the lines about the types the files declare, up to 20, then a `(... and N more)` line; `detailsCount` counts the in-scope lines. `title`, `remediationCostMinutes` and `suppressed` stay whole-solution numbers, so `detailsCount` plus `suppressed` is not a split there. A line matches by the simple type name of its locator, so a same-named type elsewhere matches too; a line with no type locator is left out, and an insight about the solution as a whole (no lines) stays with `detailsCount` 0. A relative path is read against the solution folder, so pass absolute paths when your list comes from `git diff --name-only`, which prints paths relative to the repository root.
 

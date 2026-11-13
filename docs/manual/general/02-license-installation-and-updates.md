@@ -264,7 +264,7 @@ Only two functions delete recorded data in bulk, and both are in the desktop app
 
 The desktop app also offers narrower delete actions for individual sessions, snapshots, MCP-usage notes or imported usage snapshots, and user-created master-data entries.
 
-There is no global "delete all my data" button. No CLI verb deletes anything; the seven verbs are `init`, `analyze`, `export`, `import`, `list`, `mcp` and `call`. The MCP tool `usage_report` is read-only. If you use only the CLI or the MCP server, the only in-product way to remove the usage records is to delete the database file, which also carries every session, snapshot and profile.
+There is no global "delete all my data" button. No CLI verb deletes recorded data; the eight verbs are `init`, `skills`, `analyze`, `export`, `import`, `list`, `mcp` and `call`. (`aicb skills sync` removes one kind of file: an aicb-written skill file that nobody edited and that holds no notes of yours, when the served tools no longer include one the skill requires.) The MCP tool `usage_report` is read-only. If you use only the CLI or the MCP server, the only in-product way to remove the usage records is to delete the database file, which also carries every session, snapshot and profile.
 
 ### The complete removal list
 
@@ -283,8 +283,8 @@ To remove everything AIContextBuilder has written on a machine:
 4. **Per analyzed solution:** `<SolutionName>.aicb.json` next to the `.sln`. It is deliberately committed to your repository and shared with everyone working on that solution, so removing it changes the configuration for the whole team. An interrupted write can leave a `<SolutionName>.aicb.json.<32 hex digits>.tmp` beside it.
 5. **Per project wired by `aicb init` or the `install_agent_hooks` tool** - these entries are merged into files that belong to you, so edit them instead of deleting the files:
    - the `aicb` entry in the project's `.mcp.json`;
-   - the skill files under `.claude/skills/` (`aicb-csharp-context`, and with `--skills=all` also `aicb-code-review`, `aicb-code-simplifier` and `aicb-usage-check`);
-   - Claude Code: `.claude/hooks/aicb-symbol-guard.mjs` and the aicb entry in `.claude/settings.json`;
+   - the skill files under `.claude/skills/` and, for Codex and OpenCode, `.agents/skills/` (`aicb-csharp-context`, and with `--skills=all` also `aicb-code-review`, `aicb-code-simplifier`, `aicb-usage-check` and `aicb-smoke-test`);
+   - Claude Code: `.claude/hooks/aicb-symbol-guard.mjs`, the skill-sync hook `.claude/hooks/aicb-skill-sync.mjs`, and the aicb entries in `.claude/settings.json` (the guard and the `SessionStart` entry);
    - Codex: `.codex/hooks/aicb-symbol-guard.mjs` and the aicb entry in `.codex/hooks.json`;
    - OpenCode: `.opencode/plugins/aicb-symbol-guard.ts`, `.opencode/plugins/guard-wiring.mjs`, `.opencode/plugins/aicb-symbol-guard.mjs` and the aicb entry in `opencode.json`.
 6. **Files you exported yourself** - context documents written with `aicb analyze`, `aicb export` or `export_markdown`, usage reports as JSON, session exports, run templates and constellations.
@@ -298,7 +298,7 @@ Note: On Linux and macOS the `%APPDATA%` token resolves to the platform's applic
 - `load-perf.log` - solution-load phase timings from the desktop app only: phase names, milliseconds and a context label. It does not rotate and grows with every solution load. You can switch it off in `Settings > General` with `Record solution-load performance timings`.
 - The CLI and the MCP server write no log file; their diagnostics go to standard error.
 
-Note: The MCP server records one row per tool call in the local database: timestamp, tool name, success, duration, client name and version, and a truncated error text. Nothing is transmitted; the rows stay on your machine and are what the `MCP Usage` page shows and its `Clear` button deletes.
+Note: The MCP server records one row per tool call in the local database: timestamp, tool name, success, duration, client name and version, and a truncated error text. Nothing is transmitted; the rows stay on your machine and are what the `MCP Usage` page shows and its `Clear` button deletes. With `Record MCP tool usage` switched off (`Settings > General`, section `MCP Server`), no row is written.
 
 ## 2.12 Support and security reports
 
