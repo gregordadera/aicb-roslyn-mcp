@@ -1,9 +1,8 @@
-# AICB architecture, limits and evidence
+# How AICB works: architecture and evidence
 
-This page answers the architecture questions that matter when a person or coding
-agent decides whether to trust an AICB answer. It is deliberately question-first
-so that the answers remain discoverable without reading all three reference
-manuals.
+This page answers the questions that matter when a person or a coding agent decides
+whether to trust an AICB answer: what AICB knows about a solution, how it stays
+current, how it chooses context and how it performs on large codebases.
 
 ## Is AICB only a cache around Roslyn queries?
 
@@ -11,10 +10,6 @@ No. Roslyn supplies the parsed syntax, compiler symbols, semantic models and
 compilations. AICB walks those models, records its own facts and consolidates them
 into an analyzed solution model. MCP tools then query or traverse that model; they
 do not start an unrelated Roslyn search for every question.
-
-This distinction does not make AICB a model of everything the program can do at
-runtime. It is a static semantic model with explicitly documented extensions and
-limits.
 
 ```text
 Solution and project-shaping files
@@ -31,35 +26,31 @@ Solution and project-shaping files
  Tool-specific traversal / selection / rendering
 ```
 
-The detailed analysis sequence is documented in
+The model is static and semantic: it describes what the code states, with
+explicitly documented boundaries for what only happens at runtime. The analysis
+sequence is described in
 [How the analysis works](manual/general/04-how-the-analysis-works.md).
 
 ## What is kept in memory?
 
 A live MCP session holds the analyzed solution graph and the Roslyn workspace that
-produced it. The model contains declared types and units together with facts and
-indexes used for callers, type fan-in, implementations, tests, DI, markup,
-architecture, metrics and side effects.
-
-The boundary is important:
+produced it: declared types and members together with the facts and indexes behind
+callers, type fan-in, implementations, tests, DI, markup, architecture, metrics and
+side effects.
 
 | Stage | Examples | When it happens |
 |---|---|---|
 | Roslyn input | Syntax trees, symbols, semantic models and compilations | While loading and analyzing documents |
 | Recorded facts | Declarations, calls, type references, construction sites, test evidence and statically readable registrations | During the document walk |
-| Consolidated relationships | Caller and type fan-in, implemented-by lists, resolved XAML references and transitive effect classifications | Post-processing after the document walk |
+| Consolidated relationships | Caller and type fan-in, implemented-by lists, resolved XAML references and transitive effect classifications | After the document walk |
 | Question-specific result | Transitive impact closure, risk summary, filtered result lists and task context | When a tool is called |
 | Rendered output | AI-Builder-MD in tag or YAML notation | When context is requested or exported |
 
-In other words, AICB keeps reusable semantic facts and indexes warm. A particular
-tool answer may still be calculated from them on demand. "In memory" does not mean
-that every possible transitive path or context document is stored in advance.
+AICB keeps the reusable semantic facts warm and calculates each answer from them on
+demand, so follow-up questions are fast without every possible path being stored in
+advance.
 
-Two live-only results are not reconstructed from a persisted snapshot: unresolved
-XAML bindings and the project-completeness record. A recalled snapshot therefore
-has a narrower contract than a freshly analyzed session.
-
-The persistence surfaces have deliberately different contracts:
+Each persistence surface has its own purpose:
 
 | Surface | Stores | Does not store |
 |---|---|---|
@@ -68,207 +59,125 @@ The persistence surfaces have deliberately different contracts:
 | Saved snapshot | A named analysis baseline for later comparisons | A mutable live session |
 | `<Solution>.aicb.json` | Portable layer, exclusion, test, suppression and analysis-scope configuration | Analysis results, sessions, snapshots or credentials |
 
-`remember_codebase` returns a live session and persists the model. A later process
-can use `recall_codebase`; its response discloses payload, analyzer and file-set
-drift even though the recalled graph remains available. `refresh_remembered`
-performs a new live analysis, restores the live-only contract and persists the new
-snapshot. This distinction prevents "persistent memory" from being mistaken for a
-shared live Roslyn workspace.
+`remember_codebase` persists the model of a live session, a later process can load it
+with `recall_codebase`, and `refresh_remembered` brings it back to a full live
+analysis. A recalled model reports when it no longer matches the source, so it is
+never mistaken for a shared live workspace.
 
 ## What does AICB add beyond Roslyn?
 
-Roslyn is the semantic foundation. AICB adds product-level questions and
-aggregation on top of it, including:
+Roslyn is the semantic foundation. AICB adds the questions a coding agent needs
+answered, aggregated at symbol level:
 
-- transitive change impact and production/test separation;
-- call, type, implementation and construction relationships presented at symbol
-  level instead of as an unaggregated list of positions;
-- test discovery and evidence tiers;
+- transitive change impact with production and test users kept apart;
+- call, type, implementation and construction relationships per symbol instead of
+  an unaggregated list of positions;
+- test discovery with evidence tiers;
 - Microsoft DI and MEF registrations and constructor-injection relationships;
-- selected XAML/AXAML bindings, resources and type references;
+- source-generated code, and XAML/AXAML, WinUI and Razor bindings, resources and
+  type references;
 - side-effect and external-call classification;
 - layers, cycles, quality insights, metrics and change-policy checks;
 - goal-driven selection and token-budgeted AI-Builder-MD rendering;
 - provenance and optional `<ai>` annotations for meaning the compiler cannot infer.
 
-A language server remains the better tool for unsaved editor buffers, navigable
-source positions, fuzzy symbol lookup and third-party analyzer diagnostics. AICB
-reads saved files and normally answers at symbol level. The measured comparison is
-in [How AICB differs from a language server](manual/general/01-introduction.md#16-how-aicb-differs-from-a-language-server).
+A language server and AICB complement each other: the language server serves the
+editor (unsaved buffers, navigable positions, fuzzy lookup, third-party analyzer
+diagnostics), AICB serves the agent with aggregated answers about the saved code.
+The comparison is in
+[How AICB differs from a language server](manual/general/01-introduction.md#16-how-aicb-differs-from-a-language-server).
 
 ## How incremental refresh works
 
-A session records a hash of the analyzed file set. When saved source changes are
-detected, the incremental path brings the warm Roslyn solution up to date - edited
-files, and C# files added, renamed or removed where it is clear which project
-compiles them - and reuses facts for documents the change could not have reached.
-The response identifies this as `mode: "incremental"`.
+A session records the file set it analyzed. After saved edits, the next refresh
+brings the warm Roslyn solution up to date: edited C# files, and C# files added,
+renamed or removed where it is clear which project compiles them, are applied in
+place, and the facts of documents the edit cannot have reached are reused. The
+response identifies this as `mode: "incremental"`.
 
-An unavailable incremental path or `refresh_session(force: true)` causes a full
-workspace reload. A build or restore can change resolved references without
-changing source files. A restore that rewrote a project's assets file after the
-session was loaded is picked up by an ordinary refresh; after a build, use
-`force: true` when an earlier answer reported unresolved projects.
+A change to project-shaping files - project, props, targets, solution and XAML or
+Razor files - takes a full reload, as does `refresh_session(force: true)`. A project
+added to or removed from the solution file is detected as well. A restore that
+rewrote a project's assets file is picked up by an ordinary refresh; after a build,
+use `force: true` when an earlier answer reported unresolved projects.
 
-A session has at most one refresh in flight. A concurrent caller joins that refresh
-instead of starting a second analysis of the same session. The complete operational
-contract is in
+Reuse is deliberately conservative: when an edit could change how other documents
+bind, AICB analyzes them again rather than serve a plausible stale relationship. The
+regression suite compares an incrementally refreshed session with a separately
+opened full reload for every supported edit shape and asserts that the incremental
+path really ran.
+
+A session has at most one refresh in flight; a concurrent caller joins it instead of
+starting a second analysis. The complete operational contract is in
 [Sessions and staleness](manual/mcp/03-sessions-and-staleness.md).
-
-### How far does one edit invalidate reuse?
-
-There are two conservative gates. The outer refresh planner permits its incremental
-path only when nothing but C# files moved: text changed in place, or C# files added,
-renamed or removed. An added C# file is placed in the loaded solution only where the
-files already beside it show which project compiles it; where that is not clear, the
-refresh takes the full reload path. Any non-C# file tracked by the snapshot that was
-added, removed or changed (including XAML, Razor and project-shaping files) takes the
-full reload path too, because it can change project membership, generated code or
-compilation structure.
-
-The analyzer then decides which previous document results are safe to replay:
-
-- Every changed document is analyzed again, including each target-framework or
-  linked-file instance of the same path.
-- If only method bodies moved and the declaration surface stayed the same, unchanged
-  documents can be reused.
-- If declarations moved - including a public API change - the analyzer also invalidates
-  documents that name a changed identifier, reference a type declared in the changed
-  document, or belong to a transitive derived-type chain rooted there.
-- A changed global using, extern alias or assembly attribute disables document reuse
-  for that run because it can change binding throughout a project without an
-  ordinary reference edge.
-- A changed layer profile, namespace-exclusion provider, target-framework scope,
-  solution assembly set or project set also disables reuse.
-
-"Public" is therefore not a special invalidation switch. What matters is whether the
-declaration surface changed and which documents can bind differently as a result.
-The closures deliberately prefer re-analyzing too much over serving a plausible
-stale edge. This is document-granular reuse, not method-granular patching of an
-already rendered answer.
-
-The regression suite compares the complete normalized analysis dump from an
-incrementally refreshed session with a separately opened full-reload session. Its
-single-edit matrix covers method-body changes, added and deleted methods, changed
-signatures, deleted and renamed types, changes in one half of a partial type,
-re-deriving attribute-declared source-generated members on the forked Roslyn
-snapshot (name reconstruction from the parsed syntax, independent of the
-generators' own output), and C# files added, removed or renamed in place, including
-an added file a source generator reads. It also asserts
-that the incremental path really ran, so an accidental full reload cannot make the
-comparison pass vacuously. An added C# file whose project cannot be told from the
-files beside it, and changes to `.csproj`, `.props`, `.targets`, solution, XAML and
-other project-shaping files, deliberately fall back to a full reload. A combined
-public matrix for simultaneous multi-file edits and branch switches has not yet been
-published.
 
 ## How does AICB keep its answers consistent?
 
 Each kind of relationship has its own index: who calls a method, who uses a type,
 a property or an event, which types implement an interface, which markup refers to
-a member. Every entry is filed under an identity that keeps overloads and two
-explicit implementations of the same interface member apart, so one name never
-merges two different symbols. A relationship that several parts of the analysis
-find is stored once, not counted twice.
+a member. Every entry is filed under an identity that keeps overloads and explicit
+interface implementations apart, so one name never merges two different symbols,
+and a relationship that several parts of the analysis find is stored once.
 
 Relationships that can only be resolved after the whole solution has been read -
 XAML bindings, Razor references and the types a top-level program uses - are
-resolved at the end of the analysis and then count like any other use. Answers
-that follow chains, such as the transitive impact of a change, are worked out when
-you ask, not stored for every possible path in advance.
-
-The analysis runs on several documents at once and stays consistent for each one.
-For an incremental refresh AICB remembers what each document contributed, so an
-unchanged document's facts are reused instead of being analyzed again, under the
-rules in the previous section.
+resolved at the end of the analysis and then count like any other use. Answers that
+follow chains, such as the transitive impact of a change, are worked out when you
+ask.
 
 ## Do the GUI and MCP server share the same RAM graph?
 
-No. They share the same analysis and rendering implementation, and by default they
-share the local configuration database. They are still separate processes and do
-not share one live in-memory analysis session.
+They share the same analysis and rendering engine and, by default, the local
+configuration database, but each process keeps its own analysis. An MCP session
+belongs to one `aicb mcp` process; the default cache keeps up to eight sessions and
+expires an idle one after 90 minutes, both configurable. An idle session also
+releases its Roslyn solution after a configurable time and keeps its analysis graph.
 
-An MCP session belongs to one `aicb mcp` process. A second server process has its
-own session cache and analyzes the solution again unless it explicitly recalls a
-persisted snapshot. The default MCP cache keeps up to eight sessions, expires an
-idle session after 90 minutes and evicts the least recently used session on
-overflow. These values are configurable per server process.
-
-This process boundary also applies to agents: two agents connected to different
-server processes do not mutate or race on one RAM graph. They can still read and
-write the same on-disk source tree and use the same local configuration database,
-so each process must refresh after relevant saved edits.
+Two agents connected to different server processes therefore never race on one
+in-memory graph. They can still work on the same source tree, so each process
+refreshes after relevant saved edits.
 
 ## How does AICB choose context for an agent?
 
 The task-oriented tools start from explicit evidence rather than sending the whole
 repository:
 
-1. `pack_for_task` identifies symbols named in the natural-language goal and
+1. `pack_for_task` identifies the symbols named in a natural-language goal and
    expands their semantic neighborhood.
-2. `prepare_task` adds covering tests and one or two likely siblings based on
-   naming or file conventions, such as a validator or factory.
-3. Exact seed symbols remain pinned. Under budget pressure, AICB reduces detail and
-   removes lower-relevance surrounding material rather than cutting a code block in
-   the middle.
-4. The leading bundle manifest reports seeds, tests, siblings, caps and omissions.
-5. `measure` can return the exact token cost of planned answers before their payloads
+2. `prepare_task` adds covering tests and likely siblings such as a validator or a
+   factory.
+3. The named symbols stay pinned. Under budget pressure, AICB reduces detail around
+   them instead of cutting a code block in the middle.
+4. A leading bundle manifest reports seeds, tests, siblings, caps and omissions.
+5. `measure` returns the exact token cost of planned answers before their payloads
    are requested.
 
-This is bounded task preparation, not an autonomous solution to arbitrary task
-semantics. If a goal names `DiscountCalculator`, for example, the bundle can seed
-that symbol and add known callers, callees, dependencies, tests and a conventionally
-named sibling. It cannot guarantee discovery of an unmentioned runtime registration,
-a relationship hidden in configuration, or the business meaning of "discount." The
-agent still chooses the goal, interprets the evidence and calls specialized tools
-for DI, markup, runtime uncertainty or other axes when the manifest and hints require
-them.
-
-Likewise, AICB detects **structural** budget pressure: the manifest reports omitted
-types, tests and siblings, result caps, truncation and cases where a seed had to fall
-back to a smaller structural rendering. It cannot prove that a budget is semantically
-large enough for the agent to complete the task correctly. That needs task-level
-evaluation, which is a separate benchmark question.
-
-For budgeted whole-document rendering, the active relevance score uses factors such
-as log-damped fan-in, visibility, explicit priority, entry-point status, role, file
-path and user hints. A personalized PageRank implementation exists but is **not
-active** in released selection or search ranking. The exact current formula and
-activation rules are documented in
-[PageRank and the relevance score](manual/general/04-how-the-analysis-works.md#413-pagerank-and-the-relevance-score);
-task-bundle behavior is documented with
+The agent keeps the lead: it chooses the goal, reads the manifest and calls the
+specialized tools for DI, markup or runtime configuration where the task needs them.
+Task-bundle behavior is documented with
 [`pack_for_task` and `prepare_task`](manual/mcp/09-tool-reference-markup-export-review-and-insights.md#92-packing-and-exporting-context).
 
-## What can static analysis miss?
+MCP profiles size the tool list itself to the model: the built-in Local profile
+serves 30 frequently used tools with compact descriptions for a model whose context
+window makes every tool definition expensive.
 
-### Runtime behavior
+## Where does static analysis stop?
 
-Reflection, runtime assembly scanning, generated or interpreted code, dynamic
-configuration, serializers and consumers outside the analyzed solution can create
-relationships that do not appear in the static graph. An empty caller list is not
-proof that code is unused.
-
-### Dependency injection
-
-AICB reads statically recognizable Microsoft-DI-shaped registrations, MEF export
-attributes and constructor injection. A registration whose type is produced at runtime is reported
-as dynamic, unknown or factory-shaped rather than guessed. Other containers and
-runtime scanning need separate verification.
-
-### XAML and AXAML
-
-AICB resolves bindings, resources and selected type references where their source
-and type can be established safely. Templates, inherited data contexts, runtime
-resource lookup and third-party markup can make that impossible. The analysis skips
-an unknown scope conservatively instead of assigning it to a plausible type.
-
-### Side effects
-
-The eight effect tokens (`io`, `network`, `database`, `serialization`, `logging`,
-`cache`, `messaging`, `unknown`) describe static contact with an outside-world API.
-Known effects propagate upward through known call edges. This is not general
-data-flow, taint, escape or runtime state analysis. Missing project references can
-make effect results a lower bound rather than a proof of purity.
+- **Runtime behavior.** Reflection, runtime assembly scanning, interpreted code,
+  dynamic configuration, serializers and consumers outside the solution can create
+  relationships the static graph does not contain. An empty caller list is
+  therefore reported as such, not as proof that code is unused.
+- **Dependency injection.** AICB reads statically recognizable Microsoft-DI-shaped
+  registrations, MEF export attributes and constructor injection. A registration
+  produced at runtime is reported as dynamic, unknown or factory-shaped rather than
+  guessed.
+- **XAML and AXAML.** Bindings, resources and type references are resolved where
+  their source and type can be established safely; an unknown data scope is left
+  unjudged instead of being assigned to a plausible type.
+- **Side effects.** The eight effect tokens (`io`, `network`, `database`,
+  `serialization`, `logging`, `cache`, `messaging`, `unknown`) describe static
+  contact with an outside-world API and propagate through known call edges. They
+  tell you that a method can write a file, not which file or when.
 
 ## How does an answer disclose uncertainty?
 
@@ -284,174 +193,64 @@ Before treating an empty or short result as proof, inspect the response metadata
 
 ## How does AICB scale on large solutions?
 
-There is no published hard project-count ceiling. The resource cost depends on the
-shape of the input rather than one number: loaded projects, C# documents,
-target-framework instances, linked files, compilations and the density of the
-resulting relationship indexes all contribute. Multiple warm MCP sessions also
-hold separate graphs and Roslyn workspaces; the session cache therefore has a
-configurable count and time-to-live rather than assuming memory is free.
+There is no hard project-count limit. The cost of an analysis follows the shape of
+the solution: loaded projects, C# documents, target-framework instances and the
+density of the relationship graph. These controls keep large solutions practical:
 
-The available scale controls act at different stages:
-
-| Control | What it reduces | What it does not promise |
+| Control | What it reduces | Trade-off |
 |---|---|---|
-| `.slnf` | Projects loaded by MSBuild and analyzed by AICB | Coverage outside the filter |
-| `analyzePreferredTfmOnly` | Duplicate project instances and document analysis for multi-targeted projects | Fan-in edges that exist only in a non-preferred target framework |
-| Warm sessions and incremental refresh | Repeated load and analysis work after eligible saved-source edits | Incremental handling of added/removed files, project-shaping changes or every branch switch |
-| Persisted recall | Startup analysis when a reduced recalled-session contract is sufficient | A live Roslyn workspace, line numbers or every live-only insight |
-| `summaryOnly`, result caps, scope and token budgets | Response size and agent context cost | Lower solution-load or whole-analysis cost; some scopes are post-filters |
+| `.slnf` | Projects loaded by MSBuild and analyzed by AICB | Code outside the filter is not analyzed |
+| `analyzePreferredTfmOnly` | Duplicate analysis of multi-targeted projects | Relationships that exist only in another target framework are not seen |
+| Warm sessions and incremental refresh | Repeated load and analysis work after saved edits | Project-shaping changes take a full reload |
+| Persisted recall | Startup analysis when a recalled model is sufficient | No live workspace or line numbers until a refresh |
+| `summaryOnly`, result caps, scopes and token budgets | Response size and agent context cost | They do not reduce the analysis itself |
 
-For architecture orientation, `summaryOnly: true` is recommended for extreme
-solutions such as those with 200 or more projects; that is a response safeguard,
-not a declared support limit. The desktop app can record per-phase load timings in
-`load-perf.log`, while `usage_report` records local per-tool latency and result-size
-distributions. These let a team measure its own solution rather than extrapolate
-from an unrelated repository.
+The desktop app records per-phase load timings in `load-perf.log`, and `usage_report`
+records per-tool latency and result sizes, so a team can measure its own solution.
 
-### Published benchmark (re-measured 2026-11-06)
+### Benchmark
 
-A standardized public benchmark reports cold analysis time, warm-query time and RAM on three public .NET
-solutions. This series measures AICB `0.5.511.1` (the published release) and `0.5.515.1` (the next release
-candidate) on the same machine, interleaved in one session. Each cell reads `0.5.511.1 -> 0.5.515.1`: the
-median of 6 valid runs per version and solution, each run in a fresh server process. The idle-release column
-exists only for `0.5.515.1`, because the idle release is not part of `0.5.511.1`; its cell reads `n/a -> value`.
+Measured with AICB `0.5.515.1` on 2026-11-06:
 
-Procedure, per run:
+| Solution | Repository revision | C# LOC (git-tracked) | First analysis (cold) | Repeated question (warm) | Peak RAM | RAM after idle release |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `Serilog.sln` | `serilog/serilog` `2ef6364` | ~ 24,700 | 14.8 s | 139 ms | 901 MB | 379 MB |
+| `src/MahApps.Metro.sln` | `MahApps/MahApps.Metro` `72099e3` | ~ 54,700 | 21.0 s | 178 ms | 2,574 MB | 865 MB |
+| `RavenDB.sln` | `ravendb/ravendb` `5415dde` | ~ 1.76 M | 74.8 s | 2.15 s | 4,125 MB | 950 MB |
 
-- A fresh MCP server process (`aicb mcp`) starts with an empty configuration database, an empty
-  design-time-build cache folder, `AICB_MCP_AUTO_REFRESH=off`, and MSBuild worker-node reuse disabled
-  (`MSBUILDDISABLENODEREUSE=1`) for both versions.
-- The first `solution_metrics` call on the restored solution is **cold**; the second identical call in the same
-  process is **warm**. Both are timed on the client from sending the request to receiving the answer.
-- **Peak RAM** is the largest working set of the server's process tree (the server and its child processes)
-  between sending the cold call and receiving its answer, sampled about once per second (median sample interval
-  0.87 s).
-- **RAM warm (after peak)** is the largest working set of the same tree from the moment the cold answer arrives
-  until 30 s after the warm answer. The cold peak lies outside this window.
-- **RAM after idle release** is the working set of the tree 660 s (11 minutes) after the last answer. For these
-  runs the idle release time was set to its shortest allowed value, 5 minutes, in the configuration database of
-  the run. In all nine runs the working set stepped down 341 to 348 s after the last answer, which is the release.
+Method: the median of six runs per solution, each in a fresh `aicb mcp` process with
+an empty configuration database and an empty design-time-build cache. Cold is the
+first `solution_metrics` call on the restored solution, warm the second identical
+call, both timed on the client. RAM is the working set of the server's process tree;
+the idle-release value was read 11 minutes after the last answer, with the idle
+release time set to 5 minutes. Machine: Windows 10 Pro, Intel Core i9-9900K
+(8 cores / 16 threads), 31.9 GB RAM. These are measured data points on one machine,
+not a performance guarantee for every solution.
 
-Runs in which a foreign build process used CPU between server start and the end of the warm call were dropped
-and repeated. Foreign build processes are other processes on the same machine, not AICB. Three of 39 measured
-runs were dropped: two `0.5.511.1` runs and one `0.5.515.1` run, all on RavenDB. No idle run overlapped one.
+## How does AICB handle updates?
 
-| Solution | Repository revision | C# LOC (git-tracked) | Cold | Warm | Peak RAM | RAM warm (after peak) | RAM after idle release | Production types / methods |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Serilog.sln` | `serilog/serilog` `2ef6364` | ~ 24,700 | 14.7 s -> 14.8 s | 140 ms -> 139 ms | 897 MB -> 901 MB | 912 MB -> 910 MB | n/a -> 379 MB | 115 / 636 |
-| `src/MahApps.Metro.sln` | `MahApps/MahApps.Metro` `72099e3` | ~ 54,700 | 21.0 s -> 21.0 s | 176 ms -> 178 ms | 2,582 MB -> 2,574 MB | 2,503 MB -> 2,583 MB | n/a -> 865 MB | 322 / 1,840 |
-| `RavenDB.sln` | `ravendb/ravendb` `5415dde` | ~ 1.76 M | 74.8 s -> 74.8 s | 2.33 s -> 2.15 s | 4,134 MB -> 4,125 MB | 3,148 MB -> 3,190 MB | n/a -> 950 MB | 9,036 / 32,672 |
+- `server_info` reports the product version, build commit, database schema and any
+  binary, configuration or analyzer drift.
+- A persisted analysis records its payload schema and analyzer identity; when either
+  is incompatible, AICB performs a fresh analysis instead of loading an unsafe model.
+- Database migrations are forward migrations, and the desktop app never writes to a
+  database created by a newer version. The database and application data survive an
+  update, and optional automatic backups can archive them.
+- To roll back, use the older version with a separate database or a backup made
+  before the update.
 
-Machine: Windows 10 Pro (10.0.19045), Intel Core i9-9900K (8 cores / 16 threads), 31.9 GB RAM, measured
-2026-11-06. Each solution was analysed in the restore state it had in the validation folder; no restore was run in
-this series. Binaries: `0.5.511.1` is the
-self-contained win-x64 CLI from the published release package; `0.5.515.1` is a self-contained win-x64 publish
-of the same CLI project in Release configuration, built from the release candidate sources.
+Support follows the license: best effort through Issues and Discussions, and
+individually agreed support, response targets and version maintenance under a
+commercial agreement.
 
-Reading notes:
+## Trust and integrity
 
-- Cold and warm: the cold times of the two versions agree on all three solutions. On RavenDB the warm query is
-  about 8 % faster on `0.5.515.1`; the two versions' warm runs do not overlap (`0.5.511.1` 2.31 to 2.37 s,
-  `0.5.515.1` 2.12 to 2.25 s). One `0.5.511.1` cold run on MahApps took 28.0 s; the median is taken over all six
-  runs and is barely affected by it.
-- Peak RAM: the differences lie inside the run-to-run spread on all three solutions. RAM warm (after peak) lies
-  inside the spread on Serilog and MahApps; on RavenDB the two ranges barely do not overlap (3.08 to 3.16 GB on
-  `0.5.511.1`, 3.17 to 3.20 GB on `0.5.515.1`), so the 1 % higher median there is a small but separate difference.
-- RAM after idle release: the release happened in every run. The working set after it is 379 MB on Serilog,
-  865 MB on MahApps and 950 MB on RavenDB, measured 660 s after the last answer.
-- Analysis answers: both versions return the same production types and methods. Two answer fields differ: MahApps reports 10 info-severity insights on `0.5.511.1` and 9 on
-  `0.5.515.1`, and RavenDB's debt estimate is 441,818 minutes on `0.5.511.1` and 439,748 on `0.5.515.1`. The
-  cause of these two differences has not been established in this series.
-- Diagnostics: `get_diagnostics` on `0.5.515.1` reported `incompleteProjects: []` on all three solutions. Serilog
-  reported no errors, MahApps 755 errors (in its net462 test project, as before), RavenDB 1 error and 1 warning.
-- The production counts differ from the 2026-10-04 series for Serilog (129 / 657 there) and RavenDB (9,316 /
-  33,606 there); MahApps matches. The cause lies in the measuring environment, not in the product: on the same
-  checkouts, `0.5.500.1`, which gave the 2026-10-04 values then, gives 115 / 636 and 9,036 / 32,672 today, the
-  same as `0.5.511.1` in this series. The environment state that changed since 2026-10-04 is not identified.
-  Absolute counts are therefore not comparable with the 2026-10-04 table; the comparison within this series is.
-- Incremental refresh time is not covered by this benchmark, and these numbers are measured data points on one
-  machine, not a universal performance promise.
-
-#### First measurement (2026-09-26)
-
-| Solution | Cold | Warm | Peak RAM |
-| --- | ---: | ---: | ---: |
-| `Serilog.sln` | 9.5 s * | 188 ms | 1.21 GB |
-| `src/MahApps.Metro.sln` | 30.1 s | 215 ms | 2.92 GB |
-| `RavenDB.sln` | 96.6 s | 1.86 s | 4.05 GB |
-
-AICB `0.5.464.52`, an internal build that was never published (the nearest
-published release is `0.5.464.56`), same machine, one run per solution. These
-numbers are not comparable with the table above: a different build, a different
-day and a single run instead of a median of six.
-
-\* By every indication this cell was served from the design-time-build cache,
-which the measurement did not empty. With that cache filled, Serilog takes 10.0
-to 10.3 s cold on `0.5.465.11` and 9.0 to 9.1 s on `0.5.500.1`; with it empty,
-14.4 s and 13.5 s as in the table above. So Serilog did not get slower: the
-earlier cell measured a different situation.
-
-## What long-term reliability and compatibility are promised?
-
-The public release channel currently declares no LTS support window, response-time
-SLA or immutable compatibility contract for every MCP response, database schema or
-persisted analysis payload. The `0.5.x` line should therefore be treated as an
-evolving product, with the changelog as the release-level record rather than an
-unstated promise of wire- or storage-format stability.
-
-The product does provide defensive compatibility behavior:
-
-- `server_info` reports the product version, build commit, database schema and
-  binary/configuration/analyzer drift.
-- A persisted analysis records its payload schema and analyzer identity. If either
-  is incompatible, AICB discards reuse and performs a full analysis instead of
-  loading a plausible but unsafe model.
-- Database migrations are forward migrations. The desktop application refuses to
-  write a database produced by a newer schema rather than saving an older shape
-  over it.
-- The database and application data survive an update, and optional automatic
-  backups can archive them. `<Solution>.aicb.json` remains the Git-trackable source
-  for portable solution configuration.
-- A safe rollback uses an older binary with a separate database or a backup made
-  before migration; pointing it at a database already migrated by a newer version
-  is not a supported downgrade path.
-
-Free/public support is best effort through Issues and Discussions, without a
-guaranteed response time. An individual commercial agreement can define support
-coverage, response targets, version maintenance and the priority or delivery of
-specific improvements. Those commitments apply only as written in that agreement.
-
-## What is measured publicly, and what is not?
-
-The documentation separates observations from intended benefits.
-
-| Claim | Public status |
-|---|---|
-| AICB returns semantic, aggregated answers that differ structurally from text search | Explained with concrete compiler-semantic and markup cases in the general manual |
-| AICB versus the Roslyn language server on a selected symbol sample | Method and measured examples are published in the introduction; it is explicitly a structural comparison, not a general agent-quality benchmark |
-| Token-budget and context-selection behavior | Selection rules, floors, precedence and omission disclosures are documented |
-| Incremental refresh versus a clean full reload | A regression matrix compares the complete normalized analysis for the listed single-edit shapes; a combined public multi-file/branch-switch matrix is not yet published |
-| Standardized cold/warm performance and peak RAM on public solutions (≈ 25k, ≈ 55k and ≈ 1.8M lines of C#) | Published with revisions, machine, AICB version, procedure and caveats; see [How does AICB scale on large solutions?](#how-does-aicb-scale-on-large-solutions) |
-| Agent success, time, tool calls and tokens with versus without AICB | **Not yet published** |
-| Reproducible head-to-head comparison with CodeLens, DotLens or another named product | **Not yet published** |
-| Per-tool false-positive and false-negative rates over a representative public corpus | **Not yet published**; conservative tool verdicts and profile curation are safeguards, not a substitute for that measurement |
-
-Until those remaining studies exist, AICB does not claim a measured universal
-speedup, lower token bill or higher agent success rate. A future benchmark should
-publish the repository and revision, AICB and competitor versions, machine,
-commands, raw outputs, task set and denominators - not only a summary score.
-
-## What is disclosed about the product itself?
-
-AICB is closed source; the public repository contains documentation, releases,
-checksums, license terms, third-party notices and the changelog. Exact production
-line counts, development effort, AI-assistance share and a repository-wide coverage
-percentage are not currently published. Those numbers are not used as quality
-claims. Release behavior and supported surfaces are documented instead, and the
-public [security policy](../SECURITY.md) explains the local-processing and network
-boundary. No independent security audit or reproducible-build attestation is
-currently published. SHA-256 release checksums verify that a download matches the
-published artifact; they are not an external audit of the proprietary implementation.
+- The Windows installer and programs are code-signed (publisher: Gregor Dadera), and
+  every release publishes SHA-256 checksums.
+- The CLI and MCP server make no outbound network connection of their own and do not
+  modify the code they analyze; the [security policy](../SECURITY.md) describes the
+  local-processing and network boundary.
+- Tool calls are recorded locally for `usage_report` and never leave the machine.
 
 ## Where to continue
 

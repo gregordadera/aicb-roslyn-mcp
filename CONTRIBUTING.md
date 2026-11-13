@@ -1,9 +1,9 @@
 # Contributing
 
-Thanks for wanting to help. This repository holds the documentation, the agent
-skills, the GitHub Action and the release notes of `aicb`. **The source code is not
-public**, and the product ships under its own license (see [`EULA.md`](EULA.md) and
-[`docs/LICENSING.md`](docs/LICENSING.md)).
+Thanks for wanting to help. This repository holds the releases, the documentation,
+the agent skills, the GitHub Action and the release notes of `aicb`. The product is
+developed by its maintainer and ships under its own commercial license (see
+[`EULA.md`](EULA.md) and [`docs/LICENSING.md`](docs/LICENSING.md)).
 
 ## Pull requests
 

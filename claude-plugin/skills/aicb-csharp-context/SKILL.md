@@ -67,22 +67,33 @@ The server reads **live source, including uncommitted work**.
 | Who uses SEVERAL symbols at once? (one round trip, up to 16) | `batch` with N `find_usages`/`find_symbol` sub-queries - the semantic form of a multi-name search; a tool takes exactly ONE symbol per call |
 | Does the code compile right now? | `refresh_session`, then `get_diagnostics` (see "After you edit") |
 | What findings would this change introduce? (in-memory, nothing written) | `evaluate_change_set` |
-| Unused private methods · dependency cycles · side effects · external calls | `find_dead_code`, `detect_circular_dependencies`, `find_by_side_effects`, `calls_external` |
-| Attributes · size/complexity metrics · code smells | `find_by_attribute`, `symbol_metrics`, `list_insights` |
+| Unused private methods? | `find_dead_code` |
+| Namespace dependency cycles? | `detect_circular_dependencies` |
+| Side effects (I/O, database, network)? | `find_by_side_effects` |
+| Which external (BCL / NuGet) members are called, and where? | `calls_external` |
+| Which members carry attribute X? | `find_by_attribute` |
+| Size and complexity metrics of a symbol? | `symbol_metrics` |
+| Code smells and design findings? | `list_insights` |
 | How is this solution laid out? | `architecture_overview` |
-| Give me context for this task | `get_context`, `pack_for_task` (read) · `prepare_task` (edit-ready: bundles covering tests + naming siblings) · `export_markdown` |
+| Give me the source of one symbol, fast | `get_context` |
+| Give me context for a reading task | `pack_for_task` |
+| Give me edit-ready context (covering tests + naming siblings bundled) | `prepare_task` |
+| Give me the whole solution as Markdown | `export_markdown` |
 
 About to **edit**, not just read? `prepare_task` bundles the covering tests and the
-naming/file-convention siblings (`pack_for_task` does not) and renders through the
-active facet template - prefer it before a change. `get_context` is the fastest
-single-symbol retrieval; `export_markdown` is the whole-solution firehose, rarely
-the right call.
+naming/file-convention siblings and renders through the active facet template -
+prefer it before a change.
+
+`get_context` is the fastest single-symbol retrieval.
+
+`export_markdown` is the whole-solution firehose, rarely the right call.
 
 Call `list_skills` for the full map of tool bundles - one cheap call instead of
 reading many schemas. It also lists specialized tools beyond the table above
 (structural twins, call-path tracing, API-surface diffs, XAML binding checks).
 If a tool it names is not in your tool list, the active profile does not expose
 it: start the server with `AICB_MCP_TOOLS=all` for the full surface.
+
 `server_info` reports version and configuration.
 
 ## The pre-edit gate

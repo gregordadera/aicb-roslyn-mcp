@@ -8,22 +8,28 @@
 [![License](https://img.shields.io/badge/license-custom%20EULA-lightgrey)](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/EULA.md)
 [![M8ven Verified](https://img.shields.io/badge/M8ven%20Verified-publisher%20verified-4c1)](https://m8ven.ai/mcp/gregordadera-aicb-zb5d9e)
 
-**Give coding agents a Roslyn-accurate map of your C#/.NET solution.** `aicb` is
-a code intelligence server for C# and .NET: it answers questions about callers,
-implementations, dependency injection, tests, side effects and change impact,
-then packs the relevant code into compact Markdown for an LLM. It runs locally as
-an MCP server and CLI; a Windows desktop app adds visual context selection,
-analysis and editing.
+**Semantic code intelligence for AI coding agents on C#/.NET.**
+*Before AI changes your code, understand the impact.*
 
-> The software is closed source. This public repository contains its
-> documentation, license and releases. It is free for individuals, education and
-> organizations below the [license thresholds](#license-at-a-glance).
+`aicb` gives coding agents a Roslyn-accurate map of your C#/.NET solution. It
+answers the questions an agent has to get right before it edits code - who calls
+this, what a change reaches, which tests cover it, what dependency injection
+resolves, which code has side effects - and packs the code a task needs into
+compact, token-budgeted Markdown. It runs locally as an MCP server and CLI for
+Claude Code, Codex, OpenCode, Cursor and any other MCP client; a Windows desktop
+app adds visual context selection, analysis and editing.
 
-This page is a short tour, not the reference. It names 38 of the 54 tools an agent
-sees by default; the three [manuals](#documentation) run to 35 chapters, about 37
-times the length of this page.
+| | What your agent gets | Tools |
+|---|---|---|
+| **Code change intelligence** | The reach of a change before the edit: direct and transitive users, the tests that cover them, a risk level, and review evidence afterwards | `impact_of_change`, `find_tests_for`, `review_context`, `verify_claim` |
+| **Semantic code intelligence** | Compiler-accurate answers on large solutions: overloads, interfaces, overrides, partial and generated code, dependency injection and XAML bindings | `find_usages`, `find_implementations`, `resolve_injection`, `find_by_side_effects` |
+| **Intelligent context engineering** | The code a task needs, within the budget the agent has, instead of a source dump - and a tool list sized to the model | `prepare_task`, `pack_for_task`, `measure`, MCP profiles |
 
-## See it answer a code question
+Free for individuals, education and organizations below the
+[license thresholds](#license-at-a-glance), with commercial licenses for larger
+teams. This repository hosts the releases, the documentation and the license.
+
+## Know the impact before the edit
 
 Ask your coding agent:
 
@@ -166,29 +172,13 @@ payload schema and analyzer identity. It deliberately returns the recalled model
 even when it is stale, with metadata that tells the agent when a live re-analysis
 is necessary. See [sessions, recall and staleness](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/manual/mcp/03-sessions-and-staleness.md).
 
-### What the model can and cannot prove
+### Answers that carry their own evidence
 
-- AICB analyzes statically visible C# (including the C# the Razor generator compiles
-  from `.cshtml` views) and selected Razor, XAML and AXAML relationships. Code
-  reached only through reflection, runtime assembly scanning, dynamic configuration
-  or an external consumer can remain invisible.
-- DI analysis recognizes statically readable Microsoft-DI-shaped registrations and
-  MEF export attributes;
-  runtime-produced registrations are disclosed as dynamic or unknown rather than
-  invented.
-- A XAML binding is checked only where its data type is known for certain; where it
-  is not, the binding is left unjudged rather than reported as broken.
-- A reported side effect means the method reaches such an operation in its code,
-  itself or through the methods it calls. It tells you that a method can write a
-  file, not which file or when.
-- Responses disclose stale sessions, unresolved projects and capped result sets.
-  Read `staleness`, `incompleteProjects`, `totalFound` and `truncated` before treating
-  an empty or short answer as proof.
-
-### How an agent should judge an answer
-
-An AICB response is evidence together with its limits. Before acting on an empty,
-short or apparently definitive result, inspect the accompanying signals:
+An AICB answer says not only what it found but how far it can be trusted. Silence
+is never presented as proof: **unknown** and **verified absent** are different
+answers, and tools such as `assert_absence` return `confirmed`, `refuted` or
+`indeterminate`. Every response discloses the signals an agent should read before it
+acts on an empty, short or apparently definitive result:
 
 | Signal | Meaning | Typical response |
 |---|---|---|
@@ -200,16 +190,20 @@ short or apparently definitive result, inspect the accompanying signals:
 | `confidence`, provenance, dynamic or unknown markers | A value is measured, author-supplied, inferred or not statically knowable | Preserve the uncertainty and verify the relevant runtime configuration when needed |
 | `origin: "Recalled"` or `lineNumbersAvailable: false` | The answer came from persisted memory rather than a live Roslyn workspace | Use `refresh_remembered` before relying on live-only details |
 
+The analysis covers statically visible C# - including the C# the Razor generator
+compiles from `.cshtml` views and the code source generators add - together with
+Razor, XAML and AXAML relationships. Where a relationship exists only at runtime
+(reflection, assembly scanning, dynamic configuration, an external consumer, a
+registration produced at runtime), AICB marks it as dynamic or unknown instead of
+inventing it, and a XAML binding whose data type is not known for certain stays
+unjudged rather than reported as broken.
+
 The MCP profile controls automatic refresh. `Off` only discloses drift,
 `Reactive` refreshes before a reading tool answers and is the normal shipped
 setting, while `Proactive` starts analysis after saved edits settle. Automatic
 refresh never sees unsaved editor buffers. Staleness is also different from
 reference incompleteness: the first needs a refresh; the second normally needs a
 restore followed by a refresh (after a build, a forced one).
-
-AICB also distinguishes **unknown** from **verified absent**. Tools such as
-`assert_absence` return `confirmed`, `refuted` or `indeterminate` rather than
-turning missing evidence into a false negative.
 
 The question-first [architecture, limits and evidence guide](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/ARCHITECTURE.md)
 explains what lives in memory, how refresh and context selection work, which claims
@@ -263,11 +257,13 @@ plain text search cannot answer reliably. It analyzes C#; selected XAML/AXAML
 relationships supplement that graph. Other programming languages are out of scope.
 
 Multi-targeted projects are loaded once per target framework by default, while
-query surfaces generally deduplicate them to one logical project. Setting
+query surfaces generally deduplicate them to one logical project: each type is one
+entry, and the references every target makes count for it. Setting
 `analyzePreferredTfmOnly` in `<Solution>.aicb.json` reduces analysis and export work
-to the newest target-framework instance. The symbol inventory remains available,
-but fan-in edges that exist only in another target can disappear, so this is a
-documented precision-versus-cost choice rather than a transparent optimization.
+to the newest target-framework instance. The symbols that instance declares remain
+available, but a type or a fan-in edge that exists only in another target disappears,
+so this is a documented precision-versus-cost choice rather than a transparent
+optimization.
 
 ## A safe agent workflow
 
@@ -311,15 +307,15 @@ the .NET 10 SDK, installs the published tool, restores the solution and runs
 written:
 
 ```yaml
-- uses: gregordadera/aicb-roslyn-mcp@v0.5.515.1
+- uses: gregordadera/aicb-roslyn-mcp@v0.5.520.1
   with:
-    version: 0.5.515.1
+    version: 0.5.520.1
     solution: App.sln
     output: artifacts/context.md
     fail-on: "critical>0 OR debt>120min"
 ```
 
-The example pins both halves: `@v0.5.515.1` fixes the action, `version` fixes the package it
+The example pins both halves: `@v0.5.520.1` fixes the action, `version` fixes the package it
 installs. Without `version` the action installs the newest published package, and `@main`
 follows every change to the action, so neither belongs in a build you depend on. A release
 tag can in principle be moved; the full commit SHA of that tag is the immutable form. Further
@@ -345,9 +341,7 @@ integration surface. Its 82 registered tools cover semantic navigation, change
 impact, dependency injection, test discovery, architecture, quality, context
 packing, review and session management. Profiles expose a curated 54-tool default
 or the 72-tool Full Select set, while sessions, staleness signals and bounded
-responses make the surface practical for coding agents. These numbers describe
-the available product surface; they are not a published benchmark of agent outcome
-quality.
+responses make the surface practical for coding agents.
 
 The active MCP profile also selects task-oriented facets: each facet connects agent
 guidance, a context-template slot and the corresponding tool subset. `list_skills`
@@ -442,15 +436,13 @@ a context template; a run template selects that context template.
 
 ![AICB Context Templates editor with prompt, detail-level and export configuration](https://raw.githubusercontent.com/gregordadera/aicb-roslyn-mcp/main/docs/manual/general/img/gui-templates.png)
 
-### Product direction, not a release commitment
+### Where the desktop app is heading
 
-The direction for the desktop app is a **human-facing orchestration workspace**: a
+The desktop app is growing into a **human-in-the-loop orchestration workspace**: a
 developer selects and constrains context, inspects intermediate results, approves
-decisions and controls what an AI model runs next. `Manual` is the released run
-type today. `Iteration` is intended to process selected nodes one by one, and
-`Preselection` to let a model narrow the relevant context before the main run;
-both are represented in the application but are not released yet. `Pipeline`
-currently exists only as a placeholder in the data model and executes nothing.
+decisions and controls what an AI model runs next. Today it runs `Manual` runs;
+further run types that process selected nodes one by one or let a model narrow the
+context first are in development.
 
 ## Install
 
@@ -597,13 +589,13 @@ All tools with their parameters: [docs/TOOLS.md](https://github.com/gregordadera
 
 | Set | Size | Purpose |
 |---|---:|---|
+| Local profile | 30 tools | The tools agents call most, with compact descriptions, for a model whose context window makes every tool definition expensive |
 | Default MCP profile | 54 tools | Curated semantic and structural tools for normal agent work |
 | Full Select profile | 72 tools | Default set plus the measured long tail |
 | Complete server surface | 82 tools | Full Select plus the opt-in session-memory, database and API-comparison tools |
 
-This README names 38 of the 54 default tools; the references below describe all of them.
-Start the Full Select profile with
-`aicb mcp --mcp-profile mcp-profile/full`. Set `AICB_MCP_TOOLS=all` to add
+Start the Local profile with `aicb mcp --mcp-profile mcp-profile/local` and the
+Full Select profile with `aicb mcp --mcp-profile mcp-profile/full`. Set `AICB_MCP_TOOLS=all` to add
 the opt-in tools as well. The generated [tool reference](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/TOOLS.md) documents
 the default set; the [MCP server manual](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/manual/mcp/README.md)
 documents all 82 tools and their parameters, and alongside them sessions and
@@ -611,7 +603,7 @@ staleness, profiles, pools and facets, and what `aicb init` writes - twelve
 chapters in Markdown, readable in the browser and by an agent, and also
 published as a [PDF](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/manual/mcp/AICB-MCP-Server.pdf).
 
-The three published counts are starting points, not fixed editions. In the
+The published counts are starting points, not fixed editions. In the
 desktop **MCP Profiles** editor you can create or duplicate a profile, enable only
 the task facets you want, and select individual core and facet tools. Every core
 tool can be removed except the locked diagnostic `server_info`, so even a very
@@ -634,31 +626,26 @@ The last four are opt-in: `aicb init --skills=all`.
 
 ## Scale, releases and compatibility
 
-AICB has no published hard project-count limit. Initial cost and peak memory are
-solution-specific and grow with loaded projects, documents, target-framework
-instances and graph density. The first analysis can take seconds to minutes;
-subsequent questions reuse the warm graph, and eligible saved-source edits use the
-incremental refresh path. For a very large repository, use a `.slnf` to reduce what
-MSBuild loads and optionally set `analyzePreferredTfmOnly` to avoid analyzing every
-target-framework instance. `summaryOnly`, query scopes and token budgets reduce
-response volume; they do not necessarily reduce the underlying solution analysis.
-The desktop `load-perf.log` and MCP `usage_report` provide local phase and latency
-measurements. A standardized cold/warm time and RAM benchmark on three public
-.NET solutions (≈ 25k, ≈ 55k and ≈ 1.8M lines of C#) is published in the
-[architecture and evidence guide](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/ARCHITECTURE.md#how-does-aicb-scale-on-large-solutions);
-these controls are still not a universal performance claim, but there is now a
-measured boundary.
+AICB is built for large solutions. On RavenDB, about 1.76 million lines of C#, the
+first analysis takes about 75 seconds and a repeated question about 2 seconds, at a
+peak of about 4.1 GB of RAM; on Serilog, about 25,000 lines, the first analysis takes
+about 15 seconds and a repeated question about 0.14 seconds. The full table, with
+revisions, machine and method, is in the
+[architecture and evidence guide](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/ARCHITECTURE.md#how-does-aicb-scale-on-large-solutions).
+Follow-up questions reuse the warm analysis, and saved edits are picked up
+incrementally.
 
-Public releases currently have no declared LTS window, response-time SLA or promise
-that every MCP response and persisted schema remains unchanged across versions.
-Operational safeguards are explicit instead: the changelog records releases;
-`server_info` reports version, build and configuration drift; persisted analyses
-carry payload-schema and analyzer identities and fall back to a live analysis when
-they are incompatible; and the desktop refuses to write a database created by a
-newer schema. Database migrations can be one-way, so a reliable rollback means
-backing up before an update and using the older build with a separate or restored
-pre-migration database. Commercial agreements can define stronger support,
-response-time and version-maintenance commitments where required; see
+For a very large repository, a `.slnf` reduces what MSBuild loads and
+`analyzePreferredTfmOnly` avoids analyzing every target framework. `summaryOnly`,
+query scopes and token budgets keep responses small. The desktop `load-perf.log` and
+MCP `usage_report` measure your own solution locally.
+
+The changelog records every release. `server_info` reports version, build and
+configuration drift; persisted analyses carry their schema and analyzer identity and
+fall back to a live analysis when they are incompatible; and the desktop app never
+writes to a database created by a newer version. Database migrations are one-way, so
+back up the database before an update if you may want to roll back. Commercial
+agreements can add support, response-time and version-maintenance commitments; see
 [Support](#support-and-continued-development).
 
 ## CLI at a glance
@@ -764,9 +751,8 @@ issues privately as described in [`SECURITY.md`](https://github.com/gregordadera
 
 ## Documentation
 
-Everything above is the short version. The three manuals below hold the full reference -
-35 chapters, each manual 70,000 to 88,000 words, together about 39 times the length of this
-README.
+Everything above is the short version. The three manuals below hold the full reference
+in 35 chapters.
 
 - [Getting started](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/GETTING-STARTED.md) - install, connect and ask the first question
 - [Tool reference](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/TOOLS.md) - generated reference for the default MCP profile

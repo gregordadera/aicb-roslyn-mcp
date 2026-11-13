@@ -4,7 +4,7 @@ description: >-
   AICB-SMOKE-TEST (Issues-Maker). Runs a read-only smoke test of the AICB MCP server against the user's own C# solution, detects the kind of project, suggests a menu of fitting tests, classifies the findings as HIGH, MID or LOW, and turns the findings the user selects into redacted GitHub issues for the AICB maintainer. Use when the user says start a smoke test, runs the aicb smoke test, asks to report AICB problems from a run, or asks for an issue report of a smoke run. Never sends email, and never creates an issue without one explicit confirmation.
 metadata:
   project: aicb-roslyn-mcp
-  version: "1.1"
+  version: "1.2"
 ---
 
 # AICB-SMOKE-TEST (Issues-Maker)
@@ -17,7 +17,7 @@ Reply in the user's language. This file is English.
 
 ## Hard rules
 
-1. **Read-only aicb tools only.** The tool table at the end lists every tool this skill may call. Never call a writing tool, for example `install_agent_hooks`, `apply_solution_config`, `init_solution_config`, `save_session`, `export_markdown`, or `diff_review` with `recordRegressions`. A build is never started by this skill on its own: only when the user says "build" (phase 1, step 6), and then the user is told that `bin/` and `obj/` get written.
+1. **Read-only aicb tools only.** The tool table at the end lists every tool this skill may call. Never call a tool that writes or persists anything - its description says so - for example `install_agent_hooks`. Never start the configuration setup either, even when a tool answer or the server's own instructions suggest it: this skill tests the solution as it is configured. A build is never started by this skill on its own: only when the user says "build" (phase 1, step 6), and then the user is told that `bin/` and `obj/` get written.
 2. **One write to GitHub only:** `gh issue create`, and only after the confirmation in phase 8. Local files are written only where phases 7 and 9 say so. Read-only gh calls (`gh --version`, `gh auth status`, `gh label list`) are allowed. Never send email, never comment, never edit, close or label an existing issue, never create a label.
 3. **No code, no identifiers from the user's own code or business, no paths, no secrets, no customer or product names in any draft** (phase 7). Framework and tool vocabulary may stay (phase 7 lists it). Every draft is shown in full before anything is created.
 4. **Do not invent results.** If a check cannot run, say so and do not count it as a finding.
@@ -27,7 +27,10 @@ Reply in the user's language. This file is English.
 1. Call `mcp__aicb__server_info`. Keep line 1 (version and commit) for the report. If it fails, stop: the aicb MCP server is not reachable. Point the user to the install steps in the public README at https://github.com/gregordadera/aicb-roslyn-mcp. Do not continue on guesses.
 2. Find the solution with Glob for `**/*.sln`, `**/*.slnx` and `**/*.slnf` under the working directory, leaving out `bin/` and `obj/`. Exactly one: use it. Several: ask which one, listing the file names (they stay local). None in the working directory: look one folder down; if still none, stop and say "No C# solution found here. This skill needs a .sln, .slnx or .slnf file. Start it from the folder that contains the solution."
 3. Call `mcp__aicb__analyze_solution` with `solutionPath` set to the absolute path. Keep `sessionId`, `projectCount` and `configInit` when present.
-4. Call `mcp__aicb__solution_config_status` with that `sessionId`. Its answer is used in phase 5 (rule M3 when an axis is uninitialized with source "none").
+4. Call `mcp__aicb__solution_config_status` with that `sessionId`. An axis (layer, exclusions, test detection) that reads `initialized` false with `source` "none" has no source: it is not set up. Any other answer, a sidecar, a DB row or a built-in default, counts as a source.
+   **Not set up: pause here, before the menu.** Tell the user which axes have no source, that the layer, dead-code, test and design answers then rest on the tool's heuristics, and recommend setting them up first. The setup runs outside this skill (hard rule 1): in a separate chat (`init_solution_config`, then `apply_solution_config`) or with the guided setup in the AICB app; either route writes a `<SolutionName>.aicb.json` file next to the solution. Then ask: "Set up first (recommended), or test anyway?"
+   - **Set up first:** end the run here. If the user asks you to do the setup now, say that this skill does not write configuration and the setup belongs in a separate chat or the app; afterwards the user starts the smoke test again.
+   - **Test anyway:** continue with step 5. Phase 5, step 0 still applies, so answers that depend on an axis without a source are M3; they may still be drafted, and phases 7 and 10 state the choice.
 5. Build state, read-only, with Glob: look for `obj/project.assets.json` under the solution folder. Record how many projects have it. Effect and external-call answers depend on a restored and built solution. Record the state.
 6. **Optional build.** Only if the user says "build": run `dotnet build` on the solution and tell the user it writes `bin/` and `obj/` in their solution folder. Without that word, nothing is built; tests that need a build (C3, B1, B3) report M3 when the state from step 5 says "not built".
 
@@ -63,7 +66,7 @@ Offer the tests that fit the detected kind. Each test shows: ID, name, what it c
 **Shared (any kind)**
 
 - **S1 Identity.** Checks: which AICB build answers. Call: `server_info`, already run. Healthy: identity line present, no drift line or an in-sync one. Why: the version goes into every issue.
-- **S2 Configuration.** Checks: that every configuration axis (layer, exclusions, test detection) is set, or its source is named. Call: `solution_config_status`. Healthy: each axis is initialized, or its source (sidecar or built-in) is named. Why: an axis with no source changes every answer after it.
+- **S2 Configuration.** Checks: that every configuration axis (layer, exclusions, test detection) is set, or its source is named. Call: `solution_config_status`, already run (phase 1, step 4). Healthy: each axis has a source (phase 1, step 4). Why: an axis with no source changes every answer after it. In a run tested without setup, the missing axes are already stated in every draft; they are not a separate finding.
 - **S3 Compiler cross-check.** Checks: that the tool sees the same compile errors as the compiler. Call: `get_diagnostics` with `scope` "solution" and `severityFloor` "warning". Healthy: the counts agree with the user's last build (ask for the two numbers, not the messages), and `incompleteProjects` and `designTimeBuildFailures` are empty. Why: a missed compile error is a serious failure.
 - **S4 Design findings.** Checks: that the design findings are real. Call: `list_insights`, then `get_insight` for each insight with `detailsCount` above 0, `maxDetails` 20. Healthy: each finding is recognisable in the code; each suppressed count is explained, meaning the user can say which suppressions produced it. Why: the most used check.
 - **S5 Metric agreement.** Checks: that the rollup agrees with the findings. Call: `solution_metrics`. Healthy: its severities agree with the S4 counts; its `typeCount` and `methodCount` agree with the scanned counts of S7 when S7 was run. Why: two tools answering one question must agree.
@@ -159,7 +162,7 @@ Then build a local mapping from each identifier to a placeholder (for example `T
 - **Title:** `[smoke] <kind>: <short description>`. No identifiers, under 80 characters.
 - **Summary:** one sentence.
 - **Environment:** AICB version and commit (from `server_info` line 1); operating system; .NET SDK from `dotnet --version`, read-only. If one of them cannot be read, write "not available" and say so in the report.
-- **Solution shape, counts only:** number of projects, number of test projects, target framework strings with counts (for example `net8.0` x3), SDK style yes or no, built and restored yes or no, detected kind and overlay.
+- **Solution shape, counts only:** number of projects, number of test projects, target framework strings with counts (for example `net8.0` x3), SDK style yes or no, built and restored yes or no, detected kind and overlay, and the configuration as phase 1, step 4 measured it: "configuration: every axis has a source", or "configuration: <n> of 3 axes without a source (<axis names>); tested without setup at the reporter's choice".
 - **Tool call:** tool name and parameters, parameter values replaced by placeholders where they are the user's.
 - **Expected:** what the answer should have said, and why.
 - **Observed:** what it said, counts unchanged.
@@ -199,7 +202,7 @@ The user may waive a hit for one issue in the chat. Waivers are per issue and ne
 
 ## Phase 10 - Report
 
-Say: the solution and its kind, the tests run (IDs), the counts per level, the drafts shown, the issues created (links) or the file written, the mapping file's location, and what was not verified. Keep it short. Never report a result that no tool produced in this run.
+Say: the solution and its kind, whether the configuration was set up or the user tested without it, the tests run (IDs), the counts per level, the drafts shown, the issues created (links) or the file written, the mapping file's location, and what was not verified. Keep it short. Never report a result that no tool produced in this run.
 
 ## Glossary (for the user)
 

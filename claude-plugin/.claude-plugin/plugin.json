@@ -1,8 +1,8 @@
 {
   "name": "aicb-roslyn-mcp",
   "displayName": "AICB Roslyn MCP",
-  "version": "0.5.515.1",
-  "description": "Roslyn MCP server and Agent Skills for C#/.NET code intelligence: semantic code analysis and navigation for coding agents - callers, change impact, implementations, dependency injection, tests, side effects, dead code and token-budgeted context. Runs locally over stdio. Requires the AICB .NET tool: dotnet tool install -g aicb-roslyn-mcp",
+  "version": "0.5.520.1",
+  "description": "Semantic code intelligence for AI coding agents on C#/.NET: a Roslyn MCP server and Agent Skills for change impact analysis, semantic code analysis and navigation - callers, change impact, implementations, dependency injection, tests, side effects, dead code and token-budgeted context. Runs locally over stdio. Requires the AICB .NET tool: dotnet tool install -g aicb-roslyn-mcp",
   "author": {
     "name": "Gregor Dadera",
     "url": "https://www.dadera.de/en/"

@@ -33,9 +33,14 @@ analyzing a solution actually execute?**
   refactoring or apply tools, and nothing any tool writes is anything Roslyn reads.
   What they *do* write is named in each tool's own description:
   `apply_solution_config` writes a `<Solution>.aicb.json` sidecar next to the `.sln`,
-  `install_agent_hooks` installs the symbol guard into your agent harness's
-  configuration on request, and `export_markdown` writes the file you point
-  `outputPath` at. **The desktop app is the deliberate exception:** its Details tab
+  `install_agent_hooks` installs the symbol guard (and, for Claude Code, a
+  SessionStart hook that keeps the aicb skill files in step) into your agent
+  harness's configuration on request, and `export_markdown` writes the file you
+  point `outputPath` at. The server itself writes one kind of file without a tool
+  call asking for it: after its first session it rewrites the aicb skill files of
+  the project it was started in, and only files that carry the aicb marker - it
+  creates and deletes none, and a switch in the main settings (automatic skill
+  sync) turns it off. **The desktop app is the deliberate exception:** its Details tab
   is an editor, and a file you change there is written back when you press Save.
 - **It does not run your solution's third-party Roslyn analyzers unless you ask
   for one kind of them.** `get_diagnostics` returns **compiler** diagnostics only:

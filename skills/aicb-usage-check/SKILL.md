@@ -4,6 +4,7 @@ description: Check at the end of a task whether the aicb MCP server was actually
 metadata:
   project: AIContextBuilder
   version: "1.0"
+  aicb-requires: usage_report
 ---
 
 # Usage check - was aicb worth it?
@@ -37,9 +38,9 @@ as if they were measurements.
 `tools/call` pipeline only, and the response repeats the boundary in `recordedVia` because your
 client may be holding a cached copy of this tool's description.
 
-- A sub-query inside `batch` or `measure` writes **no row of its own**. Recent-enough parent rows
-  carry a per-tool tally in `subQueries` - read it, or an agent that works through `batch` looks
-  idle.
+- A sub-query inside `batch` writes **no row of its own**. Recent-enough parent rows carry a
+  per-tool tally in `subQueries` - read it, or an agent that works through `batch` looks idle.
+- The same holds for a sub-query inside `measure`.
 - A one-shot `aicb call` is recorded under the client name `aicb-call` only when it is given a
   `--db-path`; without one it records **nothing at all**.
 - Therefore **every count is a lower bound**, and a tool at zero was *not called through this
