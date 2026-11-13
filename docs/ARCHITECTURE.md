@@ -116,8 +116,9 @@ starting a second analysis. The complete operational contract is in
 Each kind of relationship has its own index: who calls a method, who uses a type,
 a property or an event, which types implement an interface, which markup refers to
 a member. Every entry is filed under an identity that keeps overloads and explicit
-interface implementations apart, so one name never merges two different symbols,
-and a relationship that several parts of the analysis find is stored once.
+interface implementations apart; an answer to a bare name that unions several
+symbols says so (`namesakes`, `mergedNamesakes`). A relationship that several parts
+of the analysis find is stored once.
 
 Relationships that can only be resolved after the whole solution has been read -
 XAML bindings, Razor references and the types a top-level program uses - are
@@ -149,8 +150,8 @@ repository:
 3. The named symbols stay pinned. Under budget pressure, AICB reduces detail around
    them instead of cutting a code block in the middle.
 4. A leading bundle manifest reports seeds, tests, siblings, caps and omissions.
-5. `measure` returns the exact token cost of planned answers before their payloads
-   are requested.
+5. `measure` returns a tokenizer count (cl100k_base) of planned answers before their
+   payloads are requested.
 
 The agent keeps the lead: it chooses the goal, reads the manifest and calls the
 specialized tools for DI, markup or runtime configuration where the task needs them.
@@ -218,12 +219,13 @@ Measured with AICB `0.5.515.1` on 2026-11-06:
 | `src/MahApps.Metro.sln` | `MahApps/MahApps.Metro` `72099e3` | ~ 54,700 | 21.0 s | 178 ms | 2,574 MB | 865 MB |
 | `RavenDB.sln` | `ravendb/ravendb` `5415dde` | ~ 1.76 M | 74.8 s | 2.15 s | 4,125 MB | 950 MB |
 
-Method: the median of six runs per solution, each in a fresh `aicb mcp` process with
-an empty configuration database and an empty design-time-build cache. Cold is the
-first `solution_metrics` call on the restored solution, warm the second identical
-call, both timed on the client. RAM is the working set of the server's process tree;
-the idle-release value was read 11 minutes after the last answer, with the idle
-release time set to 5 minutes. Machine: Windows 10 Pro, Intel Core i9-9900K
+Method: cold, warm and peak RAM are the median of six runs per solution, each in a
+fresh `aicb mcp` process with an empty configuration database and an empty
+design-time-build cache. Cold is the first `solution_metrics` call on the restored
+solution, warm the second identical call, both timed on the client. RAM is the
+working set of the server's process tree. The idle-release value comes from nine
+separate runs, read 11 minutes after the last answer with the idle release time set
+to 5 minutes; in every one of them the release happened. Machine: Windows 10 Pro, Intel Core i9-9900K
 (8 cores / 16 threads), 31.9 GB RAM. These are measured data points on one machine,
 not a performance guarantee for every solution.
 

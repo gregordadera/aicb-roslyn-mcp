@@ -298,7 +298,7 @@ The MCP profile editor in the GUI previews the composed text under the label `Ex
 
 ### Omission under a narrowed profile
 
-A rule that names tools is an invitation to call them, and a call the server then refuses is indistinguishable from a wrong tool choice. The instructions are therefore sized to the exposed pool: they do not mention a tool the active profile does not serve. Consequences worth knowing:
+A rule that names tools is an invitation to call them, and a call the server then refuses is indistinguishable from a wrong tool choice. The instructions are therefore sized to the exposed pool: they invite no call to a tool the active profile does not serve. Consequences worth knowing:
 
 - The identity line and the discovery rules are never omitted.
 - A rule that consists of smaller units - a list item, or a clause naming a tool the rest of the sentence does not depend on - loses only the units that name a withheld tool, and keeps the rest. A rule without such units is sent only when every tool it names is served, and is left out otherwise. Under `Default` and `Full Select` nothing is left out; a narrowed profile such as `Local` gets shorter instructions that name no tool it withholds.

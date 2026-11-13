@@ -72,7 +72,7 @@ When a change takes effect:
 |---|---|
 | **Immediately on Save** | Font family, font size (UI zoom), theme for the standard controls, tooltips switch and delay |
 | **On the next start of the app** | `Base path`, the LLM retry values, the theme in individual custom panels |
-| **On the next start of the MCP server** | MCP tool set, MCP instructions, tool descriptions, automatic re-analysis mode, `Record MCP tool usage`, `Keep agent skill files in sync` |
+| **On the next start of the MCP server** | MCP tool set, MCP instructions, tool descriptions, automatic re-analysis mode, `Record MCP tool usage` (`Keep agent skill files in sync` is checked each time an automatic sync would run) |
 | **Live on every MCP call** | The context-template assignment of an MCP profile |
 | **The next time a tab is opened** | Default layer profile, default namespace-exclusion list, default graph layout |
 
@@ -242,7 +242,7 @@ Note on the font size: `Ctrl+Plus` and `Ctrl+Minus` zoom the current session wit
 
 ### MCP Server
 
-Two settings that every MCP server reads when it starts. Both are on by default, and a running MCP server applies a change at its next start.
+Two settings for the MCP server and the agent skills, both on by default. `Record MCP tool usage` is read when an MCP server starts, so a running server applies a change at its next start; `Keep agent skill files in sync` is checked each time an automatic sync would run.
 
 | Field | Type | Default | Effect |
 |---|---|---|---|

@@ -264,7 +264,7 @@ Only two functions delete recorded data in bulk, and both are in the desktop app
 
 The desktop app also offers narrower delete actions for individual sessions, snapshots, MCP-usage notes or imported usage snapshots, and user-created master-data entries.
 
-There is no global "delete all my data" button. No CLI verb deletes recorded data; the eight verbs are `init`, `skills`, `analyze`, `export`, `import`, `list`, `mcp` and `call`. (`aicb skills sync` removes one kind of file: an aicb-written skill file that nobody edited and that holds no notes of yours, when the served tools no longer include one the skill requires.) The MCP tool `usage_report` is read-only. If you use only the CLI or the MCP server, the only in-product way to remove the usage records is to delete the database file, which also carries every session, snapshot and profile.
+There is no global "delete all my data" button. No CLI verb deletes recorded data; the eight verbs are `init`, `skills`, `analyze`, `export`, `import`, `list`, `mcp` and `call`. (`aicb skills sync` and `aicb init` remove one kind of file: an aicb-written skill file that nobody edited and that holds no notes of yours, when the served tools no longer include one the skill requires.) The MCP tool `usage_report` is read-only. If you use only the CLI or the MCP server, the only in-product way to remove the usage records is to delete the database file, which also carries every session, snapshot and profile.
 
 ### The complete removal list
 

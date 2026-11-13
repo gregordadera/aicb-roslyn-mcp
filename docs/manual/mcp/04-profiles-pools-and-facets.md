@@ -117,7 +117,7 @@ All five render every facet through the profile-wide `ai-optimized` context temp
 - **Extras (13):** `find_by_side_effects`, `calls_external`, `symbol_metrics`, `find_dead_code`, `instantiation_sites`, `resolve_injection`, `coverage_gaps`, `list_insights`, `get_insight`, `find_unresolved_bindings`, `find_resource_usages`, `find_binding_usages`, `solution_metrics`.
 - **Switched off (7 core tools):** `usage_report`, `export_markdown`, `pack_for_task`, `measure`, `list_mcp_profiles`, `list_skills`, `docs`. They stay registered and one profile switch away.
 
-It serves compact tool descriptions (see "The `Tools` tab"), so its tool list is under a fifth of the size of the default profile's: measured on the release build, 29,019 characters against 157,966 for `Default` and 200,875 for `Full Select`. Its server instructions and the agent skills leave out every tool it withholds. Pick it on the `MCP Profiles` page, or pin it with `aicb mcp --mcp-profile mcp-profile/local`.
+It serves compact tool descriptions (see "The `Tools` tab"), so its tool list is under a fifth of the size of the default profile's: measured on the release build, 29,019 characters against 157,966 for `Default` and 200,875 for `Full Select`. Its server instructions and the agent skills name no tool it withholds, except the DB-entity tools, which the instructions always mark as outside the pool. Pick it on the `MCP Profiles` page, or pin it with `aicb mcp --mcp-profile mcp-profile/local`.
 
 ## 4.3 Selecting a profile
 
@@ -300,7 +300,7 @@ At five or fewer effective tools the panel shows a warning naming the actual cou
 | `Full (default)` | The complete descriptions: every caveat, every parameter detail and the pointers to related tools. |
 | `Compact` | A short curated text per tool that keeps its most important caveat, and the first sentence of each parameter text. It names no other tool, because the profile may not expose it. |
 
-The tools and their parameters stay the same in both modes; only the descriptions get shorter. Compact is for an agent that loads every tool definition into its prompt; an agent that loads tool definitions on demand, such as Claude Code, gains little from it. Below the switch, a line estimates what the effective tool list costs in tokens in both modes (`About N tokens with compact descriptions (full: about M). An estimate.`). The setting is applied at server start: a change needs a restart, and `server_info` reports the pending change as config drift. Of the built-in profiles only `Local` serves compact descriptions.
+The tools and their parameters stay the same in both modes; only the descriptions get shorter. Compact is for an agent that loads every tool definition into its prompt; an agent that loads tool definitions on demand, such as Claude Code, gains little from it. Below the switch, a line estimates what the effective tool list costs in tokens in both modes (`About N tokens with compact descriptions (full: about M). An estimate.`, the selected mode first). The setting is applied at server start: a change needs a restart, and `server_info` reports the pending change as config drift. Of the built-in profiles only `Local` serves compact descriptions.
 
 ![The Tools tab: the navigation core in four groups, the opt-in bundles and the effective tools/list](img/mcp-profiles-core.png)
 

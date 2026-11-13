@@ -292,7 +292,7 @@ The product offers exactly **two** delete functions, both in the desktop applica
 
 What does **not** exist:
 
-- **No CLI verb deletes recorded data.** The complete verb list is `init`, `skills`, `analyze`, `export`, `import`, `list`, `mcp`, `call`. There is no `clean`, `reset`, `uninstall` or `purge`. The one file a verb removes is an unedited aicb-written skill file without notes of yours, which `aicb skills sync` removes when the served tools no longer include one the skill requires.
+- **No CLI verb deletes recorded data.** The complete verb list is `init`, `skills`, `analyze`, `export`, `import`, `list`, `mcp`, `call`. There is no `clean`, `reset`, `uninstall` or `purge`. The one file a verb removes is an unedited aicb-written skill file without notes of yours, which `aicb skills sync` and `aicb init` remove when the served tools no longer include one the skill requires.
 - **No MCP tool deletes the usage recording.** `usage_report` is read-only.
 - **No global "delete all my data" button.**
 - **No automatic undo of `aicb init`.** The command merges its entries into files that are yours; removing them is a manual edit.
@@ -403,13 +403,13 @@ There is no opt-out per tool and none per MCP session.
 
 ## 10.11 Agent skill files
 
-Besides `aicb init`, three callers write the aicb agent skill files in a project (`.claude/skills/<name>/SKILL.md`, and `.agents/skills/` for Codex and OpenCode). All three rewrite only the aicb part of a file aicb wrote and keep your notes below its `aicb:user` line; a skill file without the aicb marker is never touched without `--adopt`:
+Besides `aicb init`, three callers write the aicb agent skill files in a project (`.claude/skills/<name>/SKILL.md`, and `.agents/skills/` for Codex and OpenCode). All three change only files aicb wrote, and in them only the aicb part, and keep your notes below its `aicb:user` line; a skill file without the aicb marker is never touched without `--adopt`:
 
 | Caller | When | What it may write |
 |---|---|---|
 | `aicb skills sync` | when you run it | Rewrites aicb-written files, creates a missing default skill, and removes an unedited aicb-written file without notes of yours whose required tool the served profile withholds. Writes even with automatic sync switched off. |
 | The MCP server | once per process, after the first session of the project it was started in | Rewrites aicb-written files in the skill folder of the calling client's harness. Creates and removes nothing; leaves other projects alone. |
-| The Claude Code `SessionStart` hook (`.claude/hooks/aicb-skill-sync.mjs`, installed by `aicb init` and `install_agent_hooks`) | at each Claude Code session start | Runs `aicb skills sync --auto`: rewrites aicb-written files under `.claude/skills/`, creates and removes nothing. |
+| The Claude Code `SessionStart` hook (`.claude/hooks/aicb-skill-sync.mjs`, installed by `aicb init` and `install_agent_hooks`) | when a Claude Code session starts fresh (not on resume, `/clear` or compaction) | Runs `aicb skills sync --auto`: rewrites aicb-written files under `.claude/skills/`, creates and removes nothing. |
 
 The two automatic callers write nothing when `Keep agent skill files in sync` (`Settings > General`, section `MCP Server`, on by default) is switched off. None of them writes in your home directory or in a drive root without `.git`.
 

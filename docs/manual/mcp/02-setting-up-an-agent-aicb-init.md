@@ -155,7 +155,7 @@ The skill is written per project. If you want it available in every project inst
 
 The aicb skills are rendered for the tools the project's server actually serves. A paragraph or table row that names a tool the active profile withholds is left out, and a skill whose required tool is withheld is not written at all - `aicb-usage-check`, for example, needs `usage_report`, which the `Local` profile withholds. A skill therefore never sends the agent to a tool the server would refuse.
 
-A skill file aicb writes has two parts. Everything from the line `<!-- aicb:begin ... -->` to `<!-- aicb:end -->` is aicb's and is rewritten whenever the served tools change; everything after it, starting at the line `<!-- aicb:user ... -->`, is yours and is kept byte for byte. A file without aicb's marker - one you wrote yourself, or one an earlier `aicb init` wrote - is never touched without an explicit take-over.
+A skill file aicb writes has two parts. The front matter and everything from the line `<!-- aicb:begin ... -->` to `<!-- aicb:end -->` is aicb's and is rewritten whenever the served tools change; everything after it, starting at the line `<!-- aicb:user ... -->`, is yours and is kept byte for byte. A file without aicb's marker - one you wrote yourself, or one an earlier `aicb init` wrote - is never touched without an explicit take-over.
 
 ```sh
 aicb skills sync [--project <dir>] [--adopt]
@@ -167,7 +167,7 @@ aicb skills sync [--project <dir>] [--adopt]
 | `--adopt` | Take over skill files that are not in sync form: a hand-written copy (no aicb marker) is replaced, and an edit inside the aicb part is overwritten. Your part below the `aicb:user` line is kept. |
 | `--auto` | Run as an automatic caller - the mode the Claude Code session-start hook uses (see below). Cannot be combined with `--adopt`. |
 
-The command starts no server and opens no solution. It reads which tools the project's server serves from the project's `.mcp.json` aicb entry - the profile it pins with `--mcp-profile`, its `--db-path`, and `AICB_MCP_TOOLS` - and otherwise from the active profile of the configuration database. It prints one line per skill file (`in sync`, `created`, `rewritten`, `adopted`, `removed`, `kept` or `skipped`, each with the reason) and, when it changed a file, `The change takes effect at the next agent start.` An explicit `aicb skills sync` writes even when automatic skill sync is switched off in the desktop app's settings; a skill file aicb wrote and nobody edited is removed when the served tools no longer include one it requires.
+The command starts no server and opens no solution. It reads which tools the project's server serves from the project's `.mcp.json` aicb entry - the profile it pins with `--mcp-profile`, its `--db-path`, and `AICB_MCP_TOOLS` - and otherwise from the active profile of the configuration database. It prints one line per skill file (`in sync`, `created`, `rewritten`, `adopted`, `removed`, `kept`, `skipped`, `outdated` (when nothing could be written) or `failed`, each with the reason) and, when it changed a file, `The change takes effect at the next agent start.` An explicit `aicb skills sync` writes even when automatic skill sync is switched off in the desktop app's settings; a skill file aicb wrote and nobody edited is removed when the served tools no longer include one it requires.
 
 **Automatic skill sync.** Two automatic callers keep the files in step without you running the command, both on by default:
 

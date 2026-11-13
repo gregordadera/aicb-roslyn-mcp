@@ -417,7 +417,7 @@ Each group's heading carries the total count, for example `Guided failures · 12
 
 The client is part of the grouping: the same error from two clients is two rows.
 
-Empty groups say so instead of showing an empty table: `No argument-binding failures recorded.` / `No defect suspicions recorded.` A corpus without defect suspicion is a good state, not a missing feature.
+Empty groups say so instead of showing an empty table: `No argument-binding failures recorded.` / `No defect suspicions recorded.` A record without defect suspicions is a good state, not a missing feature.
 
 ### Clients & protocol tab
 
@@ -571,7 +571,7 @@ When a change takes effect:
 |---|---|
 | Immediately on save | Font family, font size/zoom, theme, the tooltip switch and the tooltip delay. |
 | At the next start of the app | Base path, LLM retry values, the theme in some individual panels. |
-| At the next start of the MCP server | The MCP tool set, the MCP instructions, the tool descriptions, the auto-refresh mode, usage recording and automatic skill sync. |
+| At the next start of the MCP server | The MCP tool set, the MCP instructions, the tool descriptions, the auto-refresh mode and usage recording (automatic skill sync is checked each time it would run). |
 | Live per MCP call | A profile's context-template assignment. |
 | The next time a tab is opened | Default layer profile, default exclusion list, default graph layout. |
 

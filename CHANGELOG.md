@@ -8,7 +8,7 @@ released.
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `get_diagnostics`, `find_dead_code`, `find_symbol`, `find_implementations`, `symbol_signature`, `impact_of_change`, `call_graph`, `explain_symbol`, `get_context`, `pack_for_task`, `prepare_task`, `find_binding_usages`, `find_unresolved_bindings`, `coverage_gaps` and `install_agent_hooks`. No tool was added or removed. New are the built-in MCP profile **Local**, compact tool descriptions as a profile setting, the command `aicb skills sync`, and an **MCP Server** section in the desktop app's settings.
 
-**Scripts that read these answers should check the following.** Every change is additive; no field was removed or renamed.
+**Scripts that read these answers should check the following.** No field was removed or renamed; a few values changed meaning, as listed below.
 
 - **Generated code:** `find_symbol`, `symbol_signature`, `find_implementations` and `instantiation_sites` rows of a generated declaration carry `generated`, the label of the generated document; a `symbol_signature` row's `file` is then that label, usually not a file on disk. Users found in generated code appear with a label ending in ` (generated)`. `find_overrides` and `get_type_hierarchy` mark such rows ` (generated)`.
 - **`impact_of_change`:** `saturation.cycleMembers` lists the members of the dependency cycle a closure runs through (up to 200, with the true count); `generatedSubject` and `generatedStops` appear as described under "Source-generated code". `call_graph` adds `generatedStops`.
@@ -26,7 +26,7 @@ released.
 
 - **Saved data.** Snapshots and saved sessions written by an earlier version are analyzed again the first time they are reused.
 - **Skills.** `server_info` shows whether a project's aicb skills match the served profile. To get the Claude Code session-start hook in an existing project, run `aicb init` or `install_agent_hooks` once more; `aicb skills sync --adopt` takes over a skill file aicb did not mark as its own.
-- **Settings.** The two new settings and a changed MCP profile take effect when the MCP server starts next.
+- **Settings.** Usage recording and a changed MCP profile take effect when the MCP server starts next; the skill-sync setting is read each time a sync would run.
 
 ### Source-generated code
 
@@ -38,13 +38,13 @@ released.
 
 ### Multi-targeted projects
 
-- A type's users include the references made in every target framework, not only the newest one, and a type or member that only an older target framework declares is found by the lookup and usage tools instead of answering `not_found`.
+- A type's users include the references made in every target framework, not only the newest one, and a type or member that only an older target framework declares is found by `find_symbol`, `symbol_signature`, `find_usages`, `impact_of_change` and `find_tests_for` instead of answering `not_found`.
 - `explain_symbol`, `get_context`, `pack_for_task`, `prepare_task` and `architecture_overview` count the same way, so their numbers match `find_usages`. Two different projects that share a name are no longer merged.
 - Projects whose `TargetFrameworks` list has spaces after the semicolons or a trailing semicolon load every target framework as a build does, on Windows, Linux and macOS. A file the build lists twice is compiled once, which removes false duplicate-definition errors. Project files that spell MSBuild names in another letter case are read as MSBuild reads them.
 
 ### MCP profiles, compact descriptions and agent skills
 
-- **Local profile.** The new built-in profile Local serves 30 of the tools agents call most - navigation, change impact, tests, diagnostics, insights, metrics, dependency injection, side effects and markup fan-in - with compact descriptions, for a model whose context window makes every tool definition expensive. Its tool list is under a fifth of the size of the default profile's. Pick it on the MCP Profiles page or start the server with `aicb mcp --mcp-profile mcp-profile/local`.
+- **Local profile.** The new built-in profile Local serves 30 tools chosen from the ones agents actually call - navigation, change impact, tests, diagnostics, insights, metrics, dependency injection, side effects, the agent-hook installer and markup fan-in - with compact descriptions, for a model whose context window makes every tool definition expensive. Its tool list is under a fifth of the size of the default profile's. Pick it on the MCP Profiles page or start the server with `aicb mcp --mcp-profile mcp-profile/local`.
 - **Compact tool descriptions.** Any MCP profile can serve compact descriptions: a short text per tool that keeps its key caveat, with shortened parameter texts; the tools and their parameters stay the same. Set it under Tools > Tool Descriptions in the MCP Profiles editor, which shows an estimate of what the tool definitions cost in tokens in both modes.
 - **Instructions sized to the pool.** The server instructions an agent receives at connect time no longer mention tools the active profile does not serve, and a refusal for a tool outside the profile points only to tools the profile serves.
 - **Skills follow the served tools.** The aicb agent skills leave out the paragraphs and table rows that name a tool the active profile withholds, and a skill whose required tool is withheld is not written. `aicb skills sync` rewrites the aicb part of each skill file and keeps your own notes below it; a hand-written skill file is left alone and reported unless you pass `--adopt`.
@@ -56,14 +56,14 @@ released.
 - **Dependency cycles.** When a high-risk closure runs through a dependency cycle, `impact_of_change` lists the cycle's members in `saturation.cycleMembers`. Name-collision notes list handwritten namesakes first and count generated ones.
 - **Extension members.** `find_usages` on a static class that declares C# 14 `extension` blocks lists the types that call those extension members, and files the callers that reach them through a receiver under `viaExtensionMember`. A tuple element name that matches a type name no longer counts as a use of that type.
 - **Indexers.** Reading or writing an indexer of your own type counts as calling its getter or setter, and `find_usages` on a `Count` or `Length` property lists code that reads it implicitly through `x[^1]`, a range or a list pattern.
-- **Anonymous types and delegates.** The member names of an anonymous type are no longer read as type names, so `find_usages` no longer reports a type as used because an anonymous member shares its name, and efferent coupling (Ce) matches the listed dependencies. A type named only in the signature of a lambda with a `ref`, `out` or default-value parameter counts as used.
+- **Anonymous types and delegates.** The member names of an anonymous type are no longer read as type names, so `find_usages` no longer reports a type as used because an anonymous member shares its name, and efferent coupling (Ce) matches the listed dependencies. A type named only in the signature of a lambda with a `ref`, `out` or default-value parameter counts as used where the compiler infers the lambda's type itself, for example when it is passed to a generic method.
 - **Coupling.** Afferent coupling (Ca) and the exported USED_BY lists no longer credit a type whose name the compiler bound to an external library type or that matches only in letter case. Where several types share a name, a referencing type counts as a certain user wherever its code demonstrably uses one of them.
 - **Reflection and nameof.** A method fetched by reflection with `nameof` (for example `GetMethod(nameof(M))`) or named by `nameof` in an attribute counts as used, and the fetching method shows up as its user.
 
 ### Tests and coverage
 
-- `coverage_gaps`, `find_by_complexity_and_coverage` and the complex-untested insight follow a test's property read into the getter, also through an interface or base property and through indexers, so the methods it calls get a `testReachDepth` instead of being reported as untested. An entry whose reach cannot be measured is marked `unfollowedAccessor` instead of being counted as untested.
-- Under the built-in default test profile, a project whose name matches only through "Spec" or "Specs" counts as a test project when it contains test methods.
+- `coverage_gaps`, `find_by_complexity_and_coverage` and the complex-untested insight follow a test's property read into the getter, also through an interface or base property and through indexers, so the methods it calls get a `testReachDepth` instead of being reported as untested. An entry whose reach cannot be measured stays listed but is marked `unfollowedAccessor`, so its missing depth reads as unknown rather than untested.
+- Under the built-in default test profile, a project whose name matches only through "Spec" or "Specs" now counts as a test project only when it contains test methods; before, the name alone was enough.
 
 ### Dead code
 
@@ -75,7 +75,7 @@ released.
 ### Diagnostics and loading
 
 - **Causes and remedies.** `get_diagnostics` explains error clusters it used to leave bare: a project the solution itself never builds (with the exact `dotnet restore "<project file>"` command), errors that come only from projects the solution's build skips, a restore output without the project's target framework, unbuilt F# or Visual Basic project references (with the build command), C++ project references, a `.resx` file without its generated class, a project that uses a C# version newer than the analyzer's compiler, the git submodule that holds missing sources, and referenced projects that compiled empty.
-- **Missing targeting packs.** A project whose .NET, ASP.NET Core, Windows Desktop or netstandard2.1 targeting pack is missing is reported as incomplete with the missing pack named, instead of with thousands of ordinary compile errors, and the build cache does not keep such a build.
+- **Missing targeting packs.** A project whose .NET, ASP.NET Core, Windows Desktop or netstandard2.1 targeting pack is missing is reported as incomplete with the missing pack named, instead of as ordinary compile errors, and the build cache does not keep such a build.
 - **Consistent advice.** The incomplete-analysis warning on other answers names the same unrestored projects and the same restore command as `get_diagnostics`.
 - **SDK pins.** A load refused because `global.json` pins an SDK that is not installed names the pin, the installed SDKs of the dotnet the build uses and the `rollForward` value that would admit one.
 - **Visual Basic and F#.** Where a symbol is reachable from a Visual Basic or F# project, `find_usages`, `impact_of_change`, `find_dead_code` and `architecture_overview` say NOT ANALYSED and name the projects. A solution without any C# project says NOTHING TO ANALYSE on every answer.
@@ -90,7 +90,7 @@ released.
 ### Desktop app and CLI
 
 - **Usage recording can be switched off.** The new MCP Server section of the settings has "Record MCP tool usage"; with it off, the MCP server and `aicb call` store no tool-call records, `usage_report` says `recording: "off"`, and `server_info` shows a SETTINGS DRIFT line when the switch changed after the server started. The same section has "Keep agent skill files in sync". Both are on by default.
-- **`aicb call`** adds the same session-wide notes as the MCP server: the staleness trailer, NOTHING TO ANALYSE and the configuration-database note.
+- **`aicb call`** now adds the staleness trailer and NOTHING TO ANALYSE, the same session-wide notes the MCP server adds, and its configuration-database note now matches the server's.
 - **`apply_solution_config`** applies every rule of the proposal it is given; each list stopped at 80 entries before. The layer wizard says when it keeps only the first 80 rules of a model's answer.
 - **`init_solution_config`** keeps a solution's own namespaces that start with `Microsoft`, `System` or `JetBrains`, and names under each test marker the attributes that count for it (`testAttributeUses`).
 
@@ -98,7 +98,7 @@ released.
 
 - The layer-violation check uses the type the code actually refers to rather than the first type with the same simple name, and names the dependencies it could not judge.
 - `list_insights` reports the real number of findings per insight and counts suppressions beyond the first 20.
-- `find_by_side_effects` classifies Elasticsearch, OpenSearch, Algolia and Azure AI Search clients as `database` effects.
+- `find_by_side_effects` classifies the Elasticsearch, OpenSearch low-level, Algolia and Azure AI Search clients as `database` effects.
 
 ## 0.5.515.1 (2026-11-06) - find_usages and find_tests_for tell overloads, namesakes and overrides apart, an idle MCP session releases its Roslyn solution, and batch shares its budget across the answers
 

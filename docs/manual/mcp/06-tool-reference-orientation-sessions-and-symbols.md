@@ -14,7 +14,7 @@ The fan-in and impact tools (`find_usages`, `impact_of_change`, ...), the qualit
 
 **Session argument.** Most tools here take a `sessionId`. You can pass either the id returned by `analyze_solution` or the absolute path to a solution file (`.sln`, `.slnx` or `.slnf`). When you pass a path, the server analyzes the solution on first use and reuses it afterwards, so `analyze_solution` is optional. If the value is neither a known session id nor an existing solution file, the call fails with a message that says which of the two it was read as and what to do next: a solution path that does not exist is reported as such (and explicitly *not* as an expired session), a solution path on a host that cannot self-initialize points you to `analyze_solution`, and anything else is reported as an unknown or expired session id.
 
-**Tool pool.** The server exposes a curated subset of its tools rather than all of them, because a long tool list measurably degrades an agent's tool choice. `core` tools are unioned into every profile; `extras` are the rest of the default pool; a tool marked "not in the default pool" exists but the active tool set does not expose it. The environment variable `AICB_MCP_TOOLS` (the values `lean` or `all`, or a comma-separated list of tool-class names) is an operator override; the configured profiles are visible through `list_mcp_profiles`, and the active one is pinned at server start with `aicb mcp --mcp-profile <id>`.
+**Tool pool.** The server exposes a curated subset of its tools rather than all of them, because a long tool list measurably degrades an agent's tool choice. `core` tools are the base every profile starts from (a profile can switch some off, as `Local` does); `extras` are the rest of the default pool; a tool marked "not in the default pool" exists but the active tool set does not expose it. The environment variable `AICB_MCP_TOOLS` (the values `lean` or `all`, or a comma-separated list of tool-class names) is an operator override; the configured profiles are visible through `list_mcp_profiles`, and the active one is pinned at server start with `aicb mcp --mcp-profile <id>`.
 
 **Dispatch through `batch` and `measure`.** Tools marked as dispatchable below can be run as a sub-query of the `batch` and `measure` meta-tools; the others must be called directly.
 
@@ -96,7 +96,7 @@ The fan-in and impact tools (`find_usages`, `impact_of_change`, ...), the qualit
 | Field | Content |
 |---|---|
 | `about` | How to read the index (including the reachability rule below). |
-| `tools.inPool.core` | The tools every profile exposes, listed in reach-for-them order, not alphabetically. |
+| `tools.inPool.core` | The navigation core, listed in reach-for-them order, not alphabetically. Every profile starts from it, but a profile can switch core tools off (all except `server_info`); `Local` does. |
 | `tools.inPool.extras` | The rest of what the active tool set exposes right now, alphabetical. |
 | `tools.outOfPool` | Tools that exist but are not exposed by the active tool set. |
 | `core` | The navigation core section (about text + tool names). |
@@ -172,7 +172,7 @@ In the lean projection each index entry is a bare name; with `detail: "full"` ea
 
 ### `usage_report`
 
-**Purpose.** The server-side tool-call telemetry: every `tools/call` invocation the server has recorded into the config DB's `tool_calls` table - cross-client (corpus runs, foreign adopters), not this client's transcript.
+**Purpose.** The server-side tool-call telemetry: every `tools/call` invocation the server has recorded into the config DB's `tool_calls` table - across every client that used this database, not this client's transcript.
 
 **When to use.** To see how often each tool is actually used, how expensive and reliable it is, which clients and protocol eras are in play, and how much of the active tool pool the recorded traffic covers.
 

@@ -16,13 +16,14 @@ answers the questions an agent has to get right before it edits code - who calls
 this, what a change reaches, which tests cover it, what dependency injection
 resolves, which code has side effects - and packs the code a task needs into
 compact, token-budgeted Markdown. It runs locally as an MCP server and CLI for
-Claude Code, Codex, OpenCode, Cursor and any other MCP client; a Windows desktop
+Claude Code, Codex, OpenCode, Cursor and any other MCP client that starts a stdio
+server; a Windows desktop
 app adds visual context selection, analysis and editing.
 
 | | What your agent gets | Tools |
 |---|---|---|
 | **Code change intelligence** | The reach of a change before the edit: direct and transitive users, the tests that cover them, a risk level, and review evidence afterwards | `impact_of_change`, `find_tests_for`, `review_context`, `verify_claim` |
-| **Semantic code intelligence** | Compiler-accurate answers on large solutions: overloads, interfaces, overrides, partial and generated code, dependency injection and XAML bindings | `find_usages`, `find_implementations`, `resolve_injection`, `find_by_side_effects` |
+| **Semantic code intelligence** | Roslyn-accurate symbol answers on large solutions - overloads, interfaces, overrides, partial and generated code - plus the dependency injection and XAML bindings the code states | `find_usages`, `find_implementations`, `resolve_injection`, `find_by_side_effects` |
 | **Intelligent context engineering** | The code a task needs, within the budget the agent has, instead of a source dump - and a tool list sized to the model | `prepare_task`, `pack_for_task`, `measure`, MCP profiles |
 
 Free for individuals, education and organizations below the
@@ -84,7 +85,7 @@ dump:
 | Explore a named symbol with selected surroundings | `explain_symbol` | Callers, callees, implementations, tests or other requested dimensions |
 | Pack context for a natural-language goal | `pack_for_task` | Goal-named symbols and their semantic neighborhood |
 | Prepare to edit | `prepare_task` | The goal-focused context plus covering tests and likely siblings such as a factory or validator |
-| Check the response cost first | `measure` | The exact token count of one or more planned tool answers, without returning their large payloads |
+| Check the response cost first | `measure` | A tokenizer count (cl100k_base) of one or more planned tool answers, without returning their large payloads |
 
 The focused context tools accept a **token budget**, so a package fits the room your
 agent has. The symbols you name stay in; when the budget is tight, the package
@@ -174,11 +175,11 @@ is necessary. See [sessions, recall and staleness](https://github.com/gregordade
 
 ### Answers that carry their own evidence
 
-An AICB answer says not only what it found but how far it can be trusted. Silence
-is never presented as proof: **unknown** and **verified absent** are different
-answers, and tools such as `assert_absence` return `confirmed`, `refuted` or
-`indeterminate`. Every response discloses the signals an agent should read before it
-acts on an empty, short or apparently definitive result:
+An AICB answer says not only what it found but how far it can be trusted.
+**Unknown** and **verified absent** are different answers: tools such as
+`assert_absence` return `confirmed`, `refuted` or `indeterminate`. Responses carry
+these signals whenever they apply; an agent reads them before it acts on an empty,
+short or apparently definitive result:
 
 | Signal | Meaning | Typical response |
 |---|---|---|
@@ -186,13 +187,13 @@ acts on an empty, short or apparently definitive result:
 | `incompleteProjects` or `verdict: "inconclusive"` | Project references could not be resolved well enough for a complete semantic graph | Restore, then call `refresh_session`; after a build, `refresh_session(force: true)` |
 | `totalFound` and `truncated` | More matches exist than were returned | Narrow the scope, paginate or raise the documented cap |
 | Bundle manifest or leading omission note | A token budget removed surrounding types, tests or sibling implementations | Increase the budget or request the missing axis explicitly |
-| `mergedNamesakes`, ambiguity or multiple candidates | A name did not resolve to one unique symbol | Repeat the query with a qualified symbol name |
+| `namesakes` or `mergedNamesakes`, ambiguity or multiple candidates | A name did not resolve to one unique symbol | Repeat the query with a qualified symbol name |
 | `confidence`, provenance, dynamic or unknown markers | A value is measured, author-supplied, inferred or not statically knowable | Preserve the uncertainty and verify the relevant runtime configuration when needed |
 | `origin: "Recalled"` or `lineNumbersAvailable: false` | The answer came from persisted memory rather than a live Roslyn workspace | Use `refresh_remembered` before relying on live-only details |
 
 The analysis covers statically visible C# - including the C# the Razor generator
-compiles from `.cshtml` views and the code source generators add - together with
-Razor, XAML and AXAML relationships. Where a relationship exists only at runtime
+compiles from `.cshtml` views and the code source generators add (an answer says
+when generated code is missing) - together with Razor, XAML and AXAML relationships. Where a relationship exists only at runtime
 (reflection, assembly scanning, dynamic configuration, an external consumer, a
 registration produced at runtime), AICB marks it as dynamic or unknown instead of
 inventing it, and a XAML binding whose data type is not known for certain stays
@@ -442,7 +443,7 @@ The desktop app is growing into a **human-in-the-loop orchestration workspace**:
 developer selects and constrains context, inspects intermediate results, approves
 decisions and controls what an AI model runs next. Today it runs `Manual` runs;
 further run types that process selected nodes one by one or let a model narrow the
-context first are in development.
+context first are planned.
 
 ## Install
 
@@ -521,7 +522,7 @@ aicb init
 It writes `.mcp.json`, the MCP configuration Claude Code reads, and the
 `aicb-csharp-context` agent skill under `.claude/skills/`. Files you wrote
 yourself are not overwritten; a skill file aicb wrote earlier is brought in step
-with the tools the server serves. If the project uses Codex or OpenCode (a `.codex/` or `.opencode/`
+with the tools the server serves (`aicb skills sync` does it on request). If the project uses Codex or OpenCode (a `.codex/` or `.opencode/`
 folder), it also registers the server in that client's own configuration and
 writes the skill to `.agents/skills/`, where both read skills. If it detects
 Claude Code, Codex or OpenCode project configuration, it also installs a
@@ -633,11 +634,12 @@ The last four are opt-in: `aicb init --skills=all`.
 AICB is built for large solutions. On RavenDB, about 1.76 million lines of C#, the
 first analysis takes about 75 seconds and a repeated question about 2 seconds, at a
 peak of about 4.1 GB of RAM; on Serilog, about 25,000 lines, the first analysis takes
-about 15 seconds and a repeated question about 0.14 seconds. The full table, with
+about 15 seconds and a repeated question about 0.14 seconds (medians on one
+machine, measured 2026-11-06). The full table, with
 revisions, machine and method, is in the
 [architecture and evidence guide](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/ARCHITECTURE.md#how-does-aicb-scale-on-large-solutions).
-Follow-up questions reuse the warm analysis, and saved edits are picked up
-incrementally.
+Follow-up questions reuse the warm analysis; saved C# edits are usually picked up
+incrementally, while changes to project or solution files take a full reload.
 
 For a very large repository, a `.slnf` reduces what MSBuild loads and
 `analyzePreferredTfmOnly` avoids analyzing every target framework. `summaryOnly`,

@@ -2,7 +2,8 @@
 
 Thanks for wanting to help. This repository holds the releases, the documentation,
 the agent skills, the GitHub Action and the release notes of `aicb`. The product is
-developed by its maintainer and ships under its own commercial license (see
+developed by its maintainer and ships under its own license, free below the license
+thresholds and commercial above them (see
 [`EULA.md`](EULA.md) and [`docs/LICENSING.md`](docs/LICENSING.md)).
 
 ## Pull requests
