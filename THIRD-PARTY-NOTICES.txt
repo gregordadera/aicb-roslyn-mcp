@@ -23,12 +23,12 @@ did the set of third-party components move?
 SUMMARY
 ==============================================================================
 
-  Components listed          70
-  of which ship a binary     66
+  Components listed          69
+  of which ship a binary     65
   metapackage or provided
   by the target framework    4
 
-  MIT                         62
+  MIT                         61
   Apache-2.0                   6
   BSD-3-Clause                 1
   file: LICENSE.txt            1
@@ -42,9 +42,9 @@ COMPONENTS
   resolves as a metapackage or is supplied by the target framework - it is listed
   because the product is built against it, not because we redistribute it.
 
-  AvalonEdit 6.3.0.90
+  AvalonEdit 6.3.1.120
       Licence    MIT
-      Copyright  2000-2023 AlphaSierraPapa for the SharpDevelop Team
+      Copyright  2000-2025 AlphaSierraPapa for the SharpDevelop Team
       Authors    AvalonEdit Contributors
       Project    http://www.avalonedit.net/
       In         GUI
@@ -70,7 +70,7 @@ COMPONENTS
       Project    https://github.com/Humanizr/Humanizer
       In         CLI/MCP + GUI
 
-  Microsoft.Build.Framework 17.11.48
+  Microsoft.Build.Framework 18.7.1
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -84,56 +84,56 @@ COMPONENTS
       Project    https://github.com/microsoft/MSBuildLocator
       In         CLI/MCP + GUI
 
-  Microsoft.CodeAnalysis.Analyzers 5.9.0-1.26328.17
+  Microsoft.CodeAnalysis.Analyzers 5.9.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://github.com/dotnet/roslyn
       In         CLI/MCP + GUI   (no binary of its own)
 
-  Microsoft.CodeAnalysis.Common 5.9.0
+  Microsoft.CodeAnalysis.Common 5.12.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://github.com/dotnet/roslyn
       In         CLI/MCP + GUI
 
-  Microsoft.CodeAnalysis.CSharp 5.9.0
+  Microsoft.CodeAnalysis.CSharp 5.12.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://github.com/dotnet/roslyn
       In         CLI/MCP + GUI
 
-  Microsoft.CodeAnalysis.CSharp.Workspaces 5.9.0
+  Microsoft.CodeAnalysis.CSharp.Workspaces 5.12.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://github.com/dotnet/roslyn
       In         CLI/MCP + GUI
 
-  Microsoft.CodeAnalysis.Workspaces.Common 5.9.0
+  Microsoft.CodeAnalysis.Workspaces.Common 5.12.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://github.com/dotnet/roslyn
       In         CLI/MCP + GUI
 
-  Microsoft.CodeAnalysis.Workspaces.MSBuild 5.9.0
+  Microsoft.CodeAnalysis.Workspaces.MSBuild 5.12.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://github.com/dotnet/roslyn
       In         CLI/MCP + GUI
 
-  Microsoft.Data.Sqlite 8.0.10
+  Microsoft.Data.Sqlite 11.0.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://docs.microsoft.com/dotnet/standard/data/sqlite/
       In         CLI/MCP + GUI   (no binary of its own)
 
-  Microsoft.Data.Sqlite.Core 8.0.10
+  Microsoft.Data.Sqlite.Core 11.0.0
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -147,7 +147,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Caching.Abstractions 10.0.13
+  Microsoft.Extensions.Caching.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -161,7 +161,7 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Configuration.Abstractions 10.0.13
+  Microsoft.Extensions.Configuration.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -210,33 +210,26 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.DependencyInjection 10.0.5
+  Microsoft.Extensions.DependencyInjection 10.0.10
+      Licence    MIT
+      Copyright  © Microsoft Corporation. All rights reserved.
+      Authors    Microsoft
+      Project    https://dot.net/
+      In         CLI/MCP + GUI
+
+  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         GUI
 
-  Microsoft.Extensions.DependencyInjection 10.0.7
+  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP
-
-  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13
-      Licence    MIT
-      Copyright  © Microsoft Corporation. All rights reserved.
-      Authors    Microsoft
-      Project    https://dot.net/
-      In         CLI/MCP
-
-  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.5
-      Licence    MIT
-      Copyright  © Microsoft Corporation. All rights reserved.
-      Authors    Microsoft
-      Project    https://dot.net/
-      In         GUI
 
   Microsoft.Extensions.Diagnostics 10.0.7
       Licence    MIT
@@ -245,14 +238,14 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Diagnostics.Abstractions 10.0.13
+  Microsoft.Extensions.Diagnostics.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.FileProviders.Abstractions 10.0.13
+  Microsoft.Extensions.FileProviders.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -280,40 +273,33 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Hosting.Abstractions 10.0.13
+  Microsoft.Extensions.Hosting.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Logging 10.0.5
+  Microsoft.Extensions.Logging 10.0.10
+      Licence    MIT
+      Copyright  © Microsoft Corporation. All rights reserved.
+      Authors    Microsoft
+      Project    https://dot.net/
+      In         CLI/MCP + GUI
+
+  Microsoft.Extensions.Logging.Abstractions 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         GUI
 
-  Microsoft.Extensions.Logging 10.0.7
+  Microsoft.Extensions.Logging.Abstractions 10.0.14
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP
-
-  Microsoft.Extensions.Logging.Abstractions 10.0.13
-      Licence    MIT
-      Copyright  © Microsoft Corporation. All rights reserved.
-      Authors    Microsoft
-      Project    https://dot.net/
-      In         CLI/MCP
-
-  Microsoft.Extensions.Logging.Abstractions 10.0.5
-      Licence    MIT
-      Copyright  © Microsoft Corporation. All rights reserved.
-      Authors    Microsoft
-      Project    https://dot.net/
-      In         GUI
 
   Microsoft.Extensions.Logging.Configuration 10.0.7
       Licence    MIT
@@ -357,19 +343,19 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Options 10.0.13
-      Licence    MIT
-      Copyright  © Microsoft Corporation. All rights reserved.
-      Authors    Microsoft
-      Project    https://dot.net/
-      In         CLI/MCP
-
-  Microsoft.Extensions.Options 10.0.5
+  Microsoft.Extensions.Options 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         GUI
+
+  Microsoft.Extensions.Options 10.0.14
+      Licence    MIT
+      Copyright  © Microsoft Corporation. All rights reserved.
+      Authors    Microsoft
+      Project    https://dot.net/
+      In         CLI/MCP
 
   Microsoft.Extensions.Options.ConfigurationExtensions 10.0.7
       Licence    MIT
@@ -378,19 +364,19 @@ COMPONENTS
       Project    https://dot.net/
       In         CLI/MCP
 
-  Microsoft.Extensions.Primitives 10.0.13
-      Licence    MIT
-      Copyright  © Microsoft Corporation. All rights reserved.
-      Authors    Microsoft
-      Project    https://dot.net/
-      In         CLI/MCP
-
-  Microsoft.Extensions.Primitives 10.0.5
+  Microsoft.Extensions.Primitives 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         GUI
+
+  Microsoft.Extensions.Primitives 10.0.14
+      Licence    MIT
+      Copyright  © Microsoft Corporation. All rights reserved.
+      Authors    Microsoft
+      Project    https://dot.net/
+      In         CLI/MCP
 
   Microsoft.ML.Tokenizers 1.0.2
       Licence    MIT
@@ -413,6 +399,13 @@ COMPONENTS
       Project    https://dot.net/ml
       In         CLI/MCP + GUI
 
+  Microsoft.NET.StringTools 18.7.1
+      Licence    MIT
+      Copyright  © Microsoft Corporation. All rights reserved.
+      Authors    Microsoft
+      Project    http://go.microsoft.com/fwlink/?LinkId=624683
+      In         CLI/MCP + GUI
+
   Microsoft.VisualStudio.SolutionPersistence 1.0.52
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
@@ -421,14 +414,14 @@ COMPONENTS
       In         CLI/MCP + GUI
       NOTICE     NOTICE  - reproduced below
 
-  ModelContextProtocol 2.3.1
+  ModelContextProtocol 2.4.0
       Licence    Apache-2.0
       Copyright  © Model Context Protocol a Series of LF Projects, LLC.
       Authors    ModelContextProtocol
       Project    https://csharp.sdk.modelcontextprotocol.io/
       In         CLI/MCP
 
-  ModelContextProtocol.Core 2.3.1
+  ModelContextProtocol.Core 2.4.0
       Licence    Apache-2.0
       Copyright  © Model Context Protocol a Series of LF Projects, LLC.
       Authors    ModelContextProtocol
@@ -473,42 +466,42 @@ COMPONENTS
       Project    https://github.com/dotnet/command-line-api
       In         CLI/MCP
 
-  System.Composition 10.0.1
+  System.Composition 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP + GUI   (no binary of its own)
 
-  System.Composition.AttributedModel 10.0.1
+  System.Composition.AttributedModel 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP + GUI
 
-  System.Composition.Convention 10.0.1
+  System.Composition.Convention 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP + GUI
 
-  System.Composition.Hosting 10.0.1
+  System.Composition.Hosting 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP + GUI
 
-  System.Composition.Runtime 10.0.1
+  System.Composition.Runtime 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
       Project    https://dot.net/
       In         CLI/MCP + GUI
 
-  System.Composition.TypedParts 10.0.1
+  System.Composition.TypedParts 10.0.10
       Licence    MIT
       Copyright  © Microsoft Corporation. All rights reserved.
       Authors    Microsoft
@@ -537,8 +530,8 @@ LICENCE TEXTS
 Apache-2.0  -  applies to 6 components:
 ------------------------------------------------------------------------------
 
-  ModelContextProtocol 2.3.1
-  ModelContextProtocol.Core 2.3.1
+  ModelContextProtocol 2.4.0
+  ModelContextProtocol.Core 2.4.0
   SQLitePCLRaw.bundle_e_sqlite3 3.0.5
   SQLitePCLRaw.config.e_sqlite3 3.0.5
   SQLitePCLRaw.core 3.0.5
@@ -809,76 +802,75 @@ SQLite is Public Domain
 https://sqlite.org/copyright.html
 
 ------------------------------------------------------------------------------
-MIT  -  applies to 62 components:
+MIT  -  applies to 61 components:
 ------------------------------------------------------------------------------
 
-  AvalonEdit 6.3.0.90
+  AvalonEdit 6.3.1.120
   CommunityToolkit.Mvvm 8.4.2
   Humanizer.Core 2.14.1
-  Microsoft.Build.Framework 17.11.48
+  Microsoft.Build.Framework 18.7.1
   Microsoft.Build.Locator 1.9.1
-  Microsoft.CodeAnalysis.Analyzers 5.9.0-1.26328.17
-  Microsoft.CodeAnalysis.Common 5.9.0
-  Microsoft.CodeAnalysis.CSharp 5.9.0
-  Microsoft.CodeAnalysis.CSharp.Workspaces 5.9.0
-  Microsoft.CodeAnalysis.Workspaces.Common 5.9.0
-  Microsoft.CodeAnalysis.Workspaces.MSBuild 5.9.0
-  Microsoft.Data.Sqlite 8.0.10
-  Microsoft.Data.Sqlite.Core 8.0.10
+  Microsoft.CodeAnalysis.Analyzers 5.9.0
+  Microsoft.CodeAnalysis.Common 5.12.0
+  Microsoft.CodeAnalysis.CSharp 5.12.0
+  Microsoft.CodeAnalysis.CSharp.Workspaces 5.12.0
+  Microsoft.CodeAnalysis.Workspaces.Common 5.12.0
+  Microsoft.CodeAnalysis.Workspaces.MSBuild 5.12.0
+  Microsoft.Data.Sqlite 11.0.0
+  Microsoft.Data.Sqlite.Core 11.0.0
   Microsoft.Extensions.AI.Abstractions 10.11.0
-  Microsoft.Extensions.Caching.Abstractions 10.0.13
+  Microsoft.Extensions.Caching.Abstractions 10.0.14
   Microsoft.Extensions.Configuration 10.0.7
-  Microsoft.Extensions.Configuration.Abstractions 10.0.13
+  Microsoft.Extensions.Configuration.Abstractions 10.0.14
   Microsoft.Extensions.Configuration.Binder 10.0.7
   Microsoft.Extensions.Configuration.CommandLine 10.0.7
   Microsoft.Extensions.Configuration.EnvironmentVariables 10.0.7
   Microsoft.Extensions.Configuration.FileExtensions 10.0.7
   Microsoft.Extensions.Configuration.Json 10.0.7
   Microsoft.Extensions.Configuration.UserSecrets 10.0.7
-  Microsoft.Extensions.DependencyInjection 10.0.5
-  Microsoft.Extensions.DependencyInjection 10.0.7
-  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.13
-  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.5
+  Microsoft.Extensions.DependencyInjection 10.0.10
+  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.10
+  Microsoft.Extensions.DependencyInjection.Abstractions 10.0.14
   Microsoft.Extensions.Diagnostics 10.0.7
-  Microsoft.Extensions.Diagnostics.Abstractions 10.0.13
-  Microsoft.Extensions.FileProviders.Abstractions 10.0.13
+  Microsoft.Extensions.Diagnostics.Abstractions 10.0.14
+  Microsoft.Extensions.FileProviders.Abstractions 10.0.14
   Microsoft.Extensions.FileProviders.Physical 10.0.7
   Microsoft.Extensions.FileSystemGlobbing 10.0.7
   Microsoft.Extensions.Hosting 10.0.7
-  Microsoft.Extensions.Hosting.Abstractions 10.0.13
-  Microsoft.Extensions.Logging 10.0.5
-  Microsoft.Extensions.Logging 10.0.7
-  Microsoft.Extensions.Logging.Abstractions 10.0.13
-  Microsoft.Extensions.Logging.Abstractions 10.0.5
+  Microsoft.Extensions.Hosting.Abstractions 10.0.14
+  Microsoft.Extensions.Logging 10.0.10
+  Microsoft.Extensions.Logging.Abstractions 10.0.10
+  Microsoft.Extensions.Logging.Abstractions 10.0.14
   Microsoft.Extensions.Logging.Configuration 10.0.7
   Microsoft.Extensions.Logging.Console 10.0.7
   Microsoft.Extensions.Logging.Debug 10.0.5
   Microsoft.Extensions.Logging.Debug 10.0.7
   Microsoft.Extensions.Logging.EventLog 10.0.7
   Microsoft.Extensions.Logging.EventSource 10.0.7
-  Microsoft.Extensions.Options 10.0.13
-  Microsoft.Extensions.Options 10.0.5
+  Microsoft.Extensions.Options 10.0.10
+  Microsoft.Extensions.Options 10.0.14
   Microsoft.Extensions.Options.ConfigurationExtensions 10.0.7
-  Microsoft.Extensions.Primitives 10.0.13
-  Microsoft.Extensions.Primitives 10.0.5
+  Microsoft.Extensions.Primitives 10.0.10
+  Microsoft.Extensions.Primitives 10.0.14
   Microsoft.ML.Tokenizers 1.0.2
   Microsoft.ML.Tokenizers.Data.Cl100kBase 1.0.2
   Microsoft.ML.Tokenizers.Data.O200kBase 1.0.2
+  Microsoft.NET.StringTools 18.7.1
   Microsoft.VisualStudio.SolutionPersistence 1.0.52
   System.CommandLine 2.0.0-beta4.22272.1
-  System.Composition 10.0.1
-  System.Composition.AttributedModel 10.0.1
-  System.Composition.Convention 10.0.1
-  System.Composition.Hosting 10.0.1
-  System.Composition.Runtime 10.0.1
-  System.Composition.TypedParts 10.0.1
+  System.Composition 10.0.10
+  System.Composition.AttributedModel 10.0.10
+  System.Composition.Convention 10.0.10
+  System.Composition.Hosting 10.0.10
+  System.Composition.Runtime 10.0.10
+  System.Composition.TypedParts 10.0.10
   System.Diagnostics.EventLog 10.0.7
   WPF-UI 3.1.1
 
   Copyright notices of those components:
 
     (c) .NET Foundation and Contributors. All rights reserved.
-    2000-2023 AlphaSierraPapa for the SharpDevelop Team
+    2000-2025 AlphaSierraPapa for the SharpDevelop Team
     Copyright (C) 2021-2025 Leszek Pomianowski and WPF UI Contributors
     Copyright (c) .NET Foundation and Contributors
     © Microsoft Corporation. All rights reserved.
