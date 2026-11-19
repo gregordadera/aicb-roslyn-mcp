@@ -101,7 +101,7 @@ released.
 - **`server_info`.** The SKILL line shows each project once, shows a failed row's own reason, and says when the session-start skill-sync hook is not installed.
 - **The symbol guard** lets a search through that targets another solution, or no solution at all, with a warning, and counts only the aicb calls of the agent that is asking, a subagent included.
 - **The skill-sync hook** on Windows also starts an `aicb` that is installed only as a `.cmd` file.
-- **aicb-smoke-test skill 2.0:** TODO-COORDINATOR - fill in after V0.5.520.149 lands.
+- **The aicb-smoke-test skill 2.0** checks more of the answers it tests: nine new tests compare two tools that answer the same question (callers, implementations, overrides, test evidence, construction sites, a repeated call, freshness), the older tests name how many items they sample and which preconditions they need, and a new step lets an independent agent in a fresh context check a sample of the results against your own source code, on your machine and without calling aicb. A result that agent disputes is shown to you for a direct check before it can count as a defect.
 
 ### Desktop app and CLI
 
