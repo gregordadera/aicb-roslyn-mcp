@@ -284,7 +284,7 @@ Say: the solution and its kind, whether the configuration was set up or the user
 
 ## Tool reference
 
-Every tool and parameter this skill uses, as the server lists them (checked against the tool schemas of aicb 0.5.520.148). All of them sit in the server's default pool; if one is missing from a user's profile, skip that test and say so.
+Every tool and parameter this skill uses, as the server lists them (checked against the tool schemas of aicb 0.5.530.1). All of them sit in the server's default pool; if one is missing from a user's profile, skip that test and say so.
 
 | Tool | Parameters used |
 |---|---|

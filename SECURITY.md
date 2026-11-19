@@ -30,7 +30,7 @@ analyzing a solution actually execute?**
 ### What `aicb` does *not* do
 
 - **The CLI and the MCP server never modify the code they analyze.** There are no
-  refactoring or apply tools, and nothing any tool writes is anything Roslyn reads.
+  refactoring or code-rewriting tools, and nothing any tool writes is anything Roslyn reads.
   What they *do* write is named in each tool's own description:
   `apply_solution_config` writes a `<Solution>.aicb.json` sidecar next to the `.sln`,
   `install_agent_hooks` installs the symbol guard (and, for Claude Code, a
@@ -76,9 +76,7 @@ logic described below.
 
 ### What `aicb` starts as a process
 
-`aicb` spawns three processes, none of which your code can steer. Measured over
-every production method in the solution, `aicb` reaches `Process.Start` from
-exactly three places, and each takes a fixed command line:
+`aicb` itself starts exactly three external programs, each with a fixed command line:
 
 - **`vswhere.exe`** at startup, to find an MSBuild the locator does not know.
   Its argument line is a compile-time constant; nothing from your solution
@@ -92,6 +90,9 @@ exactly three places, and each takes a fixed command line:
   *working directory*, so that the question is asked about your repository. The
   commit it names comes from this assembly's own build attribute and is rejected
   unless it is hexadecimal.
+  The automatic skill sync also runs **`git ls-files`** in the project folder,
+  to leave a skill file alone that git tracks. The file's path is passed as a
+  separate argument after `--`, so it cannot become a flag.
 
 What makes the set safe is not the choice of programs but how they are invoked:
 all three build their command lines through `ProcessStartInfo.ArgumentList` or a
@@ -100,9 +101,8 @@ name, namespace or symbol in your solution can therefore become an argument, a
 flag, or a second command.
 
 Scope note: this is the `aicb` CLI and MCP server. The WPF application ships
-four further launch sites (opening the license file, the sponsor link, Explorer
-on a selected solution, and a gallery-tool restart) - user-initiated shell
-opens, outside this threat model.
+three further launch sites (opening the license file, the sponsor link, and Explorer
+on a selected solution) - user-initiated shell opens, outside this threat model.
 
 ### The one caveat you must know
 

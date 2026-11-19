@@ -42,7 +42,7 @@ Or call the same tool from a terminal:
 aicb call impact_of_change --sln C:/repo/App.sln --arg symbol=ColorMixerService
 ```
 
-Abridged output from the bundled `ColorMixer.SelectionLab` sample:
+Abridged output on the `ColorMixer.SelectionLab` sample that ships with the desktop app:
 
 ```json
 {
@@ -454,8 +454,9 @@ Install **one** form per machine:
 | MCP server and CLI | [.NET global tool `aicb-roslyn-mcp`](https://www.nuget.org/packages/aicb-roslyn-mcp) | Windows, Linux, macOS |
 | Desktop app plus the same MCP server and CLI | [Windows installer or portable ZIP](https://github.com/gregordadera/aicb-roslyn-mcp/releases/latest) | Windows |
 
-The .NET tool needs the **.NET 10 SDK**. Without .NET 10 it runs on the next newer .NET on the
-machine and needs that version's SDK. A machine that has only .NET 8 or .NET 9 cannot start it.
+The .NET tool runs on .NET 10. Installing it needs the **.NET 10 SDK**, which also provides the
+MSBuild the analysis uses. Without .NET 10 it runs on the next newer .NET on the machine and
+needs that version's SDK. A machine that has only .NET 8 or .NET 9 cannot start it.
 
 ```sh
 dotnet tool install -g aicb-roslyn-mcp
@@ -547,7 +548,7 @@ Client-specific status:
 | Claude Code | `.mcp.json` written by `aicb init` | Skill and optional guard installed |
 | Codex | `.codex/config.toml` written by `aicb init`; Codex reads it only in a project you have trusted | Skill in `.agents/skills/` and optional guard installed |
 | OpenCode | `opencode.json` written by `aicb init` | Skill in `.agents/skills/` and optional guard installed |
-| Cursor / Cline / other stdio clients | Add command `aicb` with argument `mcp` | Use the published skill if the client supports Agent Skills |
+| Other stdio clients (Cursor, Cline) | Command `aicb`, argument `mcp` | Use the published skill if the client supports Agent Skills |
 
 Manual `.mcp.json` configuration for clients that read it:
 
@@ -588,7 +589,7 @@ The questions an agent asks most, and the tool that answers each one:
 | `prepare_task` | What do I need to read before I edit code for this task? |
 | `server_info` | Is the server running, and which version is it? |
 
-All tools with their parameters: [docs/TOOLS.md](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/TOOLS.md).
+The default tools with their parameters: [docs/TOOLS.md](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/TOOLS.md); all 82: the [MCP server manual](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/manual/mcp/README.md).
 
 ## Tool sets and Agent Skills
 

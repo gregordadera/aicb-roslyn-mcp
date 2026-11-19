@@ -40,8 +40,8 @@ released.
 
 ### Qualified type names
 
-- More tools that take a type accept a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. A qualified name is read as the type when no other type in your solution has the same simple name. Where another one does, the tool declines with a note instead of guessing.
-- `trace_flow` takes a `Type.Method` endpoint, and `calls_external` also reads `Outer+Inner`.
+- More tools accept a qualified type name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`: `find_tests_for`, `get_context`, `explain_symbol`, `instantiation_sites`, `lifecycle_of`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. `call_graph` and `symbol_metrics` read `Outer+Inner.Method`, and `trace_flow` takes a `Type.Method` endpoint. A qualified name is read as the type when no other type in your solution has the same simple name. Where another one does, the tool declines with a note instead of guessing.
+- `calls_external` also reads `Outer+Inner`.
 
 ### Who uses this symbol
 
@@ -73,7 +73,7 @@ released.
 - `get_context` and `architecture_overview` give a setup note in full in the first answer of a session and as one line afterwards.
 - `batch` fits more answers into its budget: a repeated note is sent in full once and referred to afterwards, and an omitted answer quotes the size a direct call would return. `get_context` and `pack_for_task` say that their budget covers the slice and the notes come on top.
 - Tool descriptions were shortened so that a client which cuts a description at 2,048 characters receives each one whole.
-- The server instructions and the `batch` refusal for an unknown tool name only tools the active profile serves.
+- For an unknown tool name, the `batch` and `measure` refusals list only tools the active profile serves, and the server instructions name only those tools.
 - Tools whose answer can depend on a Visual Basic or F# project, among them `instantiation_sites`, `find_implementations`, `get_type_hierarchy`, `find_overrides`, `find_tests_for`, `review_context` and `call_graph`, say when such a project hides a use.
 - `symbol_signature` names files relative to the solution, as `find_usages` does, and steers a member asked on the wrong type to the type that declares it. `resolve_injection` prints solution-relative paths with forward slashes.
 
@@ -99,9 +99,9 @@ released.
 - **Older skill files.** Unchanged skill files that an earlier `aicb init` wrote without aicb's marker are taken over automatically, as `--adopt` would.
 - **Fewer failures.** A skill folder that cannot be listed, or that a link places outside the project, is reported as skipped, and `aicb skills sync`, `aicb init` and their automatic runs exit 0. One project folder spelled in another Unicode form, or on Windows in another letter case, counts as one folder. While Claude Code rewrites its configuration file, the sync reads it again after a moment instead of falling back to another entry; a Codex or OpenCode file that is being written is reported as a problem instead of being read half-written.
 - **`server_info`.** The SKILL line shows each project once, shows a failed row's own reason, and says when the session-start skill-sync hook is not installed.
-- **The symbol guard** lets a search through that targets another solution, or no solution at all, with a warning, and counts only the aicb calls of the agent that is asking, a subagent included.
+- **The symbol guard** lets a search through that targets another solution, or no solution at all (a Grep search with a warning), and counts only the aicb calls of the agent that is asking, a subagent included.
 - **The skill-sync hook** on Windows also starts an `aicb` that is installed only as a `.cmd` file.
-- **The aicb-smoke-test skill 2.0** checks more of the answers it tests: nine new tests compare two tools that answer the same question (callers, implementations, overrides, test evidence, construction sites, a repeated call, freshness), the older tests name how many items they sample and which preconditions they need, and a new step lets an independent agent in a fresh context check a sample of the results against your own source code, on your machine and without calling aicb. A result that agent disputes is shown to you for a direct check before it can count as a defect.
+- **The aicb-smoke-test skill 2.0** checks more of the answers it tests with eleven new tests: nine check that tools agree with each other (callers, declaration site, implementations, overrides, test evidence, construction sites), that a repeated call gives the same answer, and that no answer came from an outdated reading; a new desktop test checks event subscriptions and a new library test checks that dead public types are on the public surface. The older tests name how many items they sample and which preconditions they need, and a new step lets an independent agent in a fresh context check a sample of the results against your own source code, on your machine and without calling aicb. A result that agent disputes is shown to you for a direct check before it can be rated a confirmed defect.
 
 ### Desktop app and CLI
 

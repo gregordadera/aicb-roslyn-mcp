@@ -7,7 +7,7 @@ grepping, in about five minutes.
 
 | You want ... | Install | Runs on |
 |---|---|---|
-| your coding agent (Claude Code, Codex, Cursor, ...) to understand your C# code | the `aicb` .NET tool `aicb-roslyn-mcp` from [nuget.org](https://www.nuget.org/packages/aicb-roslyn-mcp) | Windows, Linux, macOS |
+| your coding agent (Claude Code, Codex, OpenCode, Cursor, ...) to understand your C# code | the `aicb` .NET tool `aicb-roslyn-mcp` from [nuget.org](https://www.nuget.org/packages/aicb-roslyn-mcp) | Windows, Linux, macOS |
 | to decide by hand what a model gets to see, and look at the result | the desktop app from [GitHub Releases](https://github.com/gregordadera/aicb-roslyn-mcp/releases) | Windows |
 
 Both share one analysis engine. The desktop download also contains the CLI, so on
@@ -18,8 +18,8 @@ Windows one download covers both.
 - **To analyze a solution you need MSBuild on the machine** - a .NET SDK or Visual
   Studio. This applies to every form: opening a solution runs its MSBuild design-time
   build, and without MSBuild nothing can be loaded.
-- **The .NET tool additionally needs the .NET 10 SDK** (it is what installs and runs a
-  .NET tool). Without .NET 10 the tool runs on the next newer .NET on the machine and needs
+- **The .NET tool runs on .NET 10. Installing it needs the .NET 10 SDK**, which also
+  provides the MSBuild the analysis uses. Without .NET 10 the tool runs on the next newer .NET on the machine and needs
   that version's SDK; a machine that has only .NET 8 or .NET 9 cannot start it. If it
   reports that MSBuild could not be registered, install the .NET 10 SDK or set
   `DOTNET_ROLL_FORWARD=LatestMajor` (a preview .NET additionally needs

@@ -18,7 +18,8 @@ Install the AICB .NET tool once per machine. The plugin starts it; it does not c
 dotnet tool install -g aicb-roslyn-mcp
 ```
 
-- The tool needs the .NET 10 SDK. Without .NET 10 it runs on the next newer .NET on the
+- The tool runs on .NET 10. Installing it needs the .NET 10 SDK, which also provides the
+  MSBuild the analysis uses. Without .NET 10 it runs on the next newer .NET on the
   machine and needs that version's SDK. A machine that has only .NET 8 or .NET 9 cannot
   start it.
 - On Windows, the [installer](https://github.com/gregordadera/aicb-roslyn-mcp/releases/latest)
@@ -50,7 +51,8 @@ aicb mcp
 
 ## Data
 
-- The CLI and MCP server have no outbound network capability. There is no outbound
+- The CLI and MCP server make no outbound network connection of their own (the analyzed
+  solution's MSBuild logic and source generators run in the process). There is no outbound
   telemetry, analytics, update check, account or license server.
 - The MCP server records its own tool calls in a local SQLite database for the
   `usage_report` tool. That log never leaves the machine.
