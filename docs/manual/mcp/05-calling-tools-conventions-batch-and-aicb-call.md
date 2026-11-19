@@ -281,7 +281,7 @@ When a name resolves to nothing, many tools add a `nearest` suggestion - the clo
 
 ### Qualified type names
 
-Most tools that take a type accept, besides the simple name, a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_usages`, `impact_of_change`, `find_implementations`, `get_type_hierarchy`, `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`; `trace_flow` also takes a `Type.Method` endpoint, and `calls_external` reads `Outer+Inner`. A qualified name names a solution type only by its full name. Where it could also mean a type outside the solution, the tool declines with a note instead of guessing.
+Most tools that take a type accept, besides the simple name, a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_usages`, `impact_of_change`, `find_implementations`, `get_type_hierarchy`, `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`; `trace_flow` also takes a `Type.Method` endpoint, and `calls_external` reads `Outer+Inner`. A qualified name names a solution type only by its full name. It is read as the type when no other type in your solution has the same simple name; where another one does (in another namespace or another outer type), the tool declines with a note instead of guessing. Types outside the solution play no part in this.
 
 ### `note`
 

@@ -40,7 +40,7 @@ released.
 
 ### Qualified type names
 
-- More tools that take a type accept a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. Where the qualified name could also mean a type outside the solution, the tool declines with a note instead of guessing.
+- More tools that take a type accept a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. A qualified name is read as the type when no other type in your solution has the same simple name. Where another one does, the tool declines with a note instead of guessing.
 - `trace_flow` takes a `Type.Method` endpoint, and `calls_external` also reads `Outer+Inner`.
 
 ### Who uses this symbol
