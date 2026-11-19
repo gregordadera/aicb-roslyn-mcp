@@ -131,7 +131,8 @@ aicb knows (`.claude/`, `.codex/`, `.opencode/`), or a `CLAUDE.md` for Claude Co
 `aicb init` also installs the **symbol guard** there. The guard *refuses* a `Grep`
 search for a C# symbol name and points the agent at the aicb tool that answers it
 properly; once the agent has asked aicb about that name (Claude Code), or where aicb
-is not available, such a grep goes through with a note. Reading a file and a shell
+is not available, or when the search targets another solution or no solution at all,
+such a grep goes through with a note. Reading a file and a shell
 `grep` are never refused - they get at most a reminder. That is what makes the
 tools actually get used - and it is the one part of the install that changes what
 your agent may do. To skip it: `aicb init --hooks none` (the server is still registered). To remove an installed guard,
