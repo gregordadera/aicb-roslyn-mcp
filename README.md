@@ -30,6 +30,20 @@ Free for individuals, education and organizations below the
 [license thresholds](#license-at-a-glance), with commercial licenses for larger
 teams. This repository hosts the releases, the documentation and the license.
 
+## Quick start
+
+You need the .NET 10 SDK. Install the tool once, then run `aicb init` in the project
+you want your agent to work on:
+
+```sh
+dotnet tool install -g aicb-roslyn-mcp
+aicb init
+```
+
+Restart your coding agent and ask it to call `server_info`: the answer names the
+AICB version. Details: [Install](#install), [Connect a coding agent](#connect-a-coding-agent)
+and the [getting started guide](https://github.com/gregordadera/aicb-roslyn-mcp/blob/main/docs/GETTING-STARTED.md).
+
 ## Know the impact before the edit
 
 Ask your coding agent:
