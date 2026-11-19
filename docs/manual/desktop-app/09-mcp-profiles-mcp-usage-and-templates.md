@@ -30,7 +30,7 @@ Header fields:
 | `Name` | `The display name of this MCP profile, shown in the profile list and reported by list_mcp_profiles.` |
 | Description | `A short description of this profile's purpose, shown under its name in the list.` |
 
-Header actions: `Add` (creates a new custom profile), `Show hidden`, `Export...`, `Import...`, `Reload` (discards unsaved editor edits). Footer actions: `Apply as Active`, `Save`, `Duplicate`, `Delete`, `Restore Built-In`, `Export as Built-In`.
+Header actions: `Add` (creates a new custom profile), `Show hidden`, `Export...`, `Import...`, `Reload` (discards unsaved editor edits). Footer actions: `Apply as Active`, `Save`, `Duplicate`, `Delete`, `Restore Built-In`, `Export as Built-In`. A copy made with `Duplicate` keeps the profile's auto-refresh mode.
 
 Keyboard shortcuts: `Ctrl+S` saves, `Ctrl+N` creates a new profile, `Ctrl+D` duplicates the selected one, `F5` reloads from the database.
 

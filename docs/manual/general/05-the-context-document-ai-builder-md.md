@@ -443,6 +443,8 @@ UnknownDependencies:
 
 The referenced type's `USED_BY` names the declaring type in turn.
 
+**What code couples a type.** Besides the member types above, a type depends on the types its code uses - in methods, and in the same way in constructors, field initializers, property accessors, operators, finalizers and base-constructor arguments. Reading or writing a property, field, indexer or event couples the type to the member's declaring type and to the member's type, as calling a method does, and the types in an operator's or conversion's signature count as well. A solution type that shares its name with a library type (for example its own `Action` or `Guid`) is not credited with the users of the library type; the users' coupling to the library type still counts in their `Ce`.
+
 Note: `DEPENDENCIES` and `METHODS` are written for classes and interfaces even when they end up empty; the other sub-blocks are omitted when they have no content.
 
 ### METHODS
@@ -657,7 +659,7 @@ Four document modes decide which sections exist at all. You do not select them d
 | Mode | Used by | Effect |
 |---|---|---|
 | Full export | `export_markdown`, the GUI export, the CLI export | Nothing is removed. |
-| Lean | `get_context`, `explain_symbol`, `pack_for_task`, `prepare_task`, `architecture_overview` (default) | Drops the format preamble (`SPEC` and `META`) and every enabled graph section that would only contain `- none`. `PATH_LEGEND`, `COMPRESSION_LEGEND` and all non-empty sections stay. |
+| Lean | `get_context`, `explain_symbol`, `pack_for_task`, `prepare_task`, `architecture_overview` (default) | Drops the format preamble (`SPEC` and `META`) and every enabled graph section that would only contain `- none`, except `CLASS_DEPENDENCY_GRAPH`, which a lean document keeps and writes as `- none` when it is empty. `PATH_LEGEND`, `COMPRESSION_LEGEND` and all non-empty sections stay. |
 | Structure-only | `architecture_overview` | Drops the sections with source code and type trees (`SOLUTION`, `FILE_INDEX`, `ENUM_SUMMARY`, `BUILD_AND_UI_FILES`, `AUXILIARY_FILES`) and keeps the macro sections, the legends and the domain summary. Quality hotspots are enabled in this mode. |
 | Focused slice | `explain_symbol`, `get_context`, `pack_for_task` | Additionally drops the two solution-wide verbatim file sections `BUILD_AND_UI_FILES` and `AUXILIARY_FILES`. |
 

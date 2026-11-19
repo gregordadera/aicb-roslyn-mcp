@@ -264,6 +264,8 @@ A snapshot is a point-in-time capture of a solution's analysis (the analyzed str
 
 Every snapshot is stamped with a quality aggregate (debt total and rating, code metrics) computed against the active quality profile - the same stamp used by the CLI and by automatic snapshots. The stamp supplies the short number shown in the `Overview` snapshot history.
 
+A snapshot also remembers the solution's file set and its project list. `aicb analyze --session-db` on the same database reuses the newest snapshot - an automatic one, and equally one created with `Create Manual Snapshot` on a freshly analyzed solution (not on a reopened older snapshot) - as long as neither the source files nor the project list have changed since; a snapshot from before a project was added or removed is not reused.
+
 The `Snapshots` region is the embedded `Snapshots` tab of the Workspace page. In the solution-scoped view its own solution list is hidden; in the global view (`All solutions`) it shows a solution list on the left with a splitter.
 
 ### Controls

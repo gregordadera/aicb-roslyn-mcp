@@ -98,12 +98,12 @@ The concepts behind these artifacts - what the symbol guard does, how the MCP cl
 
 ## 9.4 `aicb skills sync`
 
-Brings the aicb agent skill files of a project in step with the tools its aicb server serves. The served tools are read from the project's `.mcp.json` aicb entry (its `--mcp-profile` pin, its `--db-path` and `AICB_MCP_TOOLS`), otherwise from the active MCP profile. A skill paragraph or table row that names a tool the profile withholds is left out, and a skill whose required tool is withheld is not written. No server is started and no solution is opened.
+Brings the aicb agent skill files of a project in step with the tools its aicb server serves. The served tools are read from the aicb entry Claude Code would start for the project (its `--mcp-profile` pin, its `--db-path` and `AICB_MCP_TOOLS`), otherwise from the active MCP profile. That entry is looked up in Claude Code's own order: the local scope in `~/.claude.json`, the project's `.mcp.json`, then the user scope; a set `CLAUDE_CONFIG_DIR` is honoured. A skill paragraph or table row that names a tool the profile withholds is left out, and a skill whose required tool is withheld is not written. No server is started and no solution is opened.
 
 | Option | Values | Default | Meaning |
 |---|---|---|---|
 | `--project <dir>` | directory | the project holding the current directory | The project to sync. Without it, the project is the nearest directory upward that holds `.git` or `.claude`, below your home directory. |
-| `--adopt` | flag | off | Take over skill files that are not in sync form: a hand-written copy without the aicb marker (for example one an older `aicb init` wrote) is replaced, and an edit inside the aicb part is overwritten. Your notes below the `aicb:user` line are kept. |
+| `--adopt` | flag | off | Take over skill files that are not in sync form: a hand-written copy without the aicb marker is replaced, and an edit inside the aicb part is overwritten. Your notes below the `aicb:user` line are kept. An unchanged copy that an older `aicb init` wrote without the marker is taken over without this flag. |
 | `--auto` | flag | off | Run as an automatic caller - this is what the Claude Code `SessionStart` hook runs. Cannot be combined with `--adopt`. |
 
 Example:
@@ -116,11 +116,12 @@ aicb skills sync
 Behavior:
 
 - An aicb-written skill file has two parts: the aicb part, between an `aicb:begin` and an `aicb:end` marker, and your part below the `aicb:user` line. A sync rewrites only the aicb part and keeps your part byte for byte.
-- A skill file without the aicb marker is yours: it is left alone and reported (`kept`), with the hint that `--adopt` takes it over. A file edited inside the aicb part is left alone and reported the same way; move the edit below the `aicb:user` line, or pass `--adopt`.
+- A skill file without the aicb marker is yours: it is left alone and reported (`kept`), with the hint that `--adopt` takes it over. The exception is an unchanged skill file that an earlier `aicb init` wrote before it marked its files: that one is taken over automatically (`adopted`), as `--adopt` would. A file edited inside the aicb part is left alone and reported the same way; move the edit below the `aicb:user` line, or pass `--adopt`.
 - A missing default skill is created. An aicb-written skill file that nobody edited and that holds no notes of yours is removed when the served tools no longer include one the skill requires; a file with your own text is kept.
 - Each file is reported as one line: `in sync`, `created`, `rewritten`, `adopted`, `removed`, `outdated` (a change a sync would make but this one did not), `kept`, `skipped` or `failed`, followed by its path and a short detail. When something changed, the last line says that the change takes effect at the next agent start.
 - It writes even when automatic skill sync is switched off in the desktop app's settings (`Keep agent skill files in sync`); that switch governs only the automatic callers.
-- With `--auto`, only files aicb wrote under `.claude/skills/` are rewritten; nothing is created or removed. It writes nothing, and exits `0`, when automatic skill sync is off, the project's `.mcp.json` has no aicb entry, or that entry starts another command than this `aicb`.
+- With `--auto`, only files aicb wrote under `.claude/skills/` are rewritten; nothing is created or removed, and a skill file that git tracks is left alone (`skipped`) - the explicit `aicb skills sync` still updates it. It writes nothing, and exits `0`, when automatic skill sync is off, Claude Code's server lists (the project's `.mcp.json`, and the local and user scope of `~/.claude.json`) hold no aicb entry for the project, or that entry starts another command than this `aicb`.
+- A skill folder that cannot be listed, or a skill file that a link places outside the project, is not written and is reported as `skipped`; it does not make the command fail. The same holds for `aicb init`.
 - Without a project root (no `.git` or `.claude` above the current directory), or in your home directory or a drive root without `.git`, nothing is written; name the project with `--project`.
 - When the configuration database cannot be read, nothing is written: the lines say what a sync against the default profile would do, and the command returns `1`. It also returns `1` when a pin names a profile the server would refuse, or when a file could not be written.
 
@@ -182,15 +183,16 @@ Path, format and other inputs listed below are checked before the expensive work
 ### The run itself
 
 1. **MSBuild bootstrap.** If MSBuild cannot be registered, the run ends with exit `5`.
-2. **Snapshot decision**, only when `--session-db` points to an existing file. The file-set fingerprint of the solution is compared against the fingerprint stored with the latest snapshot. The fingerprint covers the solution's `.cs`, `.csproj`, `.xaml`, `.cshtml` and `.razor` files, ignoring `bin`, `obj`, `.vs`, `node_modules`, `packages`, `TestResults` and every folder whose name starts with a dot. A snapshot is reused only when it carries an analysis, was produced by a compatible version of the analysis engine (payload schema and analyzer identity), and the source files have not changed. Because the fingerprint uses file timestamps, a difference is first checked against a content fingerprint - so a branch switch or a save without a content change does not force a re-analysis. On a hit the run prints `Snapshot hit (file-set hash <hash>); skipping Roslyn analysis.` and skips Roslyn. On a miss it says why, for example:
+2. **Snapshot decision**, only when `--session-db` points to an existing file. The file-set fingerprint of the solution is compared against the fingerprint stored with the latest snapshot. The fingerprint covers the solution's `.cs`, `.csproj`, `.xaml`, `.cshtml` and `.razor` files, ignoring `bin`, `obj`, `.vs`, `node_modules`, `packages`, `TestResults` and every folder whose name starts with a dot. A snapshot is reused only when it carries an analysis, was produced by a compatible version of the analysis engine (payload schema and analyzer identity), the source files have not changed, and the project list of the solution file is the one the snapshot stored. A snapshot taken by hand in the desktop application is reused like the automatic one. Because the fingerprint uses file timestamps, a difference is first checked against a content fingerprint - so a branch switch or a save without a content change does not force a re-analysis. On a hit the run prints `Snapshot hit (file-set hash <hash>); skipping Roslyn analysis.` and skips Roslyn. On a miss it says why, for example:
    - `Force flag set; running full Roslyn analysis.`
    - `No usable snapshot in session DB; running full Roslyn analysis.`
    - `Snapshot payload-schema mismatch; running full Roslyn analysis.`
    - `Snapshot analyzer-identity mismatch; running full Roslyn analysis.`
    - `File-set hash drift (current <a>, snapshot <b>); running full Roslyn analysis.`
+   - `Snapshot project-list drift (the project list of '<file>' changed since the snapshot was taken); running full Roslyn analysis.` - a project was added to or removed from the solution file since the snapshot.
 3. **Analysis.** Without a snapshot hit, Roslyn analyzes the solution. The layer profile precedence is: explicit `--layer-profile` > the default layer profile configured in the database > the `.aicb.json` file next to the solution > the role-based heuristic. Namespace exclusions from the session database or from the `.aicb.json` file are applied and announced.
 4. **Render and write.** The document is written to the exact `--output` path. The output-format precedence is: explicit `--format` > the format configured on the run template > `yaml` on the template-less path. `yaml` is the product default; both notations carry the same content, and the file name stays `.md`.
-5. **Emit.** With `--emit-session-db`, the analysis is stored as a snapshot carrying the file-set fingerprint, the payload-schema stamp, the code-metric roll-up and the estimated technical debt with its rating. If the emitted database is the one that was read and the run reused its snapshot, nothing is written.
+5. **Emit.** With `--emit-session-db`, the analysis is stored as a snapshot carrying the file-set fingerprint, the project list of the solution file, the payload-schema stamp, the code-metric roll-up and the estimated technical debt with its rating. If the emitted database is the one that was read and the run reused its snapshot, nothing is written.
 6. **Quality gate**, only with `--fail-on`, and after the Markdown has been written - a failing gate still leaves you the document.
 
 ### What the output tells you about itself
@@ -198,6 +200,7 @@ Path, format and other inputs listed below are checked before the expensive work
 The verb reports on standard error every case in which a flag has no effect or in which a configuration source other than the command line drives the run:
 
 - `--force` without `--session-db` → `note: --force has no effect without --session-db (there is no snapshot to bypass).`
+- A snapshot hit on a snapshot that holds no project list, or whose project list could not be compared → a `note:` that a project added to or removed from the solution file since the snapshot is not seen by this hit, ending in `pass --force after such an edit.`
 - `--layer-profile` on a snapshot hit → `note: --layer-profile is ignored on a snapshot hit; pass --force to re-analyze with it.`
 - The analysis scope from the `.aicb.json` file (`analyzePreferredTfmOnly`) on a snapshot hit: the scope is not part of the file-set fingerprint, so the snapshot may have been analyzed under a different scope. Pass `--force` to re-analyze with the current one.
 - When the `.aicb.json` names `designTimeBuildPlatform`: before the analysis, the platform it sets (a refused value as a warning, one not checked against an unreadable solution file as such); on a snapshot hit, that the key is not part of the file-set fingerprint.
@@ -401,6 +404,7 @@ Behavior:
 - Each value needs its own `--arg`; a single `--arg` token carries exactly one `name=value` pair. A token without `=`, or with an empty name, is a user error (exit `1`). Repeated names: the last one wins.
 - Values are converted to the parameter type: `bool`, `int`, `long`, `double`, enums (case-insensitive) and string arrays. A string array is written as a JSON array or as a comma-separated list. Any other, complex argument is passed as JSON.
 - Numbers are read with the invariant culture: `.` is the decimal separator, not `,`. A value such as `0,6` is rejected with a message that names the cause and the fix.
+- Windows PowerShell 5.1 strips the double quotes from a native program's arguments, so a JSON value such as the `batch` example above arrives without them. There, write each double quote as `\"` (`--arg 'queries=[{\"tool\":\"find_usages\"}]'`), or run the command from PowerShell 7.3 or later, cmd or bash. When a rejected value looks like JSON with every double quote removed, `aicb call` prints a `hint:` line that says so; the help of `--arg` names the same rule.
 - Dispatch is generic over the registered MCP tools, so a tool that was just added is callable as soon as it ships, and **every** tool is reachable - including tools outside the default profile's pool and tools that write, such as `install_agent_hooks`. This is the one place where the profile's tool selection does not restrict you; use it deliberately.
 - `--db-path` applies the same configuration as `aicb mcp --db-path`, so database-defaulting tools and the self-init pick up the per-solution configuration of the desktop application.
 - The result carries the same session-wide notes as an MCP server answer: the staleness trailer, `NOTHING TO ANALYSE` (`nothingToAnalyse`) and the configuration-database note. A note that an answer cannot take goes to standard error.

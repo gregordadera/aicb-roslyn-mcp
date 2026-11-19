@@ -209,7 +209,7 @@ The server serves both current MCP protocol revisions over stdio, from the same 
 | `2026-07-28` | `server/discover` - stateless; every request carries its own metadata |
 | `2025-11-25` | `initialize` handshake |
 
-This matters because MCP has no fall-forward: a client that speaks only the older revision has no way to reach a server that speaks only the newer one. Serving both means the client picks whichever revision it knows. Older revisions are accepted as well, because the MCP SDK the server is built on keeps its backward compatibility; the server itself does not branch on the revision at any point. Observed against a running server:
+This matters because MCP has no fall-forward: a client that speaks only the older revision has no way to reach a server that speaks only the newer one. Serving both means the client picks whichever revision it knows. A client that probes with `server/discover` first and falls back to the `initialize` handshake after its timeout is served on the fallback as well. Older revisions are accepted as well, because the MCP SDK the server is built on keeps its backward compatibility; the server itself does not branch on the revision at any point. Observed against a running server:
 
 | Client | `clientInfo.name` | Protocol revision observed |
 |---|---|---|

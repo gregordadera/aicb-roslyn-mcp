@@ -403,7 +403,7 @@ There is no opt-out per tool and none per MCP session.
 
 ## 10.11 Agent skill files
 
-Besides `aicb init`, three callers write the aicb agent skill files in a project (`.claude/skills/<name>/SKILL.md`, and `.agents/skills/` for Codex and OpenCode). All three change only files aicb wrote, and in them only the aicb part, and keep your notes below its `aicb:user` line; a skill file without the aicb marker is never touched without `--adopt`:
+Besides `aicb init`, three callers write the aicb agent skill files in a project (`.claude/skills/<name>/SKILL.md`, and `.agents/skills/` for Codex and OpenCode). All three change only files aicb wrote, and in them only the aicb part, and keep your notes below its `aicb:user` line; a skill file without the aicb marker is never touched without `--adopt`, except an unchanged one that an earlier `aicb init` wrote before it marked its files, which is taken over as `--adopt` would. The two automatic callers also leave a skill file that git tracks alone; `aicb skills sync` still updates it:
 
 | Caller | When | What it may write |
 |---|---|---|

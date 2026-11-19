@@ -1,6 +1,6 @@
 # AICB - General Documentation
 
-The complete reference, one file per chapter. Describes AICB V0.5.520.1.
+The complete reference, one file per chapter. Describes AICB V0.5.530.1.
 
 The same text as one printable document: [AICB-General.pdf](AICB-General.pdf).
 

@@ -12,7 +12,7 @@ The command only writes files. It opens no solution and starts no analysis: no R
 |---|---|---|
 | MCP client entry | `.mcp.json` | always |
 | Server entry for Codex / OpenCode | `.codex/config.toml` / `opencode.json` | for Codex or OpenCode when detected or named, also with `--hooks none` |
-| Agent skills | `.claude/skills/<skill>/SKILL.md` | always; one skill by default, three with `--skills all` |
+| Agent skills | `.claude/skills/<skill>/SKILL.md` | always; one skill by default, five with `--skills all` |
 | Agent skills for Codex / OpenCode | `.agents/skills/<skill>/SKILL.md` | for Codex or OpenCode when detected or named |
 | Symbol guard script(s) | `.claude/hooks/`, `.codex/hooks/` or `.opencode/plugins/` | for every harness that is detected or named |
 | Skill-sync hook script | `.claude/hooks/aicb-skill-sync.mjs` | for Claude Code when it is detected or named |
@@ -46,7 +46,7 @@ aicb init
 |---|---|---|
 | `--path <dir>` | the current directory | The project directory to wire up. A directory that does not exist is an error: `error: directory not found: <dir>`, exit code `1`. |
 | `--force` | off | Overwrite artifacts that are already there. Without it, an existing aicb entry, guard script or wiring entry is left exactly as it is - which is what makes re-running the command safe. For a skill file, `--force` takes over one aicb did not mark as its own, like `aicb skills sync --adopt`; a skill file aicb wrote is kept in step without it. |
-| `--skills <context\|all>` | `context` | `context` writes only `aicb-csharp-context`; `all` additionally writes the `aicb-code-review` / `aicb-code-simplifier` review pair and `aicb-usage-check`. |
+| `--skills <context\|all>` | `context` | `context` writes only `aicb-csharp-context`; `all` additionally writes the `aicb-code-review` / `aicb-code-simplifier` review pair, `aicb-usage-check` and `aicb-smoke-test`. |
 | `--hooks <auto\|none\|all\|claude-code\|codex\|opencode>` | `auto` | Which harnesses get the symbol guard and its wiring. `auto` installs for the harnesses already used in this project; `none` installs no enforcement at all; `all` installs for all three; the three ids name one harness each. |
 
 An unknown `--hooks` value is rejected before the directory is even checked, because a typo in your own text does not depend on the file system:
@@ -118,10 +118,11 @@ A skill is a `SKILL.md` file with YAML front matter that an agent harness loads 
 | `aicb-code-review` | `--skills all` | The correctness half of a post-task review pair: finds bugs |
 | `aicb-code-simplifier` | `--skills all` | The complexity half: finds over-engineering, not bugs |
 | `aicb-usage-check` | `--skills all` | Reads `usage_report` at the end of a task: what this server was reached for, what went untouched, what it cost |
+| `aicb-smoke-test` | `--skills all` | A read-only smoke test of the aicb server against your own solution, which turns the findings you select into redacted issue drafts (see below) |
 
 The names carry the `aicb-` prefix deliberately: `code-review` and `code-simplifier` are already taken in a typical Claude Code installation, and a skill that silently loses to a same-named neighbor is worse than one that is absent, because nothing reports the collision.
 
-The three are opt-in because each is an opinion about how you should work, not part of the product - if you already have a review routine, aicb's should not turn up beside it unasked, and whether you audit your own tool use is your habit to choose.
+The others are opt-in because each is an opinion about how you should work, not part of the product - if you already have a review routine, aicb's should not turn up beside it unasked, and whether you audit your own tool use is your habit to choose.
 
 ### What `aicb-csharp-context` tells the agent
 
@@ -145,6 +146,10 @@ Both skills are written as a workflow. They gather the pending diff first (pushe
 
 Both accept a `--high` mode (the default, a single pass) and a `--max` mode (parallel angle-finders for higher recall).
 
+### What the smoke test does
+
+`aicb-smoke-test` (version 2.0) checks whether the server answers correctly for your own solution. It calls read-only aicb tools only, builds nothing unless you say "build", and suggests a menu of tests that fit the kind of project. Besides single answers, nine tests compare two tools that answer the same question (callers, implementations, overrides, test evidence, construction sites, a repeated call, freshness); every test names how many items it samples and which preconditions it needs. Where the harness can start a sub-agent in a fresh context, an independent verifier then checks a sample of the results against your source code, on your machine, without calling aicb; a result it disputes is shown to you for a direct check before it can count as a defect. Findings are classified HIGH, MID or LOW. Only the findings you select become issue drafts, with no code, identifiers or paths from your project, each shown in full, and nothing is created on GitHub without your one explicit confirmation.
+
 ### Where the skills go
 
 Skills are always written to `.claude/skills/`, where Claude Code reads them. When the project uses Codex or OpenCode, or `--hooks` names one of them, the same skills are also written to `.agents/skills/`: Codex reads skills from there and from `.codex/skills/`, OpenCode from there, `.claude/skills/` and `.opencode/skills/`, and both read the shared folder. OpenCode keeps one copy of a skill it finds under two of its folders.
@@ -155,7 +160,7 @@ The skill is written per project. If you want it available in every project inst
 
 The aicb skills are rendered for the tools the project's server actually serves. A paragraph or table row that names a tool the active profile withholds is left out, and a skill whose required tool is withheld is not written at all - `aicb-usage-check`, for example, needs `usage_report`, which the `Local` profile withholds. A skill therefore never sends the agent to a tool the server would refuse.
 
-A skill file aicb writes has two parts. The front matter and everything from the line `<!-- aicb:begin ... -->` to `<!-- aicb:end -->` is aicb's and is rewritten whenever the served tools change; everything after it, starting at the line `<!-- aicb:user ... -->`, is yours and is kept byte for byte. A file without aicb's marker - one you wrote yourself, or one an earlier `aicb init` wrote - is never touched without an explicit take-over.
+A skill file aicb writes has two parts. The front matter and everything from the line `<!-- aicb:begin ... -->` to `<!-- aicb:end -->` is aicb's and is rewritten whenever the served tools change; everything after it, starting at the line `<!-- aicb:user ... -->`, is yours and is kept byte for byte. A file without aicb's marker - one you wrote yourself, or one an earlier `aicb init` wrote and you then changed - is never touched without an explicit take-over. An unchanged copy that an earlier `aicb init` wrote before it marked its files is taken over automatically (`adopted`), as `--adopt` would.
 
 ```sh
 aicb skills sync [--project <dir>] [--adopt]
@@ -167,14 +172,14 @@ aicb skills sync [--project <dir>] [--adopt]
 | `--adopt` | Take over skill files that are not in sync form: a hand-written copy (no aicb marker) is replaced, and an edit inside the aicb part is overwritten. Your part below the `aicb:user` line is kept. |
 | `--auto` | Run as an automatic caller - the mode the Claude Code session-start hook uses (see below). Cannot be combined with `--adopt`. |
 
-The command starts no server and opens no solution. It reads which tools the project's server serves from the project's `.mcp.json` aicb entry - the profile it pins with `--mcp-profile`, its `--db-path`, and `AICB_MCP_TOOLS` - and otherwise from the active profile of the configuration database. It prints one line per skill file (`in sync`, `created`, `rewritten`, `adopted`, `removed`, `kept`, `skipped`, `outdated` (when nothing could be written) or `failed`, each with the reason) and, when it changed a file, `The change takes effect at the next agent start.` An explicit `aicb skills sync` writes even when automatic skill sync is switched off in the desktop app's settings; a skill file aicb wrote and nobody edited is removed when the served tools no longer include one it requires.
+The command starts no server and opens no solution. It reads which tools the project's server serves from the aicb entry Claude Code would start for the project - the profile it pins with `--mcp-profile`, its `--db-path`, and `AICB_MCP_TOOLS` - and otherwise from the active profile of the configuration database. That entry is looked up in Claude Code's own order: the local scope in `~/.claude.json`, the project's `.mcp.json`, then the user scope; a set `CLAUDE_CONFIG_DIR` is honoured. A skill folder that two agents read - `.agents/skills/`, which Codex and OpenCode share - is written for the tools both of their aicb servers serve, each read from that agent's own server list. A skill folder that cannot be listed, or a skill file that a link places outside the project, is reported as `skipped` and does not make the command fail: `aicb skills sync`, `aicb init` and their automatic runs exit `0`. It prints one line per skill file (`in sync`, `created`, `rewritten`, `adopted`, `removed`, `kept`, `skipped`, `outdated` (when nothing could be written) or `failed`, each with the reason) and, when it changed a file, `The change takes effect at the next agent start.` An explicit `aicb skills sync` writes even when automatic skill sync is switched off in the desktop app's settings; a skill file aicb wrote and nobody edited is removed when the served tools no longer include one it requires.
 
 **Automatic skill sync.** Two automatic callers keep the files in step without you running the command, both on by default:
 
 - **The MCP server** rewrites the aicb-written skill files of the project it was started in, once per process, after its first session there - for Claude Code under `.claude/skills/`, for Codex and OpenCode under `.agents/skills/`. A solution opened by path from another project is left alone.
-- **The Claude Code session-start hook** that `aicb init` and `install_agent_hooks` install (`.claude/hooks/aicb-skill-sync.mjs`, wired under `SessionStart` for session start-up) runs `aicb skills sync --auto` before the first prompt and asks Claude Code to reload the skills. It does nothing when automatic sync is switched off, when the project's `.mcp.json` has no aicb entry, or when that entry starts another command than `aicb`. Codex and OpenCode get no such hook; for them the server's own sync applies.
+- **The Claude Code session-start hook** that `aicb init` and `install_agent_hooks` install (`.claude/hooks/aicb-skill-sync.mjs`, wired under `SessionStart` for session start-up) runs `aicb skills sync --auto` before the first prompt and asks Claude Code to reload the skills. It does nothing when automatic sync is switched off, when Claude Code's server lists (the project's `.mcp.json`, and the local and user scope of `~/.claude.json`) hold no aicb entry for the project, or when that entry starts another command than `aicb`. On Windows it also starts an `aicb` that is installed only as a `.cmd` file. Codex and OpenCode get no such hook; for them the server's own sync applies.
 
-Both rewrite only files aicb wrote and only their aicb part; neither creates nor deletes a file. Switch both off with **Keep agent skill files in sync** in the **MCP Server** section of the desktop app's settings. A project set up by an earlier version gets the hook by running `aicb init` or `install_agent_hooks` once more. `server_info` shows whether a project's skills match what the server serves (the `SKILL` line, see `server_info`).
+Both rewrite only files aicb wrote and only their aicb part; neither creates nor deletes a file. Both leave a skill file that git tracks alone (`skipped`); an explicit `aicb skills sync` still updates it. Switch both off with **Keep agent skill files in sync** in the **MCP Server** section of the desktop app's settings. A project set up by an earlier version gets the hook by running `aicb init` or `install_agent_hooks` once more. `server_info` shows whether a project's skills match what the server serves (the `SKILL` line, see `server_info`).
 
 ## 2.7 The symbol guard
 
@@ -184,7 +189,7 @@ It is a Node.js script that the harness runs before a tool call (`PreToolUse` in
 
 ### The one thing it refuses
 
-A **Grep** call whose pattern is a single C# symbol - a PascalCase identifier of three or more characters (optionally starting with `I`), or a `Type.Member` pair - is denied, unless one of the two exits below applies. The agent does not get search results; it gets this message:
+A **Grep** call whose pattern is a single C# symbol - a PascalCase identifier of three or more characters (optionally starting with `I`), or a `Type.Member` pair - is denied, unless one of the three exits below applies. The agent does not get search results; it gets this message:
 
 ```text
 aicb-guard: this is a C# SYMBOL query (pattern='<pattern>'). grep misses overloads,
@@ -200,14 +205,15 @@ not cover your question, this Grep is allowed once that aicb call is made.
 
 The last sentence appears in Claude Code only, the one harness whose session record the guard can read.
 
-This is the only hard block, and it has two exits (see below). A shell command is never hard-blocked, because a shell command can do anything - `Bash` calls that look like a symbol sweep only get a note.
+This is the only hard block, and it has three exits (see below). A shell command is never hard-blocked, because a shell command can do anything - `Bash` calls that look like a symbol sweep only get a note.
 
 Note: the message names the tools in the `mcp__aicb__...` form that Claude Code uses. Other harnesses may present the same tools without that prefix; the agent should use whatever form its own tool list shows.
 
-### Two ways past the refusal
+### Three ways past the refusal
 
-- **After an aicb call on the same name** (Claude Code): when the session - the main agent or one of its subagents - has already called an aicb tool with the symbol in its arguments, the Grep is allowed with the note `aicb-guard: '<pattern>' allowed - this session already asked aicb about it (<tool>). A text search on top is fine when that answer did not cover the question. ...`. A failed call counts; a session or file path among the arguments does not. The exit is for the agent that asked aicb first and needs more than the answer gave.
+- **After an aicb call on the same name** (Claude Code): when the agent that is asking - the main agent, or a subagent for itself - has already called an aicb tool with the symbol in its arguments, the Grep is allowed with the note `aicb-guard: '<pattern>' allowed - this session already asked aicb about it (<tool>). A text search on top is fine when that answer did not cover the question. ...`. A failed call counts; a session or file path among the arguments does not. The exit is for the agent that asked aicb first and needs more than the answer gave.
 - **Where aicb is not available** (every harness): when the session record shows that aicb's tools were removed or its server failed, or, without such a record, when no configuration file the harness reads mentions aicb at all, the Grep is allowed with the note `aicb-guard: '<pattern>' allowed - aicb is not available here (<reason>), so a text search is the only search there is. ...`. Any mention of aicb in those files counts as available, so in doubt the guard refuses.
+- **Where the search targets another solution** (every harness): when the Grep's `path` lies in another solution, or in no solution at all, the Grep is allowed with the note `aicb-guard: '<pattern>' allowed - the search path lies outside this solution (in another solution, or in no solution at all), and aicb answers for this solution only.` A path that does not exist, or one that contains the project directory, still counts as a search of this solution.
 
 ### What it only warns about
 
@@ -215,7 +221,7 @@ Note: the message names the tools in the `mcp__aicb__...` form that Claude Code 
 |---|---|
 | `Grep` with a multi-name alternation (`A\|B\|C`), every branch symbol-shaped | Allows, with a note: no MCP tool accepts a multi-name pattern, and the one-call semantic form is `batch` with several `find_usages` sub-queries |
 | `Grep` with a mixed alternation (symbol-shaped and plain-text branches) | Allows, with a note naming the symbol branches |
-| `Grep` on a single symbol after an aicb call on that name, or where aicb is not available | Allows, with a note naming the reason (see "Two ways past the refusal") |
+| `Grep` on a single symbol after an aicb call on that name, where aicb is not available, or in another solution | Allows, with a note naming the reason (see "Three ways past the refusal") |
 | `Bash` with `grep`, `rg` or `findstr` on a symbol-shaped pattern | Allows, with a note preferring the semantic tools |
 | First `Edit`, `Write` or `MultiEdit` on a `.cs` file in a session | Allows, with a reminder to run `impact_of_change` first and `refresh_session` + `get_diagnostics` after |
 | Codex `apply_patch` touching a `.cs` file | The same reminder, once per session (shared with the edit reminder) |
@@ -347,7 +353,7 @@ Exit codes: `0` on success, `1` if `--hooks` was invalid, the target directory d
 
 After a default `aicb init` in a Claude Code project, the following changes for the agent working in that project:
 
-1. A `Grep` search for a C# symbol name is **refused**, and the agent is redirected to the aicb tool that answers the question properly. Once the agent has asked aicb about that name in the session, or where aicb is not available, the search goes through with a note.
+1. A `Grep` search for a C# symbol name is **refused**, and the agent is redirected to the aicb tool that answers the question properly. Once the agent has asked aicb about that name itself, where aicb is not available, or when the search targets another solution, it goes through with a note.
 2. An `Edit`, `Write` or `MultiEdit` on a `.cs` file produces a one-time-per-session reminder to run `impact_of_change` before the change.
 3. A `Read` of a file of 50 KB or more without a slice produces a reminder once per session; at 100 KB or more, every time.
 4. `dotnet build` or `dotnet test` produces a one-time-per-session reminder about the faster diagnostics path.
@@ -365,7 +371,7 @@ Independently of the installation, the server reports the wiring state to the ca
 - **Recognized harness, not wired**: the agent is told the project does not wire the guard for its harness, that the guard turns the rule from advice into enforcement, and how to install it - with `aicb init --hooks <id>` or the `install_agent_hooks` tool - followed by the rule in words.
 - **Unrecognized client, or a client that announced no name**: the agent is told that aicb ships wirings for Claude Code, Codex CLI and OpenCode and has none for it, and it is given the rule in words. On such a harness the sentence itself is the mechanism.
 
-The hint travels as a JSON field `agentWiring` on the session information and as a leading Markdown comment `<!-- aicb agent wiring: ... -->` on raw-Markdown answers such as `get_context` and `architecture_overview`, which cannot carry a JSON field.
+The hint travels as a JSON field `agentWiring` on the session information and as a leading Markdown comment `<!-- aicb agent wiring: ... -->` on raw-Markdown answers such as `get_context` and `architecture_overview`, which cannot carry a JSON field. The comment leads the first such answer of a session in full and every later one as a single line; in a `batch` the full text goes to the first answer it delivers.
 
 ### Installing from inside an agent: `install_agent_hooks`
 
