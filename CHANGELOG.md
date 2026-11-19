@@ -56,7 +56,7 @@ released.
 
 - `find_tests_for` follows an event raise to the handler that is subscribed to it, keeps a test that subscribes a handler and calls it, and points at tests two calls away.
 - For a type, `find_tests_for` leaves out a static member read that only test code makes and counts what it left out in the note.
-- When a private type has no tests, the answer names the nearest member a test can reach.
+- When a private type has no tests, the answer names the enclosing type through which a test reaches it and points to `find_usages`.
 - `coverage_gaps` keeps at least one entry of each kind it counts in its capped list.
 
 ### Dead code
