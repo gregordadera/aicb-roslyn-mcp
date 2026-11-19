@@ -4,15 +4,15 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
-## 0.5.530.1 (unreleased) - More complete answers on multi-targeted and generated code, qualified type names in most tools, smaller answers, and agent skills that follow each client's own server entry
+## 0.5.530.1 (unreleased) - More complete answers on multi-targeted and generated code, qualified type names in more tools, smaller answers, and agent skills that follow each client's own server entry
 
-**Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `find_usages`, `impact_of_change`, `find_tests_for`, `find_symbol`, `find_implementations`, `find_dead_code`, `explain_symbol`, `get_context`, `call_graph`, `list_insights`, `init_solution_config` and `server_info`. No tool was added or removed, and no tool parameter changed. Projects that installed the aicb symbol guard or the skill-sync hook: run `aicb init --force` once to take the new scripts (see "Agent skills and hooks").
+**Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `find_usages`, `impact_of_change`, `find_tests_for`, `find_symbol`, `find_implementations`, `find_dead_code`, `explain_symbol`, `get_context`, `call_graph`, `list_insights`, `init_solution_config` and `server_info`. No tool was added or removed, and no tool parameter was added, removed or renamed. Projects that installed the aicb symbol guard or the skill-sync hook: run `aicb init --force` once to take the new scripts (see "Agent skills and hooks").
 
 **Scripts that read these answers should check the following.** No field was removed or renamed. New fields and values:
 
 - **`find_tests_for`:** rows reached through an event raise carry `raisedEvent`, the event whose raise is the evidence. Rows from a multi-targeted test project carry `logicalProject`, the project name without the target framework, beside `project`. `review_context` rows carry `logicalProject` the same way.
-- **`find_symbol`:** a generated declaration that several projects compile is one row with `projects`; a row that only some builds of a multi-targeted project declare names them in `builds`; rows that would read alike carry `parameters`.
-- **`impact_of_change` and `call_graph`:** `generatedInvokers` lists the methods that generated code calls where the walk ends, with the generated documents; on `impact_of_change` each carries `hops`, how many caller steps it is from the subject, nearest first.
+- **`find_symbol`:** a generated declaration that several projects compile is one row with `projects`; a row that only some builds of a multi-targeted project declare names them in `builds`; method rows that would read alike carry `parameters`.
+- **`impact_of_change` and `call_graph`:** `generatedInvokers` lists the methods that generated code calls, at which the caller chain stops, with the generated documents; on `impact_of_change` each carries `hops`, how many caller steps it is from the subject, nearest first.
 - **`find_implementations`:** a row whose only link is a base-list entry the compiler could not bind carries `via: "unbound"`. `find_implementations` and `find_tests_for` can carry `nearest` when nothing matched.
 - **`find_usages` on a method:** types whose documentation comments name the method are listed after its callers, marked `docCrefOnly: true`.
 - **`find_dead_code`:** `methodsJudged` and `typesJudged` count what was judged; `namesakeHiddenNote` and `inertGeneratedUsersNote` name types kept off the list only by a same-named type's users or by generated documents nothing uses.
@@ -23,7 +23,7 @@ released.
 **After updating:**
 
 - **Saved data.** Snapshots and saved sessions written by an earlier version are analyzed again the first time they are reused. The local aicb database gets one more column on the first start; an earlier desktop app opened on it afterwards reports that the database is newer than the build.
-- **Hooks.** `aicb init` keeps an installed symbol guard and skill-sync hook as they are; `aicb init --force` replaces them and also rewrites aicb's own server entries.
+- **Hooks.** `aicb init` keeps an installed symbol guard and skill-sync hook as they are; `aicb init --force` replaces them and also rewrites aicb's own server entries and skill files.
 
 ### Multi-targeted projects
 
@@ -40,8 +40,8 @@ released.
 
 ### Qualified type names
 
-- More tools that take a type accept a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `calls_external`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. Where the qualified name could also mean a type outside the solution, the tool declines with a note instead of guessing.
-- `trace_flow` takes a `Type.Method` endpoint.
+- More tools that take a type accept a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. Where the qualified name could also mean a type outside the solution, the tool declines with a note instead of guessing.
+- `trace_flow` takes a `Type.Method` endpoint, and `calls_external` also reads `Outer+Inner`.
 
 ### Who uses this symbol
 
@@ -88,7 +88,7 @@ released.
 
 ### Faster
 
-- Loading a solution in which a source generator writes one partial type into very many documents takes much less time and memory.
+- Loading a solution in which a source generator writes one partial type into very many documents takes less than half the time and less memory.
 - `find_tests_for` on large solutions, usage answers that check markup bindings, and repeated `architecture_overview` calls on multi-targeted solutions answer faster.
 - The layer wizard in the desktop app opens the solution once per run.
 
@@ -96,8 +96,8 @@ released.
 
 - **Each client's own entry.** The skill sync reads Claude Code's aicb entry in Claude Code's own order (the local scope in `~/.claude.json`, the project's `.mcp.json`, the user scope) and honours `CLAUDE_CONFIG_DIR`. A skill folder that two agents read is written for the tools both of their aicb servers serve.
 - **Files you track.** The automatic sync leaves skill files that git tracks alone; `aicb skills sync` still updates them.
-- **Older skill files.** Skill files an earlier `aicb init` wrote without aicb's marker are taken over automatically, as `--adopt` would.
-- **Fewer failures.** A skill folder that cannot be listed, or that a link places outside the project, is reported as skipped, and `aicb skills sync`, `aicb init` and their automatic runs exit 0. One project folder spelled in another letter case or Unicode form counts as one folder. While Claude Code rewrites its configuration file, the sync reads it again after a moment instead of falling back to another entry; a Codex or OpenCode file that is being written is reported as a problem instead of being read half-written.
+- **Older skill files.** Unchanged skill files that an earlier `aicb init` wrote without aicb's marker are taken over automatically, as `--adopt` would.
+- **Fewer failures.** A skill folder that cannot be listed, or that a link places outside the project, is reported as skipped, and `aicb skills sync`, `aicb init` and their automatic runs exit 0. One project folder spelled in another Unicode form, or on Windows in another letter case, counts as one folder. While Claude Code rewrites its configuration file, the sync reads it again after a moment instead of falling back to another entry; a Codex or OpenCode file that is being written is reported as a problem instead of being read half-written.
 - **`server_info`.** The SKILL line shows each project once, shows a failed row's own reason, and says when the session-start skill-sync hook is not installed.
 - **The symbol guard** lets a search through that targets another solution, or no solution at all, with a warning, and counts only the aicb calls of the agent that is asking, a subagent included.
 - **The skill-sync hook** on Windows also starts an `aicb` that is installed only as a `.cmd` file.
