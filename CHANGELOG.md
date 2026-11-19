@@ -4,6 +4,116 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
+## 0.5.530.1 (unreleased) - More complete answers on multi-targeted and generated code, qualified type names in most tools, smaller answers, and agent skills that follow each client's own server entry
+
+**Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `find_usages`, `impact_of_change`, `find_tests_for`, `find_symbol`, `find_implementations`, `find_dead_code`, `explain_symbol`, `get_context`, `call_graph`, `list_insights`, `init_solution_config` and `server_info`. No tool was added or removed, and no tool parameter changed. Projects that installed the aicb symbol guard or the skill-sync hook: run `aicb init --force` once to take the new scripts (see "Agent skills and hooks").
+
+**Scripts that read these answers should check the following.** No field was removed or renamed. New fields and values:
+
+- **`find_tests_for`:** rows reached through an event raise carry `raisedEvent`, the event whose raise is the evidence. Rows from a multi-targeted test project carry `logicalProject`, the project name without the target framework, beside `project`. `review_context` rows carry `logicalProject` the same way.
+- **`find_symbol`:** a generated declaration that several projects compile is one row with `projects`; a row that only some builds of a multi-targeted project declare names them in `builds`; rows that would read alike carry `parameters`.
+- **`impact_of_change` and `call_graph`:** `generatedInvokers` lists the methods that generated code calls where the walk ends, with the generated documents; on `impact_of_change` each carries `hops`, how many caller steps it is from the subject, nearest first.
+- **`find_implementations`:** a row whose only link is a base-list entry the compiler could not bind carries `via: "unbound"`. `find_implementations` and `find_tests_for` can carry `nearest` when nothing matched.
+- **`find_usages` on a method:** types whose documentation comments name the method are listed after its callers, marked `docCrefOnly: true`.
+- **`find_dead_code`:** `methodsJudged` and `typesJudged` count what was judged; `namesakeHiddenNote` and `inertGeneratedUsersNote` name types kept off the list only by a same-named type's users or by generated documents nothing uses.
+- **`list_insights`:** `sharedTriageKeys` names triage keys that several findings share.
+- **`init_solution_config`:** `declaredNamespacesOmitted` names where the namespaces that the 300-entry cap left out sit; `referencedNamespaces` leaves out the solution's own namespaces and counts them in `referencedNamespacesOwnOmitted`.
+- **Counts can move.** Coupling (Ce), the dependency graphs and USED_BY lists can rise, because more kinds of code count as a dependency; afferent coupling (Ca) and usage counts of a type that shares its name with a library type can fall. `find_dead_code` and `find_production_dead` list one row per declaring file.
+
+**After updating:**
+
+- **Saved data.** Snapshots and saved sessions written by an earlier version are analyzed again the first time they are reused. The local aicb database gets one more column on the first start; an earlier desktop app opened on it afterwards reports that the database is newer than the build.
+- **Hooks.** `aicb init` keeps an installed symbol guard and skill-sync hook as they are; `aicb init --force` replaces them and also rewrites aicb's own server entries.
+
+### Multi-targeted projects
+
+- `call_graph` and `trace_flow` follow the calls that every target framework's build makes, not only one build's.
+- `get_context`, `pack_for_task` and `prepare_task` handle a method that only an older target framework declares: it is used as a starting point, followed as a callee and rendered. The METHOD_GRAPH, METHOD_USED_BY_GRAPH and ENTRY_POINT_FLOW sections read the calls of every build, and a METHOD block says how many calls only another build makes.
+- `find_tests_for` counts a call that any build of a shared helper makes. `coverage_gaps` counts the builds of one test project as one test project.
+- `find_dead_code`, `find_by_attribute`, `find_by_event_subscription` and `calls_external` name a multi-targeted project by the builds that declare a row, and by its plain name where all builds do. Rows of two projects at the same file and line name their project in `find_usages`, `impact_of_change` and `symbol_signature`.
+
+### Source-generated code
+
+- `find_symbol` lists exact matches first, then handwritten declarations, then generated ones.
+- A `CanExecute` property or field that a `[RelayCommand]` names counts as read by the command's method, and `find_tests_for` lists the tests that run the command.
+- A code-behind's note on members it cannot index names the markup file and the `x:Name` field.
+
+### Qualified type names
+
+- More tools that take a type accept a qualified name such as `MyApp.Orders.Order` or `Outer.Inner`, and the reflection spelling `Outer+Inner`. Among them are `find_tests_for`, `get_context`, `explain_symbol`, `call_graph`, `symbol_metrics`, `calls_external`, `instantiation_sites`, `lifecycle_of`, `trace_flow`, `type_dependency_path`, `find_structural_twins` and `find_by_event_subscription`. Where the qualified name could also mean a type outside the solution, the tool declines with a note instead of guessing.
+- `trace_flow` takes a `Type.Method` endpoint.
+
+### Who uses this symbol
+
+- **Names shared with library types.** A solution type that shares its name with a library type (for example your own `Action` or `Guid`) no longer collects the users of the library type, also where the library type is a base type, an interface or a generic argument. Ce still counts the coupling to the library type.
+- **More code counts as a dependency.** Calls in constructors, field initializers, property accessors, operators, finalizers and base-constructor arguments couple a type like a call in a method. So do reading or writing a property, field, indexer or event, and the types in an operator's or conversion's signature.
+- **Interfaces implemented through a base class.** A base-class method that a derived class uses to implement an interface gets the callers of the interface member. An interface that only test code implements credits its test callers and counts as test code.
+- **Partial types.** `find_usages` lists only the files of a partial type that actually hold the reference, not every file of the type.
+- **Documentation comments.** `find_usages` on a method lists the types whose documentation comments name it, as it already did for types.
+- **Overloads.** The overload signatures `find_usages` names keep their `out`, `ref`, `in` and `params` modifiers.
+
+### Tests and coverage
+
+- `find_tests_for` follows an event raise to the handler that is subscribed to it, keeps a test that subscribes a handler and calls it, and points at tests two calls away.
+- For a type, `find_tests_for` leaves out a static member read that only test code makes and counts what it left out in the note.
+- When a private type has no tests, the answer names the nearest member a test can reach.
+- `coverage_gaps` keeps at least one entry of each kind it counts in its capped list.
+
+### Dead code
+
+- A file that several projects compile is one row naming those projects, instead of one row per project.
+- Methods of private nested types are judged by their effective accessibility, so a public method of a private nested type can be reported unused. Members of private types in a project that did not load completely, or whose base list could not be bound, are left unjudged.
+- The notes on types a host may find by attribute or by name convention name the host the solution uses, such as Wolverine, PowerShell or xUnit.
+- `find_production_dead` counts and exempts types as `find_dead_code` does, and no longer lists a copy of a linked file that another project's production code uses.
+
+### Smaller and clearer answers
+
+- `explain_symbol` caps its caller, self and implementation lists at 40 names, so answers on widely used types are much smaller. A not-found answer of `explain_symbol` or `get_context` names the nearest declared name.
+- On a solution without XAML or other markup, an empty usage answer says so in one sentence instead of listing every markup form.
+- `get_context` and `architecture_overview` give a setup note in full in the first answer of a session and as one line afterwards.
+- `batch` fits more answers into its budget: a repeated note is sent in full once and referred to afterwards, and an omitted answer quotes the size a direct call would return. `get_context` and `pack_for_task` say that their budget covers the slice and the notes come on top.
+- Tool descriptions were shortened so that a client which cuts a description at 2,048 characters receives each one whole.
+- The server instructions and the `batch` refusal for an unknown tool name only tools the active profile serves.
+- Tools whose answer can depend on a Visual Basic or F# project, among them `instantiation_sites`, `find_implementations`, `get_type_hierarchy`, `find_overrides`, `find_tests_for`, `review_context` and `call_graph`, say when such a project hides a use.
+- `symbol_signature` names files relative to the solution, as `find_usages` does, and steers a member asked on the wrong type to the type that declares it. `resolve_injection` prints solution-relative paths with forward slashes.
+
+### Diagnostics and loading
+
+- **Restore gaps.** The note on unrestored projects names the projects a compilation lacks because it reaches them only through another project, and names `DisableTransitiveProjectReferences` and `PrivateAssets="all"` as gaps a restore does not close.
+- **Stable order.** `get_diagnostics` returns rows in the same order on every call.
+- **Fewer false alarms.** A warning about a project's own reference-resolution cache file, which appears when two builds run at the same time, is no longer reported as a failed build.
+- **Project list changes.** When projects were added to or removed from the solution, every staleness note says so, and `refresh_session` says when neither the files nor the project list changed. A saved snapshot remembers the project list, so the CLI and `recall_codebase` do not reuse a snapshot from before such a change.
+- **.NET 11 SDK.** The analysis runs on Roslyn 5.12.0, the compiler of the .NET 11 SDK, instead of 5.9.0. Solutions built with the .NET 11 SDK load their source generators and the Razor compiler, so their generated code is analyzed.
+- **Connecting.** An MCP client that probes the server first and falls back to the classic handshake after its timeout is no longer refused.
+
+### Faster
+
+- Loading a solution in which a source generator writes one partial type into very many documents takes much less time and memory.
+- `find_tests_for` on large solutions, usage answers that check markup bindings, and repeated `architecture_overview` calls on multi-targeted solutions answer faster.
+- The layer wizard in the desktop app opens the solution once per run.
+
+### Agent skills and hooks
+
+- **Each client's own entry.** The skill sync reads Claude Code's aicb entry in Claude Code's own order (the local scope in `~/.claude.json`, the project's `.mcp.json`, the user scope) and honours `CLAUDE_CONFIG_DIR`. A skill folder that two agents read is written for the tools both of their aicb servers serve.
+- **Files you track.** The automatic sync leaves skill files that git tracks alone; `aicb skills sync` still updates them.
+- **Older skill files.** Skill files an earlier `aicb init` wrote without aicb's marker are taken over automatically, as `--adopt` would.
+- **Fewer failures.** A skill folder that cannot be listed, or that a link places outside the project, is reported as skipped, and `aicb skills sync`, `aicb init` and their automatic runs exit 0. One project folder spelled in another letter case or Unicode form counts as one folder. While Claude Code rewrites its configuration file, the sync reads it again after a moment instead of falling back to another entry; a Codex or OpenCode file that is being written is reported as a problem instead of being read half-written.
+- **`server_info`.** The SKILL line shows each project once, shows a failed row's own reason, and says when the session-start skill-sync hook is not installed.
+- **The symbol guard** lets a search through that targets another solution, or no solution at all, with a warning, and counts only the aicb calls of the agent that is asking, a subagent included.
+- **The skill-sync hook** on Windows also starts an `aicb` that is installed only as a `.cmd` file.
+- **aicb-smoke-test skill 2.0:** TODO-COORDINATOR - fill in after V0.5.520.149 lands.
+
+### Desktop app and CLI
+
+- **Settings.** Saving the settings no longer fails while another aicb process reads the settings file.
+- **Snapshots.** A snapshot taken by hand in the desktop app can be reused by the CLI like the automatic one.
+- **Layer wizard.** The prompt leaves the solution's own namespaces out of the referenced list, offers only those for layers, and keeps long namespace lists short by grouping them.
+- **Profiles.** A copy of an MCP profile keeps its auto-refresh setting.
+- **`aicb call`** prints a hint when a JSON argument lost its double quotes, and the help of `--arg` shows how to quote for Windows PowerShell 5.1.
+- **Insights.** LINQ inside a `return` or `throw` that ends the method is no longer reported as LINQ in a loop, and a broad `catch` is reported as silent or observed. `list_insights` with `files` keeps only the members of a partial type that the given file declares.
+- **`init_solution_config`** keeps the shallowest namespaces when it cuts the declared list, lists one test project name per project, and `check_solution_config_drift` reads a namespace that only an assembly outside the repository declares, or a package restored inside it, as external.
+- A lean export writes an empty CLASS_DEPENDENCY_GRAPH as `- none`.
+
 ## 0.5.520.1 (2026-11-13) - Source-generated code and multi-targeted projects are understood, a Local MCP profile for small context windows, and agent skills follow the tools the server serves
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `get_diagnostics`, `find_dead_code`, `find_symbol`, `find_implementations`, `symbol_signature`, `impact_of_change`, `call_graph`, `explain_symbol`, `get_context`, `pack_for_task`, `prepare_task`, `find_binding_usages`, `find_unresolved_bindings`, `coverage_gaps` and `install_agent_hooks`. No tool was added or removed. New are the built-in MCP profile **Local**, compact tool descriptions as a profile setting, the command `aicb skills sync`, and an **MCP Server** section in the desktop app's settings.
