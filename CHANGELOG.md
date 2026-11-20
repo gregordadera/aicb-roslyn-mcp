@@ -4,7 +4,7 @@ Versions follow `Major.Minor.Series.Build`. The build number rises by one for ev
 change that lands, so gaps between published versions are normal - not every build is
 released.
 
-## 0.5.530.1 (unreleased) - More complete answers on multi-targeted and generated code, qualified type names in more tools, smaller answers, and agent skills that follow each client's own server entry
+## 0.5.530.1 (2026-11-20) - More complete answers on multi-targeted and generated code, qualified type names in more tools, smaller answers, and agent skills that follow each client's own server entry
 
 **Who is affected.** Everyone on the MCP server: reconnect your client once, because the descriptions of many tools changed, among them `find_usages`, `impact_of_change`, `find_tests_for`, `find_symbol`, `find_implementations`, `find_dead_code`, `explain_symbol`, `get_context`, `call_graph`, `list_insights`, `init_solution_config` and `server_info`. No tool was added or removed, and no tool parameter was added, removed or renamed. Projects that installed the aicb symbol guard or the skill-sync hook: run `aicb init --force` once to take the new scripts (see "Agent skills and hooks").
 
